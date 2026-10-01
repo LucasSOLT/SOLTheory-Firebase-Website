@@ -155,6 +155,9 @@ function SettingsContent() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
   const [copiedUid, setCopiedUid] = useState(false);
+  const [certifications, setCertifications] = useState<string[]>([]);
+  const [certSearch, setCertSearch] = useState("");
+  const [showCertDropdown, setShowCertDropdown] = useState(false);
 
   // Avatar / Profile picture states & handlers
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -305,6 +308,7 @@ function SettingsContent() {
             if (data.additionalEmails) setEmails([user.email || '', ...data.additionalEmails]);
             if (data.phoneNumber) setPhoneNumber(data.phoneNumber);
             if (data.address) setAddress(data.address);
+            if (data.certifications) setCertifications(data.certifications);
             if (data.orgRoles && data.orgRoles[orgId]) {
               setUserRole(data.orgRoles[orgId]);
             } else {
@@ -407,7 +411,7 @@ function SettingsContent() {
     setProfileMessage("");
     try {
       await updateProfile(auth.currentUser, { displayName });
-      await setDoc(doc(firestore, "users", user.uid), { bio, location, timezone: location }, { merge: true });
+      await setDoc(doc(firestore, "users", user.uid), { bio, location, timezone: location, certifications }, { merge: true });
       localStorage.setItem('user_timezone', location);
       logActivity(firestore, 'profile_updated', { email: user?.email || '', displayName }, 'Updated profile: display name, bio, timezone');
       setProfileMessage("OK");
@@ -1425,6 +1429,52 @@ function SettingsContent() {
                         <div className="space-y-1.5 md:col-span-2">
                           <Label htmlFor="bio" className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{dict.bio}</Label>
                           <textarea id="bio" value={bio} onChange={e => setBio(e.target.value)} placeholder={dict.bioPlaceholder} className={`w-full h-24 p-3 rounded-lg ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-600' : 'bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400'} border focus:outline-none focus:ring-2 focus:ring-slate-400/30 text-sm resize-none transition-all`} />
+                        </div>
+                      </div>
+
+                      {/* Certifications */}
+                      <div className="space-y-1.5">
+                        <label className={`text-xs font-medium uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Certifications</label>
+                        {certifications.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {certifications.map((cert, i) => (
+                              <span key={i} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${isDarkMode ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/20' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'}`}>
+                                {cert}
+                                <button onClick={() => setCertifications(certifications.filter((_, j) => j !== i))} className="hover:text-red-400 transition-colors">&times;</button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={certSearch}
+                            onChange={e => { setCertSearch(e.target.value); setShowCertDropdown(true); }}
+                            onFocus={() => setShowCertDropdown(true)}
+                            onBlur={() => setTimeout(() => setShowCertDropdown(false), 200)}
+                            placeholder="Search or type a certification..."
+                            className={`w-full px-3 h-10 rounded-lg border ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400'} focus:outline-none focus:ring-2 focus:ring-slate-400/30 text-sm`}
+                          />
+                          {showCertDropdown && certSearch.trim() && (() => {
+                            const allCerts = ['CPRC', 'CPRS', 'QBHA', 'QMHP', 'CADC', 'LCSW', 'LPC', 'LMFT', 'RN', 'LPN', 'CNA', 'HIPAA Certified', 'CPR Certified', 'BLS', 'ACLS', 'PMP', 'CPA', 'First Aid Certified', 'Mandated Reporter Trained', 'OSHA 10-Hour', 'OSHA 30-Hour', 'Naloxone Trained', 'Trauma-Informed Care', 'Mental Health First Aid'];
+                            const q = certSearch.toLowerCase().trim();
+                            const matches = allCerts.filter(c => c.toLowerCase().includes(q) && !certifications.includes(c));
+                            const hasExact = matches.some(m => m.toLowerCase() === q);
+                            return (
+                              <div className={`absolute z-50 w-full mt-1 max-h-48 overflow-y-auto rounded-lg border shadow-xl ${isDarkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}>
+                                {!hasExact && certSearch.trim() && (
+                                  <button onMouseDown={() => { setCertifications([...certifications, certSearch.trim()]); setCertSearch(''); setShowCertDropdown(false); }} className={`w-full text-left px-3 py-2 text-sm ${isDarkMode ? 'hover:bg-slate-700 text-indigo-400' : 'hover:bg-slate-50 text-indigo-600'}`}>
+                                    + Add &quot;{certSearch.trim()}&quot;
+                                  </button>
+                                )}
+                                {matches.slice(0, 8).map(cert => (
+                                  <button key={cert} onMouseDown={() => { setCertifications([...certifications, cert]); setCertSearch(''); setShowCertDropdown(false); }} className={`w-full text-left px-3 py-2 text-sm ${isDarkMode ? 'hover:bg-slate-700 text-slate-200' : 'hover:bg-slate-50 text-slate-800'}`}>
+                                    {cert}
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
 

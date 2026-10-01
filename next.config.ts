@@ -4,6 +4,13 @@ import type {NextConfig} from 'next';
 const nextConfig: NextConfig = {
   /* config options here */
   serverExternalPackages: ['firebase-admin', 'pdf-parse'],
+  webpack: (config, { dev }) => {
+    if (dev) {
+      // Use in-memory caching in dev on Windows to prevent webpack PackFileCacheStrategy ENOENT crashes
+      config.cache = { type: 'memory' };
+    }
+    return config;
+  },
   // Fix prosemirror circular dependency crash in production
   // ("Cannot access 'tN'/'tS' before initialization")
   transpilePackages: [

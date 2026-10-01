@@ -452,6 +452,10 @@ export interface PolicyAcknowledgmentContent {
   acknowledgmentText: string;
   /** ESIGN Act consent disclosure text. */
   consentDisclosure: string;
+  /** Optional custom text for the explicit ESIGN consent checkbox.
+   *  Defaults to: "I agree to conduct business electronically and understand
+   *  that my digital signature is legally binding under the ESIGN Act." */
+  esignConsentText?: string;
 }
 
 // ── 6. External Completion Verification ─────────────────────────────────────

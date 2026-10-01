@@ -20,8 +20,8 @@ export default function DMPage() {
   }, []);
 
   return (
-    <div className="h-full w-full flex flex-col pt-2 max-w-7xl mx-auto space-y-4 animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="h-full min-h-0 w-full flex flex-col pt-2 max-w-7xl mx-auto animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 shrink-0 pb-4">
         <div className="space-y-1">
           <h1 className={`text-3xl md:text-4xl font-extrabold tracking-tight flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
             Direct Messages
@@ -31,7 +31,7 @@ export default function DMPage() {
           </p>
         </div>
       </div>
-      <div className="flex-1 pb-10 min-h-0">
+      <div className="flex-1 min-h-0">
         <DMChat />
       </div>
     </div>

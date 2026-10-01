@@ -3,6 +3,8 @@ import { verifyRequest } from '@/lib/api-auth';
 import { initAdmin } from '@/firebase/admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import crypto from 'crypto';
+import { generateSignedPdf } from '@/lib/generate-signed-pdf';
+import { sendSignedCopy } from '@/lib/send-signed-copy';
 
 export async function POST(req: NextRequest) {
   try {
@@ -88,16 +90,129 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Task is not a policy acknowledgment' }, { status: 400 });
       }
 
+      // ── Requirement 1: Validate explicit ESIGN consent ──
+      if (!responseData.esignConsent) {
+        return NextResponse.json({ 
+          error: 'Electronic signature consent is required. Please check the ESIGN consent box before signing.' 
+        }, { status: 400 });
+      }
+
+      // ── Requirement 3: Capture comprehensive audit trail metadata ──
       const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
       const userAgent = req.headers.get('user-agent') || 'unknown';
-      const hash = crypto.createHash('sha256').update(interactiveContent.policyText || '').digest('hex');
 
+      // Policy text hash (for version tracking)
+      const policyHash = crypto.createHash('sha256').update(interactiveContent.policyText || '').digest('hex');
+
+      // Generate unique Document Version ID
+      const shortHash = policyHash.substring(0, 8);
+      const documentVersionId = `DOC-${taskId.substring(0, 8)}-${shortHash}-${Date.now()}`;
+
+      // ── Requirement 2: Look up signer's role at time of signing ──
+      let signerRole = 'unknown';
+      try {
+        const memberDoc = await db.collection('orgs').doc(orgId).collection('members').doc(auth.uid).get();
+        if (memberDoc.exists) {
+          signerRole = memberDoc.data()?.role || 'user';
+        }
+      } catch { /* default to unknown */ }
+
+      // ── Requirement 4: Composite tamper-evident seal ──
+      const sealPayload = JSON.stringify({
+        policyText: interactiveContent.policyText || '',
+        signatureData: responseData.signatureData || '',
+        typedName: responseData.typedName || '',
+        signerUid: auth.uid,
+        signerEmail: auth.email,
+        timestamp: responseEntry.submittedAt,
+        documentVersionId,
+      });
+      const compositeSealHash = crypto.createHash('sha256').update(sealPayload).digest('hex');
+
+      // Store all compliance fields in the response entry
       responseEntry.ipAddress = ip;
       responseEntry.userAgent = userAgent;
-      responseEntry.policyHash = hash;
-      responseEntry.signature = responseData.signature || responseData.signatureData || null; 
+      responseEntry.policyHash = policyHash;
+      responseEntry.compositeSealHash = compositeSealHash;
+      responseEntry.documentVersionId = documentVersionId;
+      responseEntry.signature = responseData.signature || responseData.signatureData || null;
       responseEntry.typedName = responseData.typedName || null;
       responseEntry.acknowledged = responseData.acknowledged ?? true;
+      responseEntry.signerUid = auth.uid;
+      responseEntry.signerEmail = auth.email;
+      responseEntry.signerRole = signerRole;
+      responseEntry.esignConsentGranted = true;
+      responseEntry.esignConsentTimestamp = responseData.esignConsentTimestamp || responseEntry.submittedAt;
+
+      // ── Requirement 5: Auto-generate PDF and email signed copy ──
+      // This runs after the task is updated (below) — fire-and-forget to not block the response
+      const signerName = responseData.typedName || auth.email.split('@')[0];
+
+      // Fetch signer info for PDF
+      let signerDisplayName = signerName;
+      let signerEmail = auth.email;
+      try {
+        const userDoc = await db.collection('users').doc(auth.uid).get();
+        if (userDoc.exists) {
+          const udata = userDoc.data();
+          if (udata?.displayName) signerDisplayName = udata.displayName;
+          if (udata?.email) signerEmail = udata.email;
+        }
+      } catch { /* use defaults */ }
+
+      // Generate PDF and email it (non-blocking — wrapped in its own try/catch)
+      const pdfPromise = (async () => {
+        try {
+          const orgLabel = orgId.charAt(0).toUpperCase() + orgId.slice(1);
+
+          const pdfResult = await generateSignedPdf({
+            orgId,
+            taskId,
+            taskTitle: task.title || 'Policy Acknowledgment',
+            assignedTo: task.assignedTo,
+            signerName: signerDisplayName,
+            signerEmail,
+            signerRole,
+            signerUid: auth.uid,
+            policyText: interactiveContent.policyText || '',
+            acknowledgmentText: interactiveContent.acknowledgmentText || 'I have read and agree to the above policy.',
+            consentDisclosure: interactiveContent.consentDisclosure,
+            signatureData: responseData.signatureData || responseData.signature,
+            typedName: responseData.typedName,
+            submittedAt: responseEntry.submittedAt,
+            ipAddress: ip,
+            userAgent,
+            policyHash,
+            compositeSealHash,
+            documentVersionId,
+            esignConsentGranted: true,
+            esignConsentTimestamp: responseEntry.esignConsentTimestamp,
+            generatedByUid: auth.uid,
+            generatedByEmail: auth.email,
+          });
+
+          // Send email copy to signer
+          await sendSignedCopy({
+            recipientEmail: signerEmail,
+            recipientName: signerDisplayName,
+            documentTitle: task.title || 'Policy Acknowledgment',
+            pdfBuffer: pdfResult.pdfBuffer,
+            fileName: pdfResult.fileName,
+            documentVersionId,
+            signedAt: responseEntry.submittedAt,
+            orgName: orgLabel,
+          });
+
+          console.log(`[submit-response] Auto-generated PDF and emailed signed copy to ${signerEmail}`);
+        } catch (pdfErr: any) {
+          // Log but don't fail the signing — PDF/email delivery is best-effort
+          console.error('[submit-response] Auto PDF/email failed (signing still valid):', pdfErr.message);
+        }
+      })();
+
+      // Don't await — let it run in background so the user gets a fast response
+      // The Promise will resolve on its own in the Node.js event loop
+      pdfPromise.catch(() => {}); // Prevent unhandled rejection
 
     } else if (responseType === 'short_answer' || responseType === 'recorded_response') {
       if (interactiveContent && interactiveContent.reviewMode === 'admin_review') {

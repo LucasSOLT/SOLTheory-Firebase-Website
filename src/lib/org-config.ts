@@ -53,14 +53,14 @@ export const ORG_REGISTRY: Record<string, OrgConfig> = {
     knowledgeModule: "nxtchapter",
     theme: { icon: "/nxt_logo.png", color: "indigo" },
   },
-  lnu: {
-    id: "lnu",
-    label: "LifeNavigationU",
+  personal: {
+    id: "personal",
+    label: "Personal Account",
     emailDomains: [],
     adminEmails: [],
     supportEmail: "lucas@soltheory.com",
     fromEmail: process.env.SENDGRID_FROM_EMAIL || "noreply@soltheory.com",
-    theme: { icon: "/images/icon-building.png", color: "emerald" },
+    theme: { icon: "/images/icon-user.png", color: "slate" },
   },
 };
 

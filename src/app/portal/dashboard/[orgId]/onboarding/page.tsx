@@ -32,6 +32,8 @@ import {
   Sparkles,
   Send,
   ClipboardCheck,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import OnboardingPhaseCard from '@/components/onboarding/OnboardingPhaseCard';
@@ -669,6 +671,63 @@ export default function OnboardingPage() {
                   />
                 );
               });
+            })()}\
+
+            {/* ── My Signed Documents ─────────────────────────────────── */}
+            {(() => {
+              const signedDocs = complianceDocs.filter(
+                (d: any) => d.documentCategory === 'e_signature' && d.userId === user?.uid
+              );
+              if (signedDocs.length === 0) return null;
+
+              return (
+                <div className={`rounded-2xl border overflow-hidden ${isDarkMode ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/70 border-slate-200/80 shadow-sm'}`}>
+                  <div className={`px-5 py-3 border-b flex items-center gap-2 ${isDarkMode ? 'border-slate-700/50 bg-slate-800/60' : 'border-slate-200/60 bg-slate-50/80'}`}>
+                    <ShieldCheck className={`w-4 h-4 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                    <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                      My Signed Documents
+                    </h3>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-md font-semibold ${isDarkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
+                      {signedDocs.length}
+                    </span>
+                  </div>
+                  <div className="divide-y divide-slate-200/60 dark:divide-slate-700/40">
+                    {signedDocs.map((sdoc: any) => (
+                      <div key={sdoc.id} className={`flex items-center gap-3 px-5 py-3 ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'} transition-colors`}>
+                        <FileText className={`w-5 h-5 shrink-0 ${isDarkMode ? 'text-purple-400' : 'text-purple-500'}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-sm font-semibold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            {sdoc.fileName || 'Signed Document'}
+                          </div>
+                          <div className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Signed {sdoc.uploadedAt ? formatDate(sdoc.uploadedAt) : '—'}
+                            {sdoc.documentVersionId && (
+                              <span className="font-mono ml-2 opacity-70">
+                                {sdoc.documentVersionId}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {sdoc.downloadUrl && (
+                          <a
+                            href={sdoc.downloadUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors shrink-0 ${
+                              isDarkMode
+                                ? 'bg-purple-900/40 text-purple-300 hover:bg-purple-900/60'
+                                : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                            }`}
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            View PDF
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
             })()}
           </div>
         )}

@@ -490,6 +490,7 @@ export function PolicyRenderer({
 }) {
   const [hasScrolled, setHasScrolled] = useState(!content.requireScrollToBottom || !!existingResponse);
   const [acknowledged, setAcknowledged] = useState(!!existingResponse?.acknowledged);
+  const [esignConsent, setEsignConsent] = useState(!!existingResponse?.esignConsent);
   const [typedName, setTypedName] = useState(existingResponse?.typedName || '');
   const [signatureData, setSignatureData] = useState(existingResponse?.signatureData || '');
   
@@ -592,6 +593,7 @@ export function PolicyRenderer({
   const isValid = 
     hasScrolled && 
     acknowledged && 
+    esignConsent &&
     (!content.requireTypedName || typedName.trim().length > 0) &&
     (!content.requireDrawnSignature || signatureData.length > 0);
 
@@ -630,6 +632,19 @@ export function PolicyRenderer({
             {content.consentDisclosure}
           </p>
         )}
+
+        <label className={`flex items-start space-x-3 cursor-pointer ${!hasScrolled ? 'opacity-50' : ''}`}>
+          <input
+            type="checkbox"
+            disabled={disabled || !hasScrolled}
+            checked={esignConsent}
+            onChange={e => setEsignConsent(e.target.checked)}
+            className="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="font-medium">
+            {content.esignConsentText || "I agree to conduct business electronically and understand that my digital signature is legally binding under the ESIGN Act (15 U.S.C. § 7001 et seq.)."}
+          </span>
+        </label>
 
         {content.requireTypedName && (
           <div className="pt-2">
@@ -679,7 +694,14 @@ export function PolicyRenderer({
 
       <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
         <button
-          onClick={() => isValid && onSubmit({ acknowledged, typedName, signatureData, timestamp: new Date().toISOString() })}
+          onClick={() => isValid && onSubmit({ 
+            acknowledged, 
+            typedName, 
+            signatureData, 
+            timestamp: new Date().toISOString(),
+            esignConsent: true,
+            esignConsentTimestamp: new Date().toISOString(),
+          })}
           disabled={disabled || !isValid}
           className={`px-6 py-2 rounded-md font-medium text-white transition-colors ${(disabled || !isValid) ? 'bg-blue-400 opacity-50 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
         >

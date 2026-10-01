@@ -103,7 +103,7 @@ export default function InsightLoginPage() {
         const lastName = nameParts.slice(1).join(' ') || '';
 
         if (userSnap.exists()) {
-          // Update last login and display info
+          // Update last login and display info (works for both legacy users and new signups)
           await setDoc(userRef, {
             email: email.toLowerCase(),
             displayName,
@@ -113,15 +113,16 @@ export default function InsightLoginPage() {
           }, { merge: true });
         } else {
           // First login — only create profile for recognized email domains
-          // This prevents deleted users from re-creating their profile
+          // Users who registered via /portal/signup already have a Firestore doc,
+          // so they'll hit the branch above. This branch is for legacy direct-login users.
           const emailLower = email.toLowerCase();
           const matchedOrg = getOrgByEmailDomain(emailLower);
           const isRecognized = isDeveloper(emailLower) || !!matchedOrg;
           
           if (!isRecognized) {
-            // Unknown email with no existing profile — block access
+            // Unknown email with no existing profile — send them to sign up
             await signOut(auth);
-            throw new Error("Unauthorized organization");
+            throw new Error("No account found");
           }
 
           // Determine default org from email domain
@@ -137,6 +138,7 @@ export default function InsightLoginPage() {
             organization: defaultOrg,
             allowedOrgs: isDeveloper(emailLower) ? ["soltheory", "nxtchapter"] : [defaultOrg],
             orgRoles: { [defaultOrg]: isDeveloper(emailLower) ? "oracle" : "user" },
+            accountType: 'org_member',
             lastLogin: serverTimestamp(),
             createdAt: serverTimestamp(),
           });
@@ -225,6 +227,8 @@ export default function InsightLoginPage() {
         setError("Invalid email or password.");
       } else if (err?.message === "Account frozen") {
         setError("Your account has been frozen. Contact your administrator at lucas@soltheory.com.");
+      } else if (err?.message === "No account found") {
+        setError("No account found with this email. Please sign up first at /portal/signup, or contact your admin for an invite link.");
       } else if (err?.message === "Unauthorized organization") {
         setError("Your account is not linked to an organization. Contact an admin.");
       } else {

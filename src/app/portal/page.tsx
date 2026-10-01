@@ -222,7 +222,7 @@ export default function PortalChooserPage() {
                             {/* Actions — Bottom Right */}
                             <div className="flex items-center justify-end gap-3">
                               <Link
-                                href="/contact"
+                                href="/portal/signup"
                                 onClick={(e) => e.stopPropagation()}
                                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm font-semibold text-slate-300 hover:bg-white/[0.06] hover:border-white/15 hover:text-white transition-all duration-200"
                               >

@@ -299,6 +299,12 @@ function SignatureCertificate({ response, content, isDarkMode }: { response: any
   const userAgent = response.userAgent || data.userAgent;
   const policyHash = response.policyHash || data.policyHash;
   const submittedAt = response.submittedAt || data.timestamp;
+  const signerRole = response.signerRole || data.signerRole;
+  const signerUid = response.signerUid || data.signerUid;
+  const signerEmail = response.signerEmail || data.signerEmail;
+  const documentVersionId = response.documentVersionId || data.documentVersionId;
+  const compositeSealHash = response.compositeSealHash || data.compositeSealHash;
+  const esignConsentGranted = response.esignConsentGranted || data.esignConsentGranted;
 
   return (
     <div className={`rounded-xl border-2 overflow-hidden ${isDarkMode ? 'border-purple-800/50 bg-slate-800/40' : 'border-purple-200 bg-purple-50/30'}`}>
@@ -386,6 +392,52 @@ function SignatureCertificate({ response, content, isDarkMode }: { response: any
               <div className="min-w-0">
                 <div className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Policy SHA-256</div>
                 <div className={`text-xs font-mono truncate ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{policyHash}</div>
+              </div>
+            </div>
+          )}
+          {esignConsentGranted !== undefined && (
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <ShieldCheck className={`w-3.5 h-3.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+              <div className="min-w-0">
+                <div className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>ESIGN Consent</div>
+                <div className={`text-xs flex items-center gap-1 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                  {esignConsentGranted ? (
+                    <><span className="text-emerald-500 font-bold">✓</span> Granted</>
+                  ) : (
+                    <><span className="text-red-500 font-bold">✕</span> Not Granted</>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          {signerRole && (
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <User className={`w-3.5 h-3.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+              <div className="min-w-0">
+                <div className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Signer Role</div>
+                <div className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${isDarkMode ? 'bg-indigo-900/40 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>
+                    {signerRole}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+          {documentVersionId && (
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <FileText className={`w-3.5 h-3.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+              <div className="min-w-0">
+                <div className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Document Version ID</div>
+                <div className={`text-xs font-mono truncate ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{documentVersionId}</div>
+              </div>
+            </div>
+          )}
+          {compositeSealHash && (
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <Hash className={`w-3.5 h-3.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+              <div className="min-w-0">
+                <div className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Composite Seal Hash</div>
+                <div className={`text-xs font-mono truncate ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>{compositeSealHash}</div>
               </div>
             </div>
           )}

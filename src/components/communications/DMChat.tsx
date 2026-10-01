@@ -147,7 +147,7 @@ const ChatToolsMenu = ({
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-11 h-11 rounded-full transition-colors flex items-center justify-center cursor-pointer shrink-0 ${
+        className={`w-12 h-12 rounded-full transition-colors flex items-center justify-center cursor-pointer shrink-0 ${
           isDarkMode ? "bg-slate-700 hover:bg-slate-600" : "bg-slate-100 hover:bg-slate-200"
         }`}
         title="Tools"
@@ -914,19 +914,19 @@ export function DMChat() {
 
   return (
     <div
-      className={`flex h-full w-full rounded-3xl overflow-hidden border shadow-sm ${
-        isDarkMode ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"
+      className={`flex h-full w-full rounded-[24px] overflow-hidden border shadow-lg transition-shadow ${
+        isDarkMode ? "bg-slate-900 border-slate-700/60 shadow-slate-900/20" : "bg-white border-slate-200 shadow-slate-200/50"
       }`}
     >
       {/* Left Pane: Chat List */}
       <div
-        className={`w-full md:w-80 flex flex-col border-r relative z-10 transition-all shrink-0 ${
+        className={`w-full md:w-80 lg:w-96 flex flex-col border-r relative z-10 transition-all shrink-0 ${
           activeChatId ? "hidden md:flex" : "flex"
         } ${isDarkMode ? "border-slate-700 bg-slate-800/50" : "border-slate-100 bg-slate-50/50"}`}
       >
         <div
-          className={`p-4 border-b space-y-4 backdrop-blur-sm ${
-            isDarkMode ? "border-slate-700 bg-slate-800/50" : "border-slate-100 bg-white/50"
+          className={`p-4 border-b space-y-4 backdrop-blur-sm bg-gradient-to-b ${
+            isDarkMode ? "border-slate-700 from-slate-800 to-slate-800/50" : "border-slate-100 from-slate-50 to-white/50"
           }`}
         >
           <div className="flex items-center justify-between px-2">
@@ -1018,16 +1018,19 @@ export function DMChat() {
                     : "hover:bg-slate-100 border border-transparent"
                 }`}
               >
-                <div
-                  className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ${
-                    isActive
-                      ? "bg-indigo-600 text-white"
-                      : isDarkMode
-                      ? "bg-slate-700 text-slate-200"
-                      : "bg-slate-200 text-slate-600"
-                  }`}
-                >
-                  {displayName.charAt(0).toUpperCase()}
+                <div className="relative shrink-0">
+                  <div
+                    className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shadow-sm ${
+                      isActive
+                        ? "bg-indigo-600 text-white"
+                        : isDarkMode
+                        ? "bg-slate-700 text-slate-200"
+                        : "bg-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                  <div className={`absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 rounded-full ${isDarkMode ? 'border-slate-800' : 'border-white'}`}></div>
                 </div>
                 <div className="flex flex-col min-w-0 flex-1">
                   <div className="flex items-center justify-between">
@@ -1044,6 +1047,7 @@ export function DMChat() {
                     >
                       {displayName}
                     </span>
+                    <span className="text-[10px] text-slate-400 shrink-0">{formatMessageTime(chat.updatedAt)}</span>
                   </div>
                   <span className="text-xs text-slate-400 truncate mt-0.5">
                     {chat.lastMessageText || "Direct Message"}
@@ -1092,7 +1096,7 @@ export function DMChat() {
           <>
             {/* Header */}
             <div
-              className={`h-16 border-b px-4 md:px-6 flex items-center justify-between shrink-0 ${
+              className={`h-[72px] border-b px-4 md:px-6 flex items-center justify-between shrink-0 ${
                 isDarkMode ? "border-slate-700 bg-slate-800/90" : "border-slate-200 bg-white/90 backdrop-blur-md"
               }`}
             >
@@ -1104,15 +1108,18 @@ export function DMChat() {
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
-                  {contactDisplayName.charAt(0).toUpperCase()}
+                <div className="relative shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                    {contactDisplayName.charAt(0).toUpperCase()}
+                  </div>
+                  <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 rounded-full ${isDarkMode ? 'border-slate-800' : 'border-white'}`}></div>
                 </div>
                 <div className="flex flex-col min-w-0">
                   <h3 className={`text-sm font-bold truncate ${isDarkMode ? "text-white" : "text-slate-800"}`}>
                     {contactDisplayName}
                   </h3>
                   {isOtherTyping ? (
-                    <div className="flex items-center gap-1.5 text-xs text-emerald-500 font-medium">
+                    <div className="flex items-center gap-1.5 text-emerald-500 font-medium text-xs">
                       <span>typing</span>
                       <span className="flex gap-0.5">
                         <span className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce [animation-delay:0ms]"></span>
@@ -1121,7 +1128,7 @@ export function DMChat() {
                       </span>
                     </div>
                   ) : (
-                    <span className="text-[11px] text-slate-400 truncate">{contactEmail}</span>
+                    <span className="text-[11px] text-slate-400 truncate">Online</span>
                   )}
                 </div>
               </div>
@@ -1210,12 +1217,12 @@ export function DMChat() {
                 className={`px-4 py-2 border-b flex items-center justify-between text-xs cursor-pointer transition-colors shadow-xs ${
                   isDarkMode
                     ? "bg-slate-800/90 hover:bg-slate-800 border-slate-700 text-slate-200"
-                    : "bg-emerald-50/70 hover:bg-emerald-50 border-emerald-100 text-slate-800"
+                    : "bg-blue-50/70 hover:bg-blue-50 border-blue-100 text-slate-800"
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0 pr-3">
-                  <Pin className="w-3.5 h-3.5 text-emerald-500 shrink-0 rotate-45" />
-                  <span className="font-bold text-[11px] text-emerald-600 dark:text-emerald-400 shrink-0">Pinned Message</span>
+                  <Pin className="w-3.5 h-3.5 text-blue-500 shrink-0 rotate-45" />
+                  <span className="font-bold text-[11px] text-blue-600 dark:text-blue-400 shrink-0">Pinned Message</span>
                   <span className="truncate opacity-80">{activeChat.pinnedMessageText}</span>
                 </div>
                 <button
@@ -1265,11 +1272,11 @@ export function DMChat() {
                     return (
                       <React.Fragment key={msg.id || idx}>
                         {showDateDivider && (
-                          <div className="flex justify-center my-3 sticky top-2 z-10 pointer-events-none">
-                            <span className={`px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide shadow-sm border pointer-events-auto ${
+                          <div className="flex justify-center my-4 sticky top-2 z-10 pointer-events-none">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-medium tracking-wide shadow-sm border pointer-events-auto transition-colors ${
                               isDarkMode
-                                ? "bg-slate-800/95 text-slate-300 border-slate-700/80 backdrop-blur-md"
-                                : "bg-white/95 text-slate-600 border-slate-200/80 backdrop-blur-md"
+                                ? "bg-slate-800/60 text-slate-400 border-slate-700/50 backdrop-blur-md"
+                                : "bg-white/60 text-slate-500 border-slate-200/50 backdrop-blur-md"
                             }`}>
                               {dateGroup}
                             </span>
@@ -1349,12 +1356,12 @@ export function DMChat() {
 
                             {/* Message Bubble */}
                             <div
-                              className={`rounded-2xl px-4 py-2.5 shadow-sm transition-all ${
+                              className={`px-4 py-3 shadow-sm transition-all rounded-[20px] ${
                                 isMe
-                                  ? "bg-emerald-600 text-white rounded-br-xs"
+                                  ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-br-md"
                                   : isDarkMode
-                                  ? "bg-slate-800 text-slate-100 rounded-bl-xs border border-slate-700/60"
-                                  : "bg-white text-slate-800 rounded-bl-xs border border-slate-200/80 shadow-xs"
+                                  ? "bg-slate-800 text-slate-100 rounded-bl-md border border-slate-700/60"
+                                  : "bg-white text-slate-800 rounded-bl-md border border-slate-100"
                               }`}
                             >
                               {/* Quoted Reply Banner inside bubble */}
@@ -1362,7 +1369,7 @@ export function DMChat() {
                                 <div
                                   className={`mb-2 p-2 rounded-xl text-xs border-l-4 cursor-pointer hover:opacity-90 ${
                                     isMe
-                                      ? "bg-emerald-700/70 border-emerald-300 text-emerald-100"
+                                      ? "bg-blue-700/70 border-blue-300 text-blue-100"
                                       : isDarkMode
                                       ? "bg-slate-900/80 border-indigo-500 text-slate-300"
                                       : "bg-slate-100 border-indigo-500 text-slate-700"
@@ -1393,7 +1400,7 @@ export function DMChat() {
                                   <div className="flex flex-col mt-1 mb-1">
                                     <span
                                       className={`text-xs font-semibold mb-2 truncate max-w-[200px] ${
-                                        isMe ? "text-emerald-100" : "text-slate-500"
+                                        isMe ? "text-blue-100" : "text-slate-500"
                                       }`}
                                     >
                                       {attachmentName}
@@ -1413,13 +1420,13 @@ export function DMChat() {
                                 ) : (
                                   <div className={`p-3 rounded-xl border flex items-center gap-3 my-1.5 transition-colors ${
                                     isMe
-                                      ? "bg-emerald-700/60 border-emerald-500/40 text-white"
+                                      ? "bg-blue-700/60 border-blue-500/40 text-white"
                                       : isDarkMode
                                       ? "bg-slate-900/60 border-slate-700 text-slate-100"
                                       : "bg-slate-50 border-slate-200 text-slate-900"
                                   }`}>
                                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                                      isMe ? "bg-emerald-800 text-white" : "bg-indigo-500/10 text-indigo-500"
+                                      isMe ? "bg-blue-800 text-white" : "bg-indigo-500/10 text-indigo-500"
                                     }`}>
                                       <FileText className="w-5 h-5" />
                                     </div>
@@ -1435,7 +1442,7 @@ export function DMChat() {
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className={`p-1.5 rounded-lg transition-transform active:scale-95 ${
-                                        isMe ? "hover:bg-emerald-600 text-white" : "hover:bg-slate-200/50 text-indigo-500"
+                                        isMe ? "hover:bg-blue-600 text-white" : "hover:bg-slate-200/50 text-indigo-500"
                                       }`}
                                       title="Download"
                                     >
@@ -1455,7 +1462,7 @@ export function DMChat() {
                               {/* Timestamp and Delivery Receipts */}
                               <div
                                 className={`flex items-center justify-end gap-1 mt-1 text-[10px] select-none ${
-                                  isMe ? "text-emerald-100/80" : isDarkMode ? "text-slate-400" : "text-slate-500"
+                                  isMe ? "text-blue-100/80" : isDarkMode ? "text-slate-400" : "text-slate-500"
                                 }`}
                               >
                                 <span>{formatMessageTime(msg.createdAt)}</span>
@@ -1501,7 +1508,7 @@ export function DMChat() {
                     setShowScrollBottom(false);
                     setNewMessagesWhileScrolled(0);
                   }}
-                  className="sticky bottom-4 ml-auto mr-2 z-30 p-2.5 rounded-full shadow-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center transition-all animate-in fade-in zoom-in duration-150 cursor-pointer hover:scale-105 active:scale-95"
+                  className="sticky bottom-4 ml-auto mr-2 z-30 p-2.5 rounded-full shadow-xl bg-gradient-to-br from-blue-500 to-blue-600 hover:opacity-90 text-white flex items-center justify-center transition-all animate-in fade-in zoom-in duration-150 cursor-pointer hover:scale-105 active:scale-95"
                   title="Jump to latest"
                 >
                   <ChevronDown className="w-4 h-4" />
@@ -1600,12 +1607,12 @@ export function DMChat() {
                 {/* Replying Banner */}
                 {replyingTo && (
                   <div
-                    className={`flex items-center justify-between p-2.5 px-4 rounded-2xl border-l-4 border-emerald-500 shadow-sm ${
-                      isDarkMode ? "bg-slate-850 text-slate-200" : "bg-emerald-50/80 text-slate-800"
+                    className={`flex items-center justify-between p-2.5 px-4 rounded-2xl border-l-4 border-blue-500 shadow-sm ${
+                      isDarkMode ? "bg-slate-850 text-slate-200" : "bg-blue-50/80 text-slate-800"
                     }`}
                   >
                     <div className="flex flex-col min-w-0 pr-3">
-                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                      <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400">
                         Replying to {replyingTo.senderEmail === user?.email ? "yourself" : getContactName(replyingTo.senderEmail)}
                       </span>
                       <span className="text-xs truncate text-slate-600 dark:text-slate-300">
@@ -1683,7 +1690,7 @@ export function DMChat() {
                       }}
                     />
                     <label
-                      className={`w-11 h-11 rounded-full transition-colors flex items-center justify-center cursor-pointer shrink-0 ${
+                      className={`w-12 h-12 rounded-full transition-colors flex items-center justify-center cursor-pointer shrink-0 ${
                         isDarkMode ? "bg-slate-700 hover:bg-slate-600" : "bg-slate-100 hover:bg-slate-200"
                       }`}
                       title="Upload File"
@@ -1701,8 +1708,8 @@ export function DMChat() {
                       value={inputText}
                       onChange={(e) => handleInputChange(e.target.value)}
                       placeholder={`Message ${contactDisplayName}...`}
-                      className={`flex-1 border-transparent focus-visible:ring-indigo-100 rounded-full h-11 px-5 shadow-none text-sm ${
-                        isDarkMode ? "bg-slate-700 text-white placeholder:text-slate-400" : "bg-slate-100 text-slate-900"
+                      className={`flex-1 border-slate-200 dark:border-slate-600 focus-visible:ring-blue-100 rounded-full h-12 px-5 shadow-inner text-[15px] ${
+                        isDarkMode ? "bg-slate-700 text-white placeholder:text-slate-400" : "bg-slate-50 text-slate-900"
                       }`}
                       onKeyDown={(e) =>
                         e.key === "Enter" &&
@@ -1716,7 +1723,7 @@ export function DMChat() {
                       <Button
                         onClick={() => handleSendMessage()}
                         size="icon"
-                        className="h-11 w-11 rounded-full bg-emerald-600 hover:bg-emerald-700 shadow-md shrink-0 text-white"
+                        className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 hover:opacity-90 shadow-md shrink-0 text-white"
                       >
                         <Send className="w-4 h-4 ml-0.5" />
                       </Button>
@@ -1724,10 +1731,10 @@ export function DMChat() {
                       <Button
                         onClick={() => setIsRecordingVoice(true)}
                         size="icon"
-                        className={`h-11 w-11 rounded-full transition-colors shrink-0 shadow-sm ${
+                        className={`h-12 w-12 rounded-full transition-colors shrink-0 shadow-sm ${
                           isDarkMode
-                            ? "bg-slate-700 hover:bg-slate-600 text-emerald-400"
-                            : "bg-slate-100 hover:bg-slate-200 text-emerald-600"
+                            ? "bg-slate-700 hover:bg-slate-600 text-blue-400"
+                            : "bg-slate-100 hover:bg-slate-200 text-blue-600"
                         }`}
                         title="Record voice note"
                       >
@@ -1740,19 +1747,19 @@ export function DMChat() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+          <div className="flex-1 flex flex-col items-center justify-center text-center px-6 bg-gradient-to-b from-transparent to-slate-50/50 dark:to-slate-900/50">
             <div
-              className={`w-20 h-20 rounded-full shadow-sm flex items-center justify-center mb-6 border ${
-                isDarkMode ? "bg-slate-800 text-slate-500 border-slate-700" : "bg-white text-slate-300 border-slate-100"
+              className={`w-24 h-24 rounded-full shadow-lg flex items-center justify-center mb-6 border-4 ${
+                isDarkMode ? "bg-slate-800 text-blue-400 border-slate-700/50" : "bg-white text-blue-500 border-blue-50"
               }`}
             >
-              <MessageSquareX className="w-10 h-10" />
+              <MessageSquareX className="w-12 h-12" />
             </div>
-            <h2 className={`text-2xl font-extrabold ${isDarkMode ? "text-slate-200" : "text-slate-700"}`}>
-              No Chat Selected
+            <h2 className={`text-2xl font-extrabold tracking-tight ${isDarkMode ? "text-slate-200" : "text-slate-800"}`}>
+              Your Messages
             </h2>
-            <p className="text-slate-400 mt-2 max-w-sm">
-              Select an existing contact from the left menu or type an email to start a new direct message thread.
+            <p className="text-slate-500 mt-3 max-w-sm text-sm leading-relaxed">
+              Select an existing contact from the left menu or start a new conversation to connect.
             </p>
           </div>
         )}
