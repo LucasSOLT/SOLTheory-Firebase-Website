@@ -11,7 +11,7 @@ import { Clock, ExternalLink, ChevronRight, Settings } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useTheme } from "@/components/ThemeProvider";
 import { getOrgLabel } from "@/lib/org-config";
-import { isDemoOrg } from "@/hooks/useDemoGating";
+import { isDemoOrg, useDemoGating } from "@/hooks/useDemoGating";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
@@ -111,7 +111,8 @@ function ConfettiCanvas({ onDone }: { onDone: () => void }) {
 export function SolTheoryHome() {
   const { orgId } = useParams<{ orgId: string }>();
   const orgLabel = getOrgLabel(orgId);
-  const isDemo = isDemoOrg(orgId);
+  const { isDemo: isDemoFromHook } = useDemoGating();
+  const isDemo = isDemoOrg(orgId) || isDemoFromHook;
   const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();

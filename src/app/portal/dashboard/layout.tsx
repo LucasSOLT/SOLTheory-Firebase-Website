@@ -436,7 +436,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isUserAdmin = userIsAdmin || userIsOracle || userMemberRole === 'admin' || userMemberRole === 'oracle';
   /** Oracle always sees dev tools (at minimum End User Dashboard). Admins see all dev tools. */
   const showDevTools = userIsOracle || isUserAdmin;
-  const isDemoUser = isDemoOrg(currentOrgId);
+  const isDemoUser = isDemoOrg(currentOrgId) || userProfileData?.accountType === 'demo';
   const contentManagerActive = useContentManagerStore((s) => s.active);
   const setContentManagerActive = useContentManagerStore((s) => s.setActive);
 
