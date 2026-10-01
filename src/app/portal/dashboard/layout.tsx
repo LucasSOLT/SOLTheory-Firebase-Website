@@ -1346,6 +1346,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             )}
           </button>
+          {isDemoUser ? (
+            <DemoWatermark />
+          ) : (
           <Link href={dashboardHome} className="flex items-center gap-2">
             {pathname.includes('/nxtchapter') ? (
               <span className={`font-bold text-lg tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>NXT Chapter</span>
@@ -1353,6 +1356,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className={`font-bold text-lg tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SOL Theory</span>
             )}
           </Link>
+          )}
           <button
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
             className={`w-11 h-11 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer relative ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 active:bg-slate-700' : 'bg-[#faf8f3] border-slate-200 text-slate-600 active:bg-slate-100'}`}
@@ -2241,8 +2245,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
           </OrgProvider>
 
-          {/* Persistent demo watermark for personal/demo accounts */}
-          {isDemoUser && <DemoWatermark />}
 
         </main>
       </div>

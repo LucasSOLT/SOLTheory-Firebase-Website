@@ -219,6 +219,23 @@ export async function POST(req: Request) {
     // Validate model against registry, default to gemini-2.5-flash (cheapest, most reliable)
     const ALLOWED_MODELS = [...Object.keys(MODEL_REGISTRY), 'auto'];
     let selectedModel = ALLOWED_MODELS.includes(requestedModel) ? requestedModel : 'gemini-2.5-flash';
+
+    // ── Demo account server-side enforcement: force free model ──
+    if (uid && process.env.FIREBASE_SERVICE_ACCOUNT) {
+      try {
+        await initAdmin();
+        const adminDb = getAdminFirestore();
+        const userDoc = await adminDb.collection('users').doc(uid).get();
+        const userData = userDoc.data();
+        if (userData?.accountType === 'demo' || userData?.organization === 'personal') {
+          selectedModel = 'nemotron-3-ultra';
+          console.log(`[MODEL] Demo user detected (${uid}) → forced nemotron-3-ultra`);
+        }
+      } catch (e) {
+        console.warn('[chat] Demo check failed:', e);
+      }
+    }
+
     // Budget models run in lite mode — Google Suite tools only, no CRM, no planner, minimal context
     const LITE_MODELS = new Set(['nemotron-3-ultra', 'qwen/qwen3.6-27b']);
     const isLiteMode = LITE_MODELS.has(selectedModel);

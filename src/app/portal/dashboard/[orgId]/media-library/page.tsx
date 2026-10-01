@@ -46,6 +46,7 @@ import {
   List,
 } from "lucide-react";
 import { useOrgId } from "@/contexts/OrgContext";
+import { isDemoOrg, useDemoGating } from "@/hooks/useDemoGating";
 import MediaGridCard from "@/components/media-library/MediaGridCard";
 import type { MediaCardItem } from "@/components/media-library/MediaGridCard";
 import PactMemoryView from "@/components/media-library/PactMemoryView";
@@ -688,6 +689,8 @@ export default function MediaLibraryPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const orgId = useOrgId();
+  const { isDemo: isDemoFromHook } = useDemoGating();
+  const isDemoUser = isDemoOrg(orgId) || isDemoFromHook;
 
   // ─── Tab State: AI Brain / Org AI Brain / P.A.C.T. ───
   type MediaTab = "ai-brain" | "org-brain" | "pact";
@@ -695,7 +698,8 @@ export default function MediaLibraryPage() {
 
   // ─── Sub-View State: Documents vs. Guided Profile within AI Brain / Org Brain ───
   type BrainSubView = "documents" | "profile";
-  const [aiBrainSubView, setAiBrainSubView] = useState<BrainSubView>("documents");
+  // Demo users default to profile sub-view (document upload is disabled for them)
+  const [aiBrainSubView, setAiBrainSubView] = useState<BrainSubView>(isDemoOrg(orgId) ? "profile" : "documents");
   const [orgBrainSubView, setOrgBrainSubView] = useState<BrainSubView>("documents");
 
   // ─── View Mode: Grid / List ───
@@ -2109,6 +2113,7 @@ export default function MediaLibraryPage() {
           { key: "pact" as MediaTab, label: "P.A.C.T.", icon: <BookOpen className="w-4 h-4" />, color: "emerald", desc: "Learned memory from chats" },
         ]).map((tab) => {
           const isActive = mediaTab === tab.key;
+          const isLockedForDemo = isDemoUser && tab.key === "org-brain";
           const activeStyles = {
             "indigo": isDark ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-300" : "bg-indigo-50 border-indigo-300 text-indigo-700",
             "blue": isDark ? "bg-blue-500/15 border-blue-500/40 text-blue-300" : "bg-blue-50 border-blue-300 text-blue-700",
@@ -2120,14 +2125,16 @@ export default function MediaLibraryPage() {
           return (
             <button
               key={tab.key}
-              onClick={() => setMediaTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-[13px] font-semibold border border-b-0 transition-all cursor-pointer ${
+              disabled={isLockedForDemo}
+              onClick={() => { if (!isLockedForDemo) setMediaTab(tab.key); }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-[13px] font-semibold border border-b-0 transition-all ${isLockedForDemo ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${
                 isActive ? activeStyles : inactiveStyles
               }`}
             >
               {tab.icon}
-              <span>{tab.label}</span>
-              {isActive && (
+              <span className={isLockedForDemo ? 'line-through' : ''}>{tab.label}</span>
+              {isLockedForDemo && <span className="text-[9px] ml-1">🔒</span>}
+              {isActive && !isLockedForDemo && (
                 <span className={`text-[10px] font-medium ml-1 hidden lg:inline ${isDark ? "opacity-60" : "opacity-50"}`}>
                   — {tab.desc}
                 </span>
@@ -2161,14 +2168,15 @@ export default function MediaLibraryPage() {
             {/* Sub-view toggle: Documents vs. Guided Profile */}
             <div className="flex items-center gap-2 px-4 pt-3 pb-1">
               <button
-                onClick={() => setAiBrainSubView("documents")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                disabled={isDemoUser}
+                onClick={() => { if (!isDemoUser) setAiBrainSubView("documents"); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDemoUser ? 'opacity-40 cursor-not-allowed' : ''} ${
                   aiBrainSubView === "documents"
                     ? isDark ? "bg-indigo-600 text-white shadow-sm" : "bg-indigo-600 text-white shadow-sm"
                     : isDark ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-500 hover:text-slate-700"
                 }`}
               >
-                📄 Documents
+                {isDemoUser ? '🔒' : '📄'} <span className={isDemoUser ? 'line-through' : ''}>Documents</span>
               </button>
               <button
                 onClick={() => setAiBrainSubView("profile")}

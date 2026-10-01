@@ -24,6 +24,7 @@ import { getAuthHeaders } from "@/lib/api-auth-client";
 import { useCRMStore } from "@/stores/crm-store";
 import { useChatStore } from "@/stores/chat-store";
 import { FEATURE_FLAGS } from '@/lib/feature-flags';
+import { isDemoOrg, useDemoGating } from '@/hooks/useDemoGating';
 import ThinkingDisplay from './_components/ThinkingDisplay';
 import ScopeToggle from '@/components/chat/ScopeToggle';
 import type { AgentEvent } from '@/lib/agent-events';
@@ -382,8 +383,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const [sessionInstructions, setSessionInstructions] = useState("");
   const [isSystemInstructionsOpen, setIsSystemInstructionsOpen] = useState(false);
+  const { isDemo: isDemoFromHook } = useDemoGating();
+  const isDemoUser = isDemoOrg(orgId) || isDemoFromHook;
   const [selectedModel, setSelectedModel] = useState(() => {
     if (typeof window !== 'undefined') {
+      // Demo users are locked to Nemotron (free model)
+      if (isDemoOrg(orgId)) return 'nemotron-3-ultra';
       const stored = localStorage.getItem(`${orgId}_selectedModel`) || 'gemini-3.5-flash';
       // Reset to default if stored model was removed
       const validModels = ['openai/gpt-oss-120b', 'qwen/qwen3.6-27b', 'nemotron-3-ultra', 'claude-opus-5', 'gpt-5.6-sol', 'gemini-3.5-flash', 'auto'];
@@ -2349,28 +2354,33 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', desc: '500 t/s — most powerful open model', tag: '🔥 Default', tagColor: 'bg-orange-50 text-orange-600' },
                       { id: 'qwen/qwen3.6-27b', name: 'Qwen 3.6 27B', desc: 'Strong reasoning model', tag: 'Reliable', tagColor: 'bg-blue-50 text-blue-600' },
                       { id: 'nemotron-3-ultra', name: 'Nemotron 3 Ultra', desc: 'NVIDIA 550B MoE — 1M context', tag: 'FREE', tagColor: 'bg-violet-50 text-violet-600' },
-                    ].map(model => (
+                    ].map(model => {
+                      const isLocked = isDemoUser && model.id !== 'nemotron-3-ultra';
+                      return (
                       <button
                         key={model.id}
+                        disabled={isLocked}
                         onClick={() => {
+                          if (isLocked) return;
                           setSelectedModel(model.id);
                           setIsModelDropdownOpen(false);
                           if (typeof window !== 'undefined') localStorage.setItem(`${orgId}_selectedModel`, model.id);
                           setMessages(prev => [...prev, { id: `switch-${Date.now()}`, text: `Switched to **${model.name}**. Token rates vary.`, isSelf: false }]);
                           console.log(`%c[MODEL SWITCH] → ${model.name} (${model.id})`, 'color: #f59e0b; font-weight: bold; font-size: 13px');
                         }}
-                        className={`w-full text-left px-4 py-2.5 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-[#f2ece0] ${selectedModel === model.id ? 'bg-[#faf6ed]' : ''}`}`}
+                        className={`w-full text-left px-4 py-2.5 flex items-center justify-between transition-colors ${isLocked ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-[#f2ece0] ${selectedModel === model.id ? 'bg-[#faf6ed]' : ''}`}`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           {selectedModel === model.id && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
                           <div className="min-w-0">
-                            <span className={`text-sm font-medium block ${isDarkMode ? (selectedModel === model.id ? 'text-white' : 'text-slate-300') : (selectedModel === model.id ? 'text-slate-900' : 'text-slate-600')}`}>{model.name}</span>
+                            <span className={`text-sm font-medium block ${isLocked ? 'line-through' : ''} ${isDarkMode ? (selectedModel === model.id ? 'text-white' : 'text-slate-300') : (selectedModel === model.id ? 'text-slate-900' : 'text-slate-600')}`}>{model.name}</span>
                             <span className={`text-[10px] block ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{model.desc}</span>
                           </div>
                         </div>
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${model.tagColor}`}>{model.tag}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${isLocked ? 'bg-slate-100 text-slate-400' : model.tagColor}`}>{isLocked ? '🔒' : model.tag}</span>
                       </button>
-                    ))}
+                      );
+                    })}
                     {/* Premium Models Section */}
                     <div className={`px-4 pt-3 pb-1 border-t ${isDarkMode ? 'text-amber-400 border-slate-700' : 'text-amber-600 border-slate-200'}`}>
                       <span className="text-[9px] font-black uppercase tracking-widest">👑 Premium Models</span>
@@ -2379,28 +2389,39 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       { id: 'claude-opus-5', name: 'Claude Opus 5', desc: 'Anthropic flagship — deepest reasoning', tag: 'Elite', tagColor: 'bg-amber-50 text-amber-600' },
                       { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', desc: 'OpenAI flagship — strongest overall', tag: 'Elite', tagColor: 'bg-amber-50 text-amber-600' },
                       { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', desc: 'Google — fast & smart, 1M context', tag: 'Smart', tagColor: 'bg-sky-50 text-sky-600' },
-                    ].map(model => (
+                    ].map(model => {
+                      const isLocked = isDemoUser;
+                      return (
                       <button
                         key={model.id}
+                        disabled={isLocked}
                         onClick={() => {
+                          if (isLocked) return;
                           setSelectedModel(model.id);
                           setIsModelDropdownOpen(false);
                           if (typeof window !== 'undefined') localStorage.setItem(`${orgId}_selectedModel`, model.id);
                           setMessages(prev => [...prev, { id: `switch-${Date.now()}`, text: `Switched to **${model.name}**. Token rates vary.`, isSelf: false }]);
                           console.log(`%c[MODEL SWITCH] → ${model.name} (${model.id})`, 'color: #f59e0b; font-weight: bold; font-size: 13px');
                         }}
-                        className={`w-full text-left px-4 py-2.5 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-[#f2ece0] ${selectedModel === model.id ? 'bg-[#faf6ed]' : ''}`}`}
+                        className={`w-full text-left px-4 py-2.5 flex items-center justify-between transition-colors ${isLocked ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-[#f2ece0] ${selectedModel === model.id ? 'bg-[#faf6ed]' : ''}`}`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           {selectedModel === model.id && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />}
                           <div className="min-w-0">
-                            <span className={`text-sm font-medium block ${isDarkMode ? (selectedModel === model.id ? 'text-white' : 'text-slate-300') : (selectedModel === model.id ? 'text-slate-900' : 'text-slate-600')}`}>{model.name}</span>
+                            <span className={`text-sm font-medium block ${isLocked ? 'line-through' : ''} ${isDarkMode ? (selectedModel === model.id ? 'text-white' : 'text-slate-300') : (selectedModel === model.id ? 'text-slate-900' : 'text-slate-600')}`}>{model.name}</span>
                             <span className={`text-[10px] block ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}>{model.desc}</span>
                           </div>
                         </div>
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${model.tagColor}`}>{model.tag}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${isLocked ? 'bg-slate-100 text-slate-400' : model.tagColor}`}>{isLocked ? '🔒' : model.tag}</span>
                       </button>
-                    ))}
+                      );
+                    })}
+                    {/* Demo disclaimer */}
+                    {isDemoUser && (
+                      <div className={`px-4 py-2.5 text-[10px] border-t ${isDarkMode ? 'text-slate-500 border-slate-700 bg-slate-800/50' : 'text-slate-400 border-slate-200 bg-slate-50/50'}`}>
+                        Demo accounts use the free Nemotron model only. Upgrade to an organization account for premium AI.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2597,7 +2618,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 <svg className={`w-3 h-3 opacity-50 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </button>
               {isModelDropdownOpen && (
-                <div className={`absolute top-full right-0 mt-1 w-64 rounded-xl shadow-xl z-[60] overflow-hidden max-h-[70vh] overflow-y-auto ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-white border border-slate-200'}`}>
+                  <div className={`absolute top-full right-0 mt-1 w-64 rounded-xl shadow-xl z-[60] overflow-hidden max-h-[70vh] overflow-y-auto ${isDarkMode ? 'bg-slate-800 border border-slate-600' : 'bg-white border border-slate-200'}`}>
                   <div className={`px-3 pt-2.5 pb-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                     <span className="text-[9px] font-black uppercase tracking-widest">💰 Budget</span>
                   </div>
@@ -2605,24 +2626,29 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                     { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B', tag: '🔥', tagColor: 'bg-orange-50 text-orange-600' },
                     { id: 'qwen/qwen3.6-27b', name: 'Qwen 3.6 27B', tag: '⚡', tagColor: 'bg-blue-50 text-blue-600' },
                     { id: 'nemotron-3-ultra', name: 'Nemotron 3 Ultra', tag: 'FREE', tagColor: 'bg-violet-50 text-violet-600' },
-                  ].map(model => (
+                  ].map(model => {
+                    const isLocked = isDemoUser && model.id !== 'nemotron-3-ultra';
+                    return (
                     <button
                       key={model.id}
+                      disabled={isLocked}
                       onClick={() => {
+                        if (isLocked) return;
                         setSelectedModel(model.id);
                         setIsModelDropdownOpen(false);
                         if (typeof window !== 'undefined') localStorage.setItem(`${orgId}_selectedModel`, model.id);
                         setMessages(prev => [...prev, { id: `switch-${Date.now()}`, text: `Switched to **${model.name}**.`, isSelf: false }]);
                       }}
-                      className={`w-full text-left px-3 py-2 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-slate-50 ${selectedModel === model.id ? 'bg-slate-50' : ''}`}`}
+                      className={`w-full text-left px-3 py-2 flex items-center justify-between transition-colors ${isLocked ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-slate-50 ${selectedModel === model.id ? 'bg-slate-50' : ''}`}`}
                     >
                       <div className="flex items-center gap-2">
                         {selectedModel === model.id && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
-                        <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{model.name}</span>
+                        <span className={`text-xs font-medium ${isLocked ? 'line-through' : ''} ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{model.name}</span>
                       </div>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${model.tagColor}`}>{model.tag}</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isLocked ? 'bg-slate-100 text-slate-400' : model.tagColor}`}>{isLocked ? '🔒' : model.tag}</span>
                     </button>
-                  ))}
+                    );
+                  })}
                   <div className={`px-3 pt-2 pb-1 border-t ${isDarkMode ? 'text-amber-400 border-slate-700' : 'text-amber-600 border-slate-200'}`}>
                     <span className="text-[9px] font-black uppercase tracking-widest">👑 Premium</span>
                   </div>
@@ -2633,21 +2659,28 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   ].map(model => (
                     <button
                       key={model.id}
+                      disabled={isDemoUser}
                       onClick={() => {
+                        if (isDemoUser) return;
                         setSelectedModel(model.id);
                         setIsModelDropdownOpen(false);
                         if (typeof window !== 'undefined') localStorage.setItem(`${orgId}_selectedModel`, model.id);
                         setMessages(prev => [...prev, { id: `switch-${Date.now()}`, text: `Switched to **${model.name}**.`, isSelf: false }]);
                       }}
-                      className={`w-full text-left px-3 py-2 flex items-center justify-between transition-colors ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-slate-50 ${selectedModel === model.id ? 'bg-slate-50' : ''}`}`}
+                      className={`w-full text-left px-3 py-2 flex items-center justify-between transition-colors ${isDemoUser ? 'opacity-40 cursor-not-allowed' : ''} ${isDarkMode ? `hover:bg-slate-700 ${selectedModel === model.id ? 'bg-slate-700' : ''}` : `hover:bg-slate-50 ${selectedModel === model.id ? 'bg-slate-50' : ''}`}`}
                     >
                       <div className="flex items-center gap-2">
                         {selectedModel === model.id && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
-                        <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{model.name}</span>
+                        <span className={`text-xs font-medium ${isDemoUser ? 'line-through' : ''} ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>{model.name}</span>
                       </div>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${model.tagColor}`}>{model.tag}</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isDemoUser ? 'bg-slate-100 text-slate-400' : model.tagColor}`}>{isDemoUser ? '🔒' : model.tag}</span>
                     </button>
                   ))}
+                  {isDemoUser && (
+                    <div className={`px-3 py-2 text-[9px] border-t ${isDarkMode ? 'text-slate-500 border-slate-700' : 'text-slate-400 border-slate-200'}`}>
+                      Free model only. Upgrade for premium AI.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2915,13 +2948,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 </div>
 
                 {/* Chat input — ALWAYS visible at bottom */}
-                <div className="shrink-0 px-3 sm:px-4 pb-1 sm:pb-2 pt-1 sm:pt-2 z-20">
-                  <div className="max-w-4xl mx-auto flex flex-col gap-2 relative overflow-visible">
+                <div className="w-full shrink-0 px-3 sm:px-4 pb-1 sm:pb-2 pt-1 sm:pt-2 z-20">
+                  <div className="w-full max-w-4xl mx-auto flex flex-col gap-2 relative overflow-visible">
                     {/* Interaction Buttons Overlay */}
                     <div className="flex justify-between items-center px-1 pointer-events-none mb-1">
                     </div>
 
-                    <div className="flex items-center">
+                    <div className="w-full flex items-center">
                     <div data-plus-menu className={`relative flex-1 border rounded-xl sm:rounded-2xl overflow-visible shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex flex-col ${isDarkMode ? 'border-slate-600 bg-slate-800/90' : 'border-[#ede8da] bg-[#faf8f3]/90'}`}>
                       {pendingAttachments.length > 0 && (
                         <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b border-[#ede8da]/60 bg-[#faf6ed]/50">
