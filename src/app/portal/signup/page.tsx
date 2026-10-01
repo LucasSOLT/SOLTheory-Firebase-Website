@@ -7,7 +7,7 @@ import { StarBackground } from '@/components/ui/star-background';
 import { 
   ArrowRight, ArrowLeft, Loader2, CheckCircle2, Mail, Lock, 
   User, Phone, Briefcase, Award, Eye, EyeOff, Search, X, 
-  Building2, ShieldCheck, AlertCircle 
+  Building2, ShieldCheck, AlertCircle, Sparkles, LogOut, Check
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -20,6 +20,9 @@ import {
   searchCertifications 
 } from '@/lib/job-roles';
 import { getOrgLabel } from '@/lib/org-config';
+import { initializeFirebase } from '@/firebase/init';
+import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 // Wrapped in Suspense because of useSearchParams
 function SignupWizardContent() {
@@ -58,6 +61,14 @@ function SignupWizardContent() {
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [showCertDropdown, setShowCertDropdown] = useState(false);
 
+  // ── Upgrade flow: detect logged-in demo users with invite tokens ──
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [isDemoUpgrade, setIsDemoUpgrade] = useState(false);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [upgradeSuccess, setUpgradeSuccess] = useState(false);
+  const [upgradeError, setUpgradeError] = useState('');
+  const [upgradeOrgId, setUpgradeOrgId] = useState('');
+
   // Refs for clicking outside
   const roleRef = useRef<HTMLDivElement>(null);
   const certRef = useRef<HTMLDivElement>(null);
@@ -76,6 +87,61 @@ function SignupWizardContent() {
       validateInvite(inviteParam);
     }
   }, [inviteParam]);
+
+  // ── Detect logged-in demo users who clicked an invite link ──
+  useEffect(() => {
+    if (!inviteParam) return;
+    try {
+      const { auth, firestore } = initializeFirebase();
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        setCurrentUser(user);
+        if (user && inviteData?.valid !== false) {
+          // Check if the logged-in user is a demo user
+          try {
+            const userDocRef = doc(firestore, 'users', user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists() && userDocSnap.data()?.accountType === 'demo') {
+              setIsDemoUpgrade(true);
+            }
+          } catch { /* silently fail — show normal signup form */ }
+        }
+      });
+      return () => unsubscribe();
+    } catch { /* Firebase init failure — show normal form */ }
+  }, [inviteParam, inviteData]);
+
+  // ── Handle upgrade from demo to org_member ──
+  const handleUpgrade = async () => {
+    if (!currentUser || !inviteToken) return;
+    setUpgradeLoading(true);
+    setUpgradeError('');
+    try {
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch('/api/auth/upgrade', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ inviteToken }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUpgradeSuccess(true);
+        setUpgradeOrgId(data.orgId || '');
+        // Redirect to the new org dashboard after a brief delay
+        setTimeout(() => {
+          router.push(`/portal/dashboard/${data.orgId}`);
+        }, 3000);
+      } else {
+        setUpgradeError(data.error || 'Upgrade failed. Please try again.');
+      }
+    } catch {
+      setUpgradeError('An unexpected error occurred during upgrade.');
+    } finally {
+      setUpgradeLoading(false);
+    }
+  };
 
   const validateInvite = async (token: string) => {
     setInviteLoading(true);
@@ -214,14 +280,133 @@ function SignupWizardContent() {
       <Header />
       
       <main className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 relative z-10">
-        <div className="text-center mb-10 mt-10">
-          <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">Create your INSiGHT account</h1>
-          <p className="text-slate-400 text-lg">Join the premier platform for organization management.</p>
-        </div>
+        {(isDemoUpgrade || upgradeSuccess) ? (
+          <div className="w-full max-w-xl bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 shadow-2xl overflow-hidden p-8 sm:p-10 my-10 relative">
+            {upgradeSuccess ? (
+              <div className="text-center py-8 space-y-6">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/10">
+                  <CheckCircle2 className="w-10 h-10" />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold text-white mb-2">Upgrade Complete!</h2>
+                  <p className="text-slate-300 text-base">
+                    Your account has been officially upgraded to <span className="font-semibold text-emerald-400">{getOrgLabel(upgradeOrgId || inviteData?.orgId || '')}</span>.
+                  </p>
+                </div>
+                <div className="bg-slate-900/60 border border-slate-700/60 rounded-xl p-4 text-xs text-slate-300 space-y-2 text-left">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <Check className="w-4 h-4 shrink-0" /> Demo watermark removed
+                  </div>
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <Check className="w-4 h-4 shrink-0" /> Premium AI models unlocked (Opus 5, GPT-5.6, Gemini 3.5 Flash)
+                  </div>
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <Check className="w-4 h-4 shrink-0" /> Organization Knowledge Base & Document uploads unlocked
+                  </div>
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <Check className="w-4 h-4 shrink-0" /> CRM, BI & team collaboration tools unlocked
+                  </div>
+                </div>
+                <div className="pt-2">
+                  <Link
+                    href={`/portal/dashboard/${upgradeOrgId || inviteData?.orgId || ''}`}
+                    className="inline-flex items-center justify-center gap-2 w-full py-3.5 px-6 rounded-xl font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-lg shadow-emerald-600/20"
+                  >
+                    Enter Organization Workspace <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+                <p className="text-xs text-slate-500">Redirecting automatically in a few seconds...</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 px-3 py-1.5 rounded-full w-fit">
+                  <Sparkles className="w-3.5 h-3.5" /> Organization Upgrade Invite
+                </div>
 
-        {renderStepIndicator()}
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-2">
+                    Upgrade to {getOrgLabel(inviteData?.orgId || '')}
+                  </h2>
+                  <p className="text-slate-400 text-sm leading-relaxed">
+                    You are currently signed in as <span className="text-slate-200 font-medium">{currentUser?.email}</span>. Click below to upgrade your existing demo account and join <span className="text-indigo-300 font-medium">{getOrgLabel(inviteData?.orgId || '')}</span> with full organization access.
+                  </p>
+                </div>
 
-        <div className="w-full max-w-xl bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 shadow-xl overflow-hidden min-h-[500px] flex flex-col mb-10">
+                <div className="bg-slate-900/60 border border-slate-700/60 rounded-xl p-4 space-y-2.5 text-xs text-slate-300">
+                  <div className="font-semibold text-slate-200 text-sm mb-1">What you'll unlock immediately:</div>
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <Check className="w-4 h-4 shrink-0" /> Full AI model catalog (Opus 5, GPT-5.6, Gemini 3.5 Flash)
+                  </div>
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <Check className="w-4 h-4 shrink-0" /> AI Brain document uploads & Shared Org Brain
+                  </div>
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <Check className="w-4 h-4 shrink-0" /> Full CRM, Business Intelligence & Campaign tools
+                  </div>
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <Check className="w-4 h-4 shrink-0" /> Remove demo watermark & limits permanently
+                  </div>
+                </div>
+
+                {upgradeError && (
+                  <div className="p-3 bg-red-900/40 border border-red-500/50 rounded-xl text-red-200 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                    <span>{upgradeError}</span>
+                  </div>
+                )}
+
+                <div className="space-y-3 pt-2">
+                  <button
+                    onClick={handleUpgrade}
+                    disabled={upgradeLoading}
+                    className="w-full py-3.5 px-6 rounded-xl font-semibold bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-500 hover:to-fuchsia-500 text-white transition-all shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {upgradeLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Upgrading your account...
+                      </>
+                    ) : (
+                      <>
+                        Accept Invite & Upgrade Account <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-700/60 text-xs text-slate-400">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const { auth } = initializeFirebase();
+                          await signOut(auth);
+                          setCurrentUser(null);
+                          setIsDemoUpgrade(false);
+                        } catch (e) { console.error(e); }
+                      }}
+                      className="hover:text-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" /> Sign out to use another email
+                    </button>
+                    <Link
+                      href="/portal/dashboard/personal"
+                      className="hover:text-slate-200 transition-colors"
+                    >
+                      Continue in Demo →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="text-center mb-10 mt-10">
+              <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">Create your INSiGHT account</h1>
+              <p className="text-slate-400 text-lg">Join the premier platform for organization management.</p>
+            </div>
+
+            {renderStepIndicator()}
+
+            <div className="w-full max-w-xl bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 shadow-xl overflow-hidden min-h-[500px] flex flex-col mb-10">
           <div className="p-8 flex-1">
             <AnimatePresence mode="wait">
               <motion.div
@@ -635,6 +820,8 @@ function SignupWizardContent() {
             </div>
           )}
         </div>
+          </>
+        )}
       </main>
 
       <Footer />

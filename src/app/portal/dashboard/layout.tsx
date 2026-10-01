@@ -7,7 +7,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from "fireb
 import { updateProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, Flame, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain, Compass, Pin, PinOff } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, Flame, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain, Compass, Pin, PinOff, ShoppingBag } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -1481,11 +1481,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           { icon: <BarChart3 className="w-5 h-5" />, label: t.businessIntelligence },
                           { icon: <GraduationCap className="w-5 h-5" />, label: 'Onboarding' },
                         ].map((item) => (
-                          <div key={item.label} className="flex items-center gap-3 px-4 py-2.5 rounded-xl font-semibold text-[15px] opacity-40 cursor-not-allowed select-none" title="Upgrade to an organization account to access this feature">
+                          <Link key={item.label} href={`${dashboardHome}/store`} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 rounded-xl font-semibold text-[15px] opacity-60 hover:opacity-100 transition-opacity cursor-pointer select-none" title="Upgrade to an organization account to access this feature">
                             <span className="text-slate-500">{item.icon}</span>
-                            <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>{item.label}</span>
-                            <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-slate-700/50 text-slate-500 border border-slate-600/30' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>🔒 Upgrade</span>
-                          </div>
+                            <span className={isDarkMode ? 'text-slate-400' : 'text-slate-600'}>{item.label}</span>
+                            <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-600 border border-indigo-200'}`}>🔒 Upgrade</span>
+                          </Link>
                         ))}
                       </>
                     ) : (
@@ -1530,7 +1530,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   )}
                 </div>
 
-
+                {/* Store & Marketplace */}
+                <div className={`pt-3 ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
+                  <Link href={`${dashboardHome}/store`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer font-semibold text-base ${pathname.includes('/store') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                    <ShoppingBag className="w-5 h-5 text-indigo-400" />
+                    <span>Store</span>
+                    {isDemoUser && <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-700 border border-indigo-200'}`}>Upgrade</span>}
+                  </Link>
+                </div>
 
                 {/* Settings */}
                 <div className={`pt-3 ${isDarkMode ? 'border-t border-slate-700' : 'border-t border-slate-200'}`}>
@@ -1925,13 +1932,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       { icon: <BarChart3 className="w-5 h-5" />, label: t.businessIntelligence },
                       { icon: <GraduationCap className="w-5 h-5" />, label: 'Onboarding' },
                     ].map((item) => (
-                      <div key={item.label} className={`flex items-center ${isEffectiveCollapsed ? 'justify-center p-1.5' : 'gap-3 px-2.5 py-1.5'} rounded-xl opacity-40 cursor-not-allowed select-none`} title="Upgrade to an organization account">
+                      <Link key={item.label} href={`${dashboardHome}/store`} className={`flex items-center ${isEffectiveCollapsed ? 'justify-center p-1.5' : 'gap-3 px-2.5 py-1.5'} rounded-xl opacity-60 hover:opacity-100 transition-opacity cursor-pointer select-none`} title="Upgrade to an organization account">
                         <div className={getSidebarIconClass(false, isEffectiveCollapsed)}>
                           {item.icon}
                         </div>
                         {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>}
-                        {!isEffectiveCollapsed && <span className={`ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-slate-700/50 text-slate-500 border border-slate-600/30' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>🔒</span>}
-                      </div>
+                        {!isEffectiveCollapsed && <span className={`ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-600 border border-indigo-200'}`}>🔒</span>}
+                      </Link>
                     ))}
                   </>
                 ) : (
@@ -1987,6 +1994,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">Admin Dashboard</span>}
                 </Link>
                 )}
+
+                <Link href={`${dashboardHome}/store`} className={getSidebarLinkClass(pathname.includes('/store'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'Store & Upgrade' : undefined}>
+                  <div className={getSidebarIconClass(pathname.includes('/store'), isEffectiveCollapsed)}>
+                    <ShoppingBag className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">Store</span>}
+                  {!isEffectiveCollapsed && isDemoUser && <span className={`ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-600 border border-indigo-200'}`}>Upgrade</span>}
+                </Link>
               </div>
             )}
           </div>
@@ -1998,6 +2013,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* User Footer Profile */}
         <div className={`${isEffectiveCollapsed ? 'p-2 flex flex-col items-center gap-2' : 'p-4 flex items-center gap-2'} mt-auto mb-4 shrink-0`}>
+          <Link href={`${dashboardHome}/store`} className={`p-2.5 rounded-xl transition-colors shrink-0 shadow-sm ${pathname.includes('/store') ? (isDarkMode ? 'bg-indigo-900/40 border border-indigo-500/50 text-indigo-300' : 'bg-indigo-50 border border-indigo-200 text-indigo-600') : (isDarkMode ? 'bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700' : 'hover:bg-[#f0ede4] text-slate-400 hover:text-slate-900 bg-[#f2efe8] border border-[#e0ddd4]')}`} title="Store & Upgrade">
+             <ShoppingBag className="w-5 h-5" />
+          </Link>
           <Link href={`${dashboardHome}/settings?tab=general`} className={`p-2.5 rounded-xl transition-colors shrink-0 shadow-sm ${isDarkMode ? 'bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700' : 'hover:bg-[#f0ede4] text-slate-400 hover:text-slate-900 bg-[#f2efe8] border border-[#e0ddd4]'}`} title="Settings">
              <Settings className="w-5 h-5" />
           </Link>
