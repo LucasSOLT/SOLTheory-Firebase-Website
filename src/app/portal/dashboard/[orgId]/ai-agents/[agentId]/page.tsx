@@ -180,6 +180,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   const messages = chatStore.messages;
   const setMessages = chatStore.setMessages;
   const sessionsLoaded = chatStore.sessionsLoaded;
+  const sessionStatuses = chatStore.sessionStatuses;
   // Compatibility wrappers — delegate to store so existing setSessions/setActiveSessionId calls work
   const setSessions: React.Dispatch<React.SetStateAction<Session[]>> = (action) => {
     if (typeof action === 'function') {
@@ -1186,8 +1187,27 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
   const loadSession = (id: string) => {
     chatStore.setActiveSession(id);
+    chatStore.setSessionRead(id);
     setIsKnowledgeBaseOpen(false);
     setSelectedExploreItem(null);
+  };
+
+  const renderSessionIcon = (s: Session) => {
+    const status = sessionStatuses?.[s.id];
+    if (status === 'thinking') {
+      return <Loader2 className="w-4 h-4 mr-3 shrink-0 animate-spin text-indigo-500" />;
+    }
+    if (status === 'unread') {
+      return (
+        <div className="w-4 h-4 mr-3 shrink-0 flex items-center justify-center" title="New response ready">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-blue-500/20 shadow-sm shadow-blue-500/50" />
+        </div>
+      );
+    }
+    if (s.scope === 'org') {
+      return <Users className="w-4 h-4 mr-3 shrink-0 opacity-70 text-emerald-500" />;
+    }
+    return <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />;
   };
 
   const deleteSession = (e: React.MouseEvent, id: string) => {
@@ -1383,6 +1403,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     const botMsgIdEarly = uid();
     const botPlaceholder: Message = { id: botMsgIdEarly, text: '', isSelf: false, sendTimestamp: msgSendTimestamp, agentEvents: [{ type: 'thinking' as const, content: '', timestamp: msgSendTimestamp }] };
     setMessages([...newMessages, botPlaceholder]); setIsTyping(false); setInputValue("");
+    // Mark this session as 'thinking' in the store (persists across sidebar navigation)
+    if (currentSessionId) chatStore.setSessionThinking(currentSessionId);
 
     // ── IRIS: Image Generation Path ──
     // Route to /api/generate-image instead of /api/chat when using Iris
@@ -1875,6 +1897,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     } finally {
       setIsTyping(false);
       setPendingCitations([]);
+      // Transition session from 'thinking' to 'unread' (or 'idle' if user is still viewing it)
+      if (currentSessionId) chatStore.setSessionUnread(currentSessionId);
     }
   };
 
@@ -2461,12 +2485,12 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 </div>
                 <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>New Chat</span>
               </button>
-              {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").length === 0 && (
+              {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat" || sessionStatuses?.[s.id] === 'thinking' || sessionStatuses?.[s.id] === 'unread').length === 0 && (
                 <div className="text-xs text-slate-400 px-1 py-4 text-center">No conversations yet.<br/>Start typing below to begin.</div>
               )}
-              {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").map(s => (
+              {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat" || sessionStatuses?.[s.id] === 'thinking' || sessionStatuses?.[s.id] === 'unread').map(s => (
                 <div key={s.id} onClick={() => loadSession(s.id)} className={`group cursor-pointer flex items-center w-full px-3 mt-1 min-h-[40px] py-2 rounded-lg transition-all ${isDarkMode ? (activeSessionId === s.id ? (s.scope === 'org' ? 'bg-emerald-900/30 text-white border border-emerald-700' : 'bg-slate-700/60 text-white border border-slate-600') : 'text-slate-400 hover:text-white hover:bg-slate-800') : (activeSessionId === s.id ? (s.scope === 'org' ? 'bg-emerald-50 text-slate-900 border border-emerald-200' : 'bg-slate-300/50 text-slate-900 border border-slate-200') : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50')}`}>
-                  {s.scope === 'org' ? <Users className="w-4 h-4 mr-3 shrink-0 opacity-70 text-emerald-500" /> : <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />}
+                  {renderSessionIcon(s)}
                   <span className="text-sm font-medium flex-1 break-words leading-snug">{stripMarkdown(s.title)}</span>
                   <button onClick={(e) => deleteSession(e, s.id)} className={`opacity-60 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 transition-all ml-1 p-1 rounded-md ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>
                     <Trash2 className="w-3.5 h-3.5" />
@@ -2547,16 +2571,16 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-hide">
-              {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").length === 0 && (
+              {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat" || sessionStatuses?.[s.id] === 'thinking' || sessionStatuses?.[s.id] === 'unread').length === 0 && (
                 <div className="text-xs text-slate-400 px-1 py-4 text-center">No conversations yet.<br/>Start typing below to begin.</div>
               )}
-              {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat").map(s => (
+              {sessions.filter(s => s.messages.filter(m => m.isSelf).length > 0 || s.title !== "New Chat" || sessionStatuses?.[s.id] === 'thinking' || sessionStatuses?.[s.id] === 'unread').map(s => (
                 <div
                   key={s.id}
                   onClick={() => { loadSession(s.id); setIsMobileSidebarOpen(false); }}
                   className={`group cursor-pointer flex items-center w-full px-3 mt-1 min-h-[44px] py-2.5 rounded-lg transition-all ${isDarkMode ? (activeSessionId === s.id ? (s.scope === 'org' ? 'bg-emerald-900/30 text-white border border-emerald-700' : 'bg-slate-700/60 text-white border border-slate-600') : 'text-slate-400 hover:text-white hover:bg-slate-800') : (activeSessionId === s.id ? (s.scope === 'org' ? 'bg-emerald-50 text-slate-900 border border-emerald-200' : 'bg-slate-200/70 text-slate-900 border border-slate-200') : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100')}`}
                 >
-                  {s.scope === 'org' ? <Users className="w-4 h-4 mr-3 shrink-0 opacity-70 text-emerald-500" /> : <MessageSquare className="w-4 h-4 mr-3 shrink-0 opacity-70" />}
+                  {renderSessionIcon(s)}
                   <span className="text-sm font-medium flex-1 break-words leading-snug">{stripMarkdown(s.title)}</span>
                   <button onClick={(e) => deleteSession(e, s.id)} className={`opacity-60 hover:text-red-500 transition-all ml-1 p-1 rounded-md ${isDarkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-50'}`}>
                     <Trash2 className="w-3.5 h-3.5" />

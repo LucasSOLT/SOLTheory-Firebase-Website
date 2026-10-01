@@ -56,6 +56,21 @@ interface ChatStore {
 
   /** Sync local session state (update messages/updatedAt in the sessions array) */
   syncLocalSession: (sessionId: string, messages: Message[], title?: string) => void;
+
+  // ── Per-Session Status (for real-time chat indicators) ──
+  // 'idle'     → 💬 default message bubble icon
+  // 'thinking' → ⏳ spinning loader (AI is processing)
+  // 'unread'   → 🔵 blue dot (AI finished, user hasn't opened yet)
+  sessionStatuses: Record<string, 'idle' | 'thinking' | 'unread'>;
+
+  /** Mark a session as thinking (AI is processing a prompt) */
+  setSessionThinking: (sessionId: string) => void;
+
+  /** Mark a session as having an unread response (AI finished) */
+  setSessionUnread: (sessionId: string) => void;
+
+  /** Mark a session as read/idle (user viewed the response) */
+  setSessionRead: (sessionId: string) => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -178,8 +193,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set((state) => {
         const updated = state.sessions.filter((s) => s.id !== sessionId);
         const needsClear = state.activeSessionId === sessionId;
+        const { [sessionId]: _, ...remainingStatuses } = state.sessionStatuses;
         return {
           sessions: updated,
+          sessionStatuses: remainingStatuses,
           ...(needsClear ? { activeSessionId: null, messages: [] } : {}),
         };
       });
@@ -189,7 +206,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   setActiveSession: (sessionId: string | null) => {
-    const { scope } = get();
+    const { scope, sessionStatuses } = get();
     if (!sessionId) {
       set({ activeSessionId: null, messages: [] });
       if (typeof window !== "undefined") {
@@ -201,7 +218,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session) return;
 
-    set({ activeSessionId: sessionId });
+    // Auto-read: clear unread indicator when user selects this session
+    const currentStatus = sessionStatuses[sessionId];
+    const updatedStatuses = currentStatus === 'unread'
+      ? { ...sessionStatuses, [sessionId]: 'idle' as const }
+      : sessionStatuses;
+
+    set({ activeSessionId: sessionId, sessionStatuses: updatedStatuses });
 
     // Persist active session
     if (typeof window !== "undefined") {
@@ -324,5 +347,40 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         };
       }),
     }));
+  },
+
+  // ── Per-Session Status (real-time chat indicators) ──
+  sessionStatuses: {},
+
+  setSessionThinking: (sessionId: string) => {
+    set((state) => ({
+      sessionStatuses: { ...state.sessionStatuses, [sessionId]: 'thinking' as const },
+    }));
+  },
+
+  setSessionUnread: (sessionId: string) => {
+    // Only transition to unread if the session is currently thinking.
+    // If user is already viewing this session (it's the active one), go straight to idle.
+    const { activeSessionId, sessionStatuses } = get();
+    if (sessionStatuses[sessionId] !== 'thinking') return;
+    if (activeSessionId === sessionId) {
+      // User is looking at this chat — no need for unread indicator
+      set((state) => ({
+        sessionStatuses: { ...state.sessionStatuses, [sessionId]: 'idle' as const },
+      }));
+    } else {
+      set((state) => ({
+        sessionStatuses: { ...state.sessionStatuses, [sessionId]: 'unread' as const },
+      }));
+    }
+  },
+
+  setSessionRead: (sessionId: string) => {
+    const { sessionStatuses } = get();
+    if (sessionStatuses[sessionId] === 'unread') {
+      set((state) => ({
+        sessionStatuses: { ...state.sessionStatuses, [sessionId]: 'idle' as const },
+      }));
+    }
   },
 }));
