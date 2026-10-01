@@ -23,6 +23,8 @@ import { WalkthroughPlayer } from "@/components/portal/WalkthroughPlayer";
 import { InsightOmnibar } from "@/components/portal/InsightOmnibar";
 import { BetaDisclaimerModal } from "@/components/portal/BetaDisclaimerModal";
 import { PushNotificationPrompt } from "@/components/notifications/PushNotificationPrompt";
+import { DemoWatermark } from "@/components/portal/DemoWatermark";
+import { isDemoOrg } from "@/hooks/useDemoGating";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t, lang } = useTranslation();
@@ -434,6 +436,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isUserAdmin = userIsAdmin || userIsOracle || userMemberRole === 'admin' || userMemberRole === 'oracle';
   /** Oracle always sees dev tools (at minimum End User Dashboard). Admins see all dev tools. */
   const showDevTools = userIsOracle || isUserAdmin;
+  const isDemoUser = isDemoOrg(currentOrgId);
   const contentManagerActive = useContentManagerStore((s) => s.active);
   const setContentManagerActive = useContentManagerStore((s) => s.setActive);
 
@@ -1374,7 +1377,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl shadow-sm transition-colors cursor-pointer ${isDarkMode ? 'border border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border border-slate-200 bg-[#faf8f3] hover:bg-[#f2ece0]'}`}
                   >
                     <div className={`p-1 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10'}`}>
-                      <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-7 h-7 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                      {isDemoUser ? (
+                        <HelpCircle className={`w-7 h-7 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+                      ) : (
+                        <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-7 h-7 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                      )}
                     </div>
                     <span className={`font-bold text-lg tracking-tight flex-1 text-left ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
                     <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOrgSwitcherOpen ? 'rotate-180' : ''}`} />
@@ -1408,7 +1415,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               ) : (
                 <Link href={dashboardHome} className={`p-6 pt-6 pb-6 flex flex-col items-start gap-3 transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2ece0]'}`} onClick={() => setIsMobileMenuOpen(false)}>
                   <>
-                    <img src={getOrgConfig(currentOrgId)?.theme.icon || "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440"} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-12 h-12 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                    {isDemoUser ? (
+                      <HelpCircle className={`w-12 h-12 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+                    ) : (
+                      <img src={getOrgConfig(currentOrgId)?.theme.icon || "https://firebasestorage.googleapis.com/v0/b/studio-5711990008-7ac2c.firebasestorage.app/o/SOL%20Theory%20Logo.png?alt=media&token=530d35ea-c595-4e88-bf37-6ec856485440"} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-12 h-12 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                    )}
                     <span className={`font-bold text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
                   </>
                 </Link>
@@ -1456,6 +1467,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <span>{t.crm}</span>
                     </Link>
                     <div className={`my-1.5 mx-2 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/60'}`} />
+                    {isDemoUser ? (
+                      /* Demo users: locked beta/org features */
+                      <>
+                        {[
+                          { icon: <Compass className="w-5 h-5" />, label: t.agenticProspecting || 'Agentic Prospecting' },
+                          { icon: <Mail className="w-5 h-5" />, label: t.email },
+                          { icon: <Send className="w-5 h-5" />, label: t.agenticCampaigning },
+                          { icon: <BarChart3 className="w-5 h-5" />, label: t.businessIntelligence },
+                          { icon: <GraduationCap className="w-5 h-5" />, label: 'Onboarding' },
+                        ].map((item) => (
+                          <div key={item.label} className="flex items-center gap-3 px-4 py-2.5 rounded-xl font-semibold text-[15px] opacity-40 cursor-not-allowed select-none" title="Upgrade to an organization account to access this feature">
+                            <span className="text-slate-500">{item.icon}</span>
+                            <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>{item.label}</span>
+                            <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-slate-700/50 text-slate-500 border border-slate-600/30' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>🔒 Upgrade</span>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      /* Org users: normal beta feature links */
+                      <>
                     <Link href={`${dashboardHome}/agentic-prospecting`} onClick={(e) => { setIsMobileMenuOpen(false); handleBetaFeatureClick(e, 'Agentic Prospecting', `${dashboardHome}/agentic-prospecting`); }} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/agentic-prospecting') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <Compass className="w-5 h-5 text-slate-500" />
                       <span>{t.agenticProspecting || 'Agentic Prospecting'}</span>
@@ -1483,6 +1514,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/25' : 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'}`}>Admin</span>
                       )}
                     </Link>
+                      </>
+                    )}
                     {user?.email && isUserAdmin && (
                     <Link href={`${dashboardHome}/admin`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/admin') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
                       <ShieldCheck className="w-5 h-5 text-indigo-500" />
@@ -1686,7 +1719,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     className={`${isEffectiveCollapsed ? 'justify-center p-1 w-full' : 'flex-1 min-w-0 gap-2.5 px-2.5 py-2'} flex items-center rounded-xl transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-[#f2efe8]'}`}
                   >
                     <div className={`p-1 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-transparent' : 'bg-[#8b7355]/10 border border-[#8b7355]/20'}`}>
-                      <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-7 h-7 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                      {isDemoUser ? (
+                        <HelpCircle className={`w-7 h-7 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`} />
+                      ) : (
+                        <img src={getOrgConfig(currentOrgId)?.theme.icon} alt={`${getOrgLabel(currentOrgId)} Logo`} className="w-7 h-7 object-contain" style={isDarkMode ? { mixBlendMode: 'screen' } : { filter: 'invert(1)', mixBlendMode: 'multiply' as any }} />
+                      )}
                     </div>
                     {!isEffectiveCollapsed && (
                       <span className={`font-bold text-base tracking-tight truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{getOrgLabel(currentOrgId)}</span>
@@ -1778,6 +1815,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             
             {/* @Messages Collapsible */}
             <div className={isEffectiveCollapsed ? '' : 'mt-2'}>
+              {isDemoUser ? (
+                /* Demo: locked messages */
+                <div className={`flex items-center ${isEffectiveCollapsed ? 'justify-center p-1.5' : 'gap-3 px-2.5 py-1.5'} rounded-xl opacity-40 cursor-not-allowed select-none`} title="Upgrade to an organization account to access Messages">
+                  <div className={getSidebarIconClass(false, isEffectiveCollapsed)}>
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.messages}</span>}
+                  {!isEffectiveCollapsed && <span className={`ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-slate-700/50 text-slate-500 border border-slate-600/30' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>🔒</span>}
+                </div>
+              ) : (
+              <>
               {isEffectiveCollapsed ? (
                 /* Collapsed: just show a message icon link */
                 <Link href={`${dashboardHome}/communications/dm`} className={getSidebarLinkClass(pathname.includes('/communications'), true)} title={t.messages}>
@@ -1822,6 +1870,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               )}
               </>
               )}
+            </>
+            )}
             </div>
             </div>}
           </div>
@@ -1861,6 +1911,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 {!isEffectiveCollapsed && <div className={`my-1.5 mx-2 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/60'}`} />}
 
+                {isDemoUser ? (
+                  /* Demo users: locked beta/org features in desktop sidebar */
+                  <>
+                    {[
+                      { icon: <Compass className="w-5 h-5" />, label: t.agenticProspecting || 'Agentic Prospecting' },
+                      { icon: <Mail className="w-5 h-5" />, label: t.email },
+                      { icon: <Send className="w-5 h-5" />, label: t.agenticCampaigning },
+                      { icon: <BarChart3 className="w-5 h-5" />, label: t.businessIntelligence },
+                      { icon: <GraduationCap className="w-5 h-5" />, label: 'Onboarding' },
+                    ].map((item) => (
+                      <div key={item.label} className={`flex items-center ${isEffectiveCollapsed ? 'justify-center p-1.5' : 'gap-3 px-2.5 py-1.5'} rounded-xl opacity-40 cursor-not-allowed select-none`} title="Upgrade to an organization account">
+                        <div className={getSidebarIconClass(false, isEffectiveCollapsed)}>
+                          {item.icon}
+                        </div>
+                        {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>}
+                        {!isEffectiveCollapsed && <span className={`ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-slate-700/50 text-slate-500 border border-slate-600/30' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>🔒</span>}
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  /* Org users: normal beta feature links */
+                  <>
                 <Link href={`${dashboardHome}/agentic-prospecting`} onClick={(e) => handleBetaFeatureClick(e, 'Agentic Prospecting', `${dashboardHome}/agentic-prospecting`)} className={getSidebarLinkClass(pathname.includes('/agentic-prospecting'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? (t.agenticProspecting || 'Agentic Prospecting') : undefined}>
                   <div className={getSidebarIconClass(pathname.includes('/agentic-prospecting'), isEffectiveCollapsed)}>
                     <Compass className="w-5 h-5" />
@@ -1893,7 +1965,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
-
                 <Link href={`${dashboardHome}/onboarding`} className={getSidebarLinkClass(pathname.includes('/onboarding'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'Onboarding' : undefined}>
                   <div className={getSidebarIconClass(pathname.includes('/onboarding'), isEffectiveCollapsed)}>
                     <GraduationCap className="w-5 h-5" />
@@ -1901,6 +1972,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">Onboarding</span>}
                   {!isEffectiveCollapsed && isUserAdmin && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/25' : 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'}`}>Admin</span>}
                 </Link>
+                  </>
+                )}
 
                 {user?.email && isUserAdmin && (
                 <Link href={`${dashboardHome}/admin`} className={getSidebarLinkClass(pathname.includes('/admin') && !pathname.includes('/admin/'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'Admin Dashboard' : undefined}>
@@ -2168,6 +2241,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
           </OrgProvider>
 
+          {/* Persistent demo watermark for personal/demo accounts */}
+          {isDemoUser && <DemoWatermark />}
 
         </main>
       </div>

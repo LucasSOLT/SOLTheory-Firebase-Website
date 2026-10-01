@@ -11,6 +11,7 @@ import { Clock, ExternalLink, ChevronRight, Settings } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useTheme } from "@/components/ThemeProvider";
 import { getOrgLabel } from "@/lib/org-config";
+import { isDemoOrg } from "@/hooks/useDemoGating";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 import { WeeklyTimesheetChart } from "@/components/portal/WeeklyTimesheetChart";
 import { NearestDueTasksWidget } from "@/components/portal/NearestDueTasksWidget";
@@ -110,6 +111,7 @@ function ConfettiCanvas({ onDone }: { onDone: () => void }) {
 export function SolTheoryHome() {
   const { orgId } = useParams<{ orgId: string }>();
   const orgLabel = getOrgLabel(orgId);
+  const isDemo = isDemoOrg(orgId);
   const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
@@ -538,15 +540,18 @@ export function SolTheoryHome() {
             </CmsTileWrapper>
 
             {/* Slot: News Slideshow (Tile 6) — compact inline */}
+            {!isDemo && (
             <CmsTileWrapper tileId="tile-6" tileName={`${orgLabel} News`} className="flex-[6] h-full">
             <div className="relative w-full h-full rounded-2xl overflow-hidden">
               <NewsSlideshow />
               <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />
             </div>
             </CmsTileWrapper>
+            )}
           </motion.div>
 
           {/* Row 2: Middle (Grant Analytics, YouTube, Instagram) */}
+          {!isDemo && (
           <motion.div {...staggerRow(0.15)} className="flex flex-col lg:flex-row gap-4 md:gap-5 w-full items-stretch lg:max-h-[420px]">
             {/* Slot 3: Agentic Campaign Carousel */}
             <CmsTileWrapper tileId="tile-grants" tileName="Agentic Campaigns" className="flex-1 min-w-0 overflow-hidden">
@@ -748,17 +753,20 @@ export function SolTheoryHome() {
                 ║  END FROZEN — Instagram Feed Tile JSX                       ║
                 ╚══════════════════════════════════════════════════════════════╝ */}
           </motion.div>
+          )}
 
           {/* Row 3: Bottom (Left 16:9 KPI/Line Grid, Right 2:3 Stacked Milestones/Uptime) */}
           <motion.div {...staggerRow(0.25)} className="flex flex-col lg:flex-row gap-5 w-full">
             {/* Slot 5: Aspect 16:9 (Wide, Large) -> Two-column grid of AI Agent Operations and CRM Funnel */}
             <div className="flex-[8] aspect-auto lg:aspect-[16/9] hidden md:grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
               {/* Tile 9: Agentic Prospecting Feed */}
+              {!isDemo && (
               <CmsTileWrapper tileId="tile-9" tileName="Agentic Prospecting" className="h-full">
               <div className={`relative group ${tileStyle} shadow-sm rounded-2xl h-full w-full hover:shadow-md transition-all duration-300 p-4 md:p-5 flex flex-col overflow-hidden`}>
                 <AgenticProspectingFeed orgId={orgId} />
               </div>
               </CmsTileWrapper>
+              )}
 
               {/* Tile 11: CRM Pipeline */}
               <CmsTileWrapper tileId="tile-11" tileName="Tile 11" className="h-full">
