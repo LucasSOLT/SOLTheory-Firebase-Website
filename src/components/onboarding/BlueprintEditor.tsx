@@ -15,8 +15,10 @@ import {
   Link2,
   Filter,
   Tag,
+  Eye,
 } from 'lucide-react';
 import { InteractiveContentBuilder } from './InteractiveBuilders';
+import BlueprintPreview from './BlueprintPreview';
 import { ITEM_TYPE_DEFAULT_GATING } from '@/types/onboarding-templates';
 import { useStorage } from '@/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -72,6 +74,7 @@ export default function BlueprintEditor({
   const [description, setDescription] = useState('');
   const [phases, setPhases] = useState<BlueprintPhase[]>([]);
   const [applyToActive, setApplyToActive] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // ── Media Upload State ──
   const storage = useStorage();
@@ -366,6 +369,7 @@ export default function BlueprintEditor({
   }`;
 
   return (
+    <>
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div
         className={`w-full max-w-5xl h-[90vh] rounded-2xl shadow-2xl border flex flex-col animate-in zoom-in-95 duration-200 ${
@@ -378,6 +382,17 @@ export default function BlueprintEditor({
             {existingBlueprint ? `Edit Blueprint: ${existingBlueprint.roleName}` : 'Create New Blueprint'}
           </h2>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowPreview(true)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+                isDarkMode
+                  ? 'bg-slate-700 hover:bg-slate-600 text-white'
+                  : 'bg-slate-200 hover:bg-slate-300 text-slate-800'
+              }`}
+            >
+              <Eye className="w-4 h-4" />
+              Preview
+            </button>
             <button
               onClick={handleSave}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
@@ -999,5 +1014,54 @@ export default function BlueprintEditor({
 
       </div>
     </div>
+
+      {/* Employee Preview Modal */}
+      {showPreview && (
+        <BlueprintPreview
+          isOpen={showPreview}
+          onClose={() => setShowPreview(false)}
+          isDarkMode={isDarkMode}
+          orgId={orgId}
+          roleName={roleName || 'Untitled Role'}
+          description={description}
+          steps={phases.flatMap((phase) =>
+            phase.items.map((item) => ({
+              id: item.id,
+              phase: phase.phaseNumber,
+              title: item.title,
+              description: item.instructions || '',
+              priority: (item.priority || 'Medium') as 'High' | 'Medium' | 'Low',
+              dayOffset: item.dayOffset || 0,
+              requiresDocumentUpload: item.requiresDocumentUpload || false,
+              ...(item.documentCategory ? { documentCategory: item.documentCategory } : {}),
+              ...(item.hyperlink ? { sopUrl: item.hyperlink, hyperlink: item.hyperlink } : {}),
+              ...(item.itemType ? { itemType: item.itemType } : {}),
+              ...(item.instructions ? { instructions: item.instructions } : {}),
+              ...(item.headerImageUrl ? { headerImageUrl: item.headerImageUrl } : {}),
+              ...(item.backgroundColor && item.backgroundColor !== '#ffffff'
+                ? { backgroundColor: item.backgroundColor }
+                : {}),
+              ...(item.mediaUrl ? { mediaUrl: item.mediaUrl } : {}),
+              ...(item.mediaType ? { mediaType: item.mediaType } : {}),
+              ...(item.interactiveContent ? { interactiveContent: item.interactiveContent } : {}),
+              ...(item.suppressForTags && item.suppressForTags.length > 0
+                ? { suppressForTags: item.suppressForTags }
+                : {}),
+              completionGating: item.requiresDocumentUpload
+                ? 'upload_required'
+                : item.itemType && ITEM_TYPE_DEFAULT_GATING[item.itemType]
+                  ? ITEM_TYPE_DEFAULT_GATING[item.itemType]
+                  : 'self',
+            }))
+          )}
+          phaseDefinitions={phases.map((p) => ({
+            phaseNumber: p.phaseNumber,
+            name: p.name,
+            dayRangeStart: p.startDay,
+            dayRangeEnd: p.endDay,
+          }))}
+        />
+      )}
+    </>
   );
 }

@@ -19,8 +19,10 @@ import {
   Check,
   AlertCircle,
   X,
+  Eye,
 } from 'lucide-react';
 import BlueprintEditor from '@/components/onboarding/BlueprintEditor';
+import BlueprintPreview from '@/components/onboarding/BlueprintPreview';
 
 export default function BlueprintsLibraryPage() {
   const { orgId: routeOrgId } = useParams<{ orgId: string }>();
@@ -39,6 +41,8 @@ export default function BlueprintsLibraryPage() {
     isOpen: false,
     existingBlueprint: null,
   });
+
+  const [previewBlueprint, setPreviewBlueprint] = useState<any>(null);
 
   const [pushModalState, setPushModalState] = useState<{
     isOpen: boolean;
@@ -337,6 +341,15 @@ export default function BlueprintsLibraryPage() {
                     <Copy className="w-3.5 h-3.5" /> Clone
                   </button>
                   <button
+                    onClick={() => setPreviewBlueprint(bp)}
+                    className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                      isDarkMode ? 'hover:bg-slate-700 text-emerald-400' : 'hover:bg-slate-200 text-emerald-600'
+                    }`}
+                    title="Preview as Employee"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                  <button
                     onClick={() => {
                       const allOrgs = getAllOrgIds();
                       const defaultTarget = allOrgs.find(o => o !== orgId) || orgId;
@@ -514,6 +527,20 @@ export default function BlueprintsLibraryPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Blueprint Preview Modal */}
+      {previewBlueprint && (
+        <BlueprintPreview
+          isOpen={!!previewBlueprint}
+          onClose={() => setPreviewBlueprint(null)}
+          isDarkMode={isDarkMode}
+          orgId={orgId as string}
+          roleName={previewBlueprint.roleName || 'Untitled'}
+          description={previewBlueprint.description}
+          steps={previewBlueprint.steps || []}
+          phaseDefinitions={previewBlueprint.phaseDefinitions}
+        />
       )}
     </div>
   );
