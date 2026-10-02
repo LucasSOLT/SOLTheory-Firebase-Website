@@ -117,6 +117,51 @@ export async function PUT(req: NextRequest) {
         for (const instanceDoc of instancesSnapshot.docs) {
           const instanceData = instanceDoc.data();
           const startDateMs = instanceData.startedAt?.toDate().getTime() || Date.now();
+
+          // Resolve user's role tags for step suppression
+          const userRoleTags = new Set<string>();
+          try {
+            if (instanceData.userId) {
+              const userDoc = await db.collection('users').doc(instanceData.userId).get();
+              if (userDoc.exists) {
+                const userData = userDoc.data()!;
+                const rawTags: string[] = [];
+                if (userData.jobTitle) rawTags.push(userData.jobTitle);
+                if (userData.role) rawTags.push(userData.role);
+                if (userData.accountType) rawTags.push(userData.accountType);
+                if (Array.isArray(userData.certifications)) rawTags.push(...userData.certifications);
+                if (Array.isArray(userData.tags)) rawTags.push(...userData.tags);
+
+                try {
+                  const memberDoc = await db
+                    .collection('orgs')
+                    .doc(instanceData.orgId || orgId)
+                    .collection('members')
+                    .doc(instanceData.userId)
+                    .get();
+                  if (memberDoc.exists) {
+                    const memberData = memberDoc.data()!;
+                    if (memberData.role) rawTags.push(memberData.role);
+                    if (memberData.jobTitle) rawTags.push(memberData.jobTitle);
+                  }
+                } catch { /* best-effort */ }
+
+                for (const tag of rawTags) {
+                  if (!tag || typeof tag !== 'string') continue;
+                  const lower = tag.trim().toLowerCase();
+                  if (lower) {
+                    userRoleTags.add(lower);
+                    for (const word of lower.split(/\s+/)) {
+                      if (word.length > 1) userRoleTags.add(word);
+                    }
+                  }
+                }
+              }
+            }
+          } catch (err: any) {
+            console.warn('[Blueprints:PUT] Role tag resolution error:', err.message);
+          }
+
           const existingTasksRef = await db.collection('action_board_tasks')
             .where('metadata.onboardingInstanceId', '==', instanceDoc.id)
             .get();
@@ -126,6 +171,21 @@ export async function PUT(req: NextRequest) {
 
           for (const step of updates.steps) {
             if (!existingStepIds.has(step.id)) {
+              // Check role suppression
+              if (
+                step.suppressForTags &&
+                Array.isArray(step.suppressForTags) &&
+                step.suppressForTags.length > 0 &&
+                userRoleTags.size > 0
+              ) {
+                const isSuppressed = step.suppressForTags.some((suppressTag: string) =>
+                  userRoleTags.has(suppressTag.trim().toLowerCase())
+                );
+                if (isSuppressed) {
+                  continue; // Skip this step for this user
+                }
+              }
+
               const taskRef = db.collection('action_board_tasks').doc();
               const taskId = taskRef.id;
               newTaskIds.push(taskId);

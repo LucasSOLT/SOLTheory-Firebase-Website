@@ -13,6 +13,8 @@ import {
   Image as ImageIcon,
   Video,
   Link2,
+  Filter,
+  Tag,
 } from 'lucide-react';
 import { InteractiveContentBuilder } from './InteractiveBuilders';
 import { ITEM_TYPE_DEFAULT_GATING } from '@/types/onboarding-templates';
@@ -35,6 +37,7 @@ interface BlueprintItem {
   requiresDocumentUpload: boolean;
   documentCategory: string;
   interactiveContent?: any;
+  suppressForTags?: string[];
   isExpanded?: boolean;
 }
 
@@ -167,6 +170,7 @@ export default function BlueprintEditor({
               requiresDocumentUpload: step.requiresDocumentUpload || false,
               documentCategory: step.documentCategory || '',
               interactiveContent: step.interactiveContent || undefined,
+              suppressForTags: step.suppressForTags || [],
               isExpanded: false,
             })),
           };
@@ -241,6 +245,7 @@ export default function BlueprintEditor({
               mediaType: '',
               requiresDocumentUpload: false,
               documentCategory: '',
+              suppressForTags: [],
               isExpanded: true,
             },
           ],
@@ -325,6 +330,7 @@ export default function BlueprintEditor({
         ...(item.mediaUrl ? { mediaUrl: item.mediaUrl } : {}),
         ...(item.mediaType ? { mediaType: item.mediaType } : {}),
         ...(item.interactiveContent ? { interactiveContent: item.interactiveContent } : {}),
+        ...(item.suppressForTags && item.suppressForTags.length > 0 ? { suppressForTags: item.suppressForTags } : {}),
         completionGating: item.requiresDocumentUpload
           ? 'upload_required'
           : (item.itemType && ITEM_TYPE_DEFAULT_GATING[item.itemType])
@@ -567,9 +573,20 @@ export default function BlueprintEditor({
                                 className={`${inputClass()} w-20 text-center`}
                               />
                             </div>
+                            {item.suppressForTags && item.suppressForTags.length > 0 && (
+                              <span
+                                title={`Suppressed for: ${item.suppressForTags.join(', ')}`}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 ml-auto"
+                              >
+                                <Filter className="w-3 h-3" />
+                                {item.suppressForTags.length} Suppressed
+                              </span>
+                            )}
                             <button
                               onClick={() => handleDeleteItem(phase.id, item.id)}
-                              className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors ml-auto"
+                              className={`p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors ${
+                                item.suppressForTags && item.suppressForTags.length > 0 ? '' : 'ml-auto'
+                              }`}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -836,6 +853,104 @@ export default function BlueprintEditor({
                                     </select>
                                   </div>
                                 )}
+                              </div>
+
+                              {/* Role Suppression (Auto-Skip Step) */}
+                              <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-slate-800/40 border-slate-700/60' : 'bg-slate-50 border-slate-200'}`}>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <Filter className="w-4 h-4 text-amber-500" />
+                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                                      Role Suppression (Auto-Skip Step)
+                                    </span>
+                                  </div>
+                                  {item.suppressForTags && item.suppressForTags.length > 0 && (
+                                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                                      Skipped for {item.suppressForTags.length} role tag{item.suppressForTags.length > 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                                  Skip this step when onboarding employees with matching role tags or job titles (e.g. 1099 contractors skip W-2 tax forms).
+                                </p>
+
+                                {/* Quick Presets */}
+                                <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                                  <span className="text-[11px] font-semibold text-slate-400 mr-1">Quick Presets:</span>
+                                  {['1099', 'Contractor', 'Part-Time', 'Volunteer', 'Intern', 'Remote'].map((preset) => {
+                                    const isSelected = item.suppressForTags?.some(
+                                      (t) => t.toLowerCase() === preset.toLowerCase()
+                                    );
+                                    return (
+                                      <button
+                                        key={preset}
+                                        type="button"
+                                        onClick={() => {
+                                          const current = item.suppressForTags || [];
+                                          const next = isSelected
+                                            ? current.filter((t) => t.toLowerCase() !== preset.toLowerCase())
+                                            : [...current, preset];
+                                          handleUpdateItem(phase.id, item.id, { suppressForTags: next });
+                                        }}
+                                        className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
+                                          isSelected
+                                            ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                                            : isDarkMode
+                                              ? 'bg-slate-700/50 hover:bg-slate-700 text-slate-300 border-slate-600'
+                                              : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                                        }`}
+                                      >
+                                        {isSelected ? `✓ ${preset}` : `+ ${preset}`}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Active Tag Chips & Custom Tag Input */}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {(item.suppressForTags || []).map((tag) => (
+                                    <span
+                                      key={tag}
+                                      className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg ${
+                                        isDarkMode
+                                          ? 'bg-amber-950/40 text-amber-300 border border-amber-800/50'
+                                          : 'bg-amber-50 text-amber-800 border border-amber-200'
+                                      }`}
+                                    >
+                                      <Tag className="w-3 h-3 text-amber-500" />
+                                      <span>{tag}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const next = (item.suppressForTags || []).filter((t) => t !== tag);
+                                          handleUpdateItem(phase.id, item.id, { suppressForTags: next });
+                                        }}
+                                        className="hover:text-red-500 ml-1 p-0.5 rounded-full transition-colors"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </span>
+                                  ))}
+
+                                  <input
+                                    type="text"
+                                    placeholder="Type role tag (e.g. 1099, Part-Time) & press Enter..."
+                                    className={`${inputClass()} !w-auto min-w-[240px] flex-1 text-xs`}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ',') {
+                                        e.preventDefault();
+                                        const val = (e.currentTarget.value || '').trim().replace(/,/g, '');
+                                        if (val) {
+                                          const current = item.suppressForTags || [];
+                                          if (!current.some((t) => t.toLowerCase() === val.toLowerCase())) {
+                                            handleUpdateItem(phase.id, item.id, { suppressForTags: [...current, val] });
+                                          }
+                                          e.currentTarget.value = '';
+                                        }
+                                      }
+                                    }}
+                                  />
+                                </div>
                               </div>
                             </div>
                           )}

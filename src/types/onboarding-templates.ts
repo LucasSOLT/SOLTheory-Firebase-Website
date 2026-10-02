@@ -155,6 +155,17 @@ export interface OnboardingStep {
    * Stored as JSON and passed through to task metadata on instantiation.
    */
   interactiveContent?: InteractiveContent;
+
+  /**
+   * Role suppression tags. If the target user's job title, role, or tags
+   * match ANY of these strings (case-insensitive), this step is skipped
+   * during blueprint instantiation.
+   *
+   * Examples: ["1099", "Contractor", "Part-Time"]
+   * Use case: A W-4 tax form step can be suppressed for 1099 contractors
+   * who don't need W-2 tax forms.
+   */
+  suppressForTags?: string[];
 }
 
 // ── Template Blueprint ──────────────────────────────────────────────────────

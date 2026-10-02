@@ -31,6 +31,7 @@ const PEER_RECOVERY_COACH_STEPS: OnboardingStep[] = [
     completionGating: 'upload_required',
     requiresDocumentUpload: true,
     documentCategory: 'w4',
+    suppressForTags: ['1099', 'Contractor'],
   },
   {
     id: 'step_i9',

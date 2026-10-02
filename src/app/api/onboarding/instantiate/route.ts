@@ -96,7 +96,56 @@ export async function POST(req: Request) {
     // Track results for all templates
     const createdInstances: { instanceId: string; tasksCreated: number; roleName: string; taskIds: string[] }[] = [];
 
-    // ── 3. Loop over each template to instantiate ──
+    // ── 3a. Resolve user's role tags for step suppression ──
+    // Build a set of lowercase tags from the user's profile so we can
+    // skip steps whose suppressForTags match the user's role/type.
+    let userRoleTags: Set<string> = new Set();
+    try {
+      const userDoc = await db.collection('users').doc(resolvedUserId).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data()!;
+        // Gather tags from all relevant fields
+        const rawTags: string[] = [];
+        if (userData.jobTitle) rawTags.push(userData.jobTitle);
+        if (userData.role) rawTags.push(userData.role);
+        if (userData.accountType) rawTags.push(userData.accountType);
+        if (Array.isArray(userData.certifications)) rawTags.push(...userData.certifications);
+        if (Array.isArray(userData.tags)) rawTags.push(...userData.tags);
+
+        // Also check org membership for role
+        try {
+          const memberDoc = await db.collection('orgs').doc(orgId).collection('members').doc(resolvedUserId).get();
+          if (memberDoc.exists) {
+            const memberData = memberDoc.data()!;
+            if (memberData.role) rawTags.push(memberData.role);
+            if (memberData.jobTitle) rawTags.push(memberData.jobTitle);
+          }
+        } catch { /* membership lookup is best-effort */ }
+
+        // Normalize: lowercase, trim, and split on common separators
+        // e.g. "1099 Peer Recovery Coach" → ["1099", "peer", "recovery", "coach", "1099 peer recovery coach"]
+        for (const tag of rawTags) {
+          if (!tag || typeof tag !== 'string') continue;
+          const lower = tag.trim().toLowerCase();
+          if (lower) {
+            userRoleTags.add(lower);
+            // Also add individual words for partial matching
+            // e.g. "1099 Peer Recovery Coach" → matches suppressForTags: ["1099"]
+            for (const word of lower.split(/\s+/)) {
+              if (word.length > 1) userRoleTags.add(word);
+            }
+          }
+        }
+      }
+      if (userRoleTags.size > 0) {
+        console.log(`${LOG_PREFIX} User role tags for suppression: [${[...userRoleTags].join(', ')}]`);
+      }
+    } catch (err: any) {
+      console.warn(`${LOG_PREFIX} Could not resolve user role tags for suppression:`, err.message);
+      // Non-fatal — proceed without suppression
+    }
+
+    // ── 3b. Loop over each template to instantiate ──
     for (const tplId of resolvedTemplateIds) {
       // Load the template — system first, then custom Firestore
       let template = getSystemTemplateById(tplId);
@@ -141,6 +190,38 @@ export async function POST(req: Request) {
         `${LOG_PREFIX} Instantiating "${template.roleName}" for ${targetUserEmail} in ${orgId} (${template.steps.length} steps)`,
       );
 
+      // ── Role-based step suppression ──
+      // Filter out steps whose suppressForTags match the user's role profile.
+      const filteredSteps = userRoleTags.size > 0
+        ? template.steps.filter((step: any) => {
+            if (!step.suppressForTags || !Array.isArray(step.suppressForTags) || step.suppressForTags.length === 0) {
+              return true; // No suppression tags — always include
+            }
+            // Check if ANY suppression tag matches ANY user role tag
+            const isSuppressed = step.suppressForTags.some((suppressTag: string) => {
+              const normalizedTag = suppressTag.trim().toLowerCase();
+              return userRoleTags.has(normalizedTag);
+            });
+            if (isSuppressed) {
+              console.log(
+                `${LOG_PREFIX} ⏭️ Suppressed step "${step.title}" (${step.id}) — matched suppressForTags: [${step.suppressForTags.join(', ')}]`,
+              );
+            }
+            return !isSuppressed;
+          })
+        : template.steps;
+
+      if (filteredSteps.length < template.steps.length) {
+        console.log(
+          `${LOG_PREFIX} Role suppression: ${template.steps.length - filteredSteps.length} step(s) suppressed, ${filteredSteps.length} remaining`,
+        );
+      }
+
+      if (filteredSteps.length === 0) {
+        console.warn(`${LOG_PREFIX} All steps suppressed for "${template.roleName}" — skipping this template`);
+        continue; // Skip this template entirely if all steps are suppressed
+      }
+
       // ── Calculate due dates and prepare task batch ──
       const batch = db.batch();
       const taskIds: string[] = [];
@@ -149,7 +230,7 @@ export async function POST(req: Request) {
       const instanceRef = db.collection('onboarding_instances').doc();
       const instanceId = instanceRef.id;
 
-      for (const step of template.steps) {
+      for (const step of filteredSteps) {
         const taskRef = db.collection('action_board_tasks').doc();
         const taskId = taskRef.id;
         taskIds.push(taskId);
@@ -235,7 +316,7 @@ export async function POST(req: Request) {
         startedAt: FieldValue.serverTimestamp(),
         completedAt: null,
         overallProgress: 0,
-        totalSteps: template.steps.length,
+        totalSteps: filteredSteps.length,
         completedSteps: 0,
         taskIds,
         initiatedBy: auth.uid,
@@ -263,7 +344,8 @@ export async function POST(req: Request) {
           roleName: template.roleName,
           targetUserId,
           targetUserEmail,
-          totalSteps: template.steps.length,
+          totalSteps: filteredSteps.length,
+          suppressedSteps: template.steps.length - filteredSteps.length,
         },
       });
 
