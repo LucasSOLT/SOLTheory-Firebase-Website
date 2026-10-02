@@ -125,7 +125,8 @@ export interface OnboardingStep {
   /** What type of onboarding item this is. Determines completion gating behavior. */
   itemType?: 'document_upload' | 'video_watch' | 'reading' | 'shadowing_session' | 'action_item' | 'form_sign'
     | 'quiz' | 'short_answer' | 'form' | 'checklist'
-    | 'policy_acknowledgment' | 'external_verification' | 'recorded_response';
+    | 'policy_acknowledgment' | 'external_verification' | 'recorded_response'
+    | 'pdf_form';
 
   /** Rich instructions for the new hire (may contain line breaks). */
   instructions?: string;
@@ -359,7 +360,8 @@ export type InteractiveContent =
   | ChecklistContent
   | PolicyAcknowledgmentContent
   | ExternalVerificationContent
-  | RecordedResponseContent;
+  | RecordedResponseContent
+  | PdfFormContent;
 
 // ── 1. Quiz / Knowledge Check ───────────────────────────────────────────────
 
@@ -497,6 +499,48 @@ export interface RecordedResponseContent {
   reviewMode: 'auto_complete' | 'admin_review';
 }
 
+// ── 8. Fillable PDF Form ────────────────────────────────────────────────────
+
+export interface PdfFormContent {
+  type: 'pdf_form';
+  /** Firebase Storage path to the PDF template. */
+  pdfStoragePath: string;
+  /** Signed download URL for client-side preview. */
+  pdfDownloadUrl?: string;
+  /** Detected AcroForm fields from the PDF template. */
+  detectedFields?: PdfFormField[];
+  /** Number of pages in the PDF template. */
+  pageCount?: number;
+  /** Optional PDF title extracted from metadata. */
+  pdfTitle?: string;
+  /** Whether a drawn signature is required to submit. */
+  requireSignature: boolean;
+  /** Page index and coordinates for the signature stamp (if requireSignature). */
+  signaturePosition?: {
+    pageIndex: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  /** Compliance document category for vault cataloging. */
+  documentCategory?: string;
+  /** Whether to require ESIGN Act consent checkbox. */
+  requireEsignConsent?: boolean;
+}
+
+/** Metadata shape for a detected PDF AcroForm field (mirrored from pdf-form-engine). */
+export interface PdfFormField {
+  name: string;
+  type: 'text' | 'checkbox' | 'dropdown' | 'radio' | 'signature' | 'unknown';
+  readOnly: boolean;
+  options?: string[];
+  currentValue?: string | boolean;
+  pageIndex?: number;
+  tooltip?: string;
+  required?: boolean;
+}
+
 // ── Human-readable labels for interactive item types ────────────────────────
 
 export const INTERACTIVE_ITEM_TYPE_LABELS: Record<string, string> = {
@@ -513,6 +557,7 @@ export const INTERACTIVE_ITEM_TYPE_LABELS: Record<string, string> = {
   policy_acknowledgment: 'Policy Acknowledgment / E-Signature',
   external_verification: 'External Completion Verification',
   recorded_response: 'Recorded Response (Video/Audio)',
+  pdf_form: 'Fillable PDF Form',
 };
 
 /** Map from interactive itemType to its default completionGating value. */
@@ -530,4 +575,6 @@ export const ITEM_TYPE_DEFAULT_GATING: Record<string, string> = {
   policy_acknowledgment: 'acknowledgment_signed',
   external_verification: 'external_verified',
   recorded_response: 'response_required',
+  pdf_form: 'pdf_form_submitted',
 };
+

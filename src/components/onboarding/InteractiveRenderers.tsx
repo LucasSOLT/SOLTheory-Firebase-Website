@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -12,7 +12,12 @@ import {
   Play,
   RotateCcw,
   CheckSquare,
-  Square as SquareOutline
+  Square as SquareOutline,
+  FileText,
+  Loader2,
+  ShieldCheck,
+  PenTool,
+  AlertCircle,
 } from 'lucide-react';
 import {
   InteractiveContent,
@@ -22,9 +27,11 @@ import {
   ChecklistContent,
   PolicyAcknowledgmentContent,
   ExternalVerificationContent,
-  RecordedResponseContent
+  RecordedResponseContent,
+  PdfFormContent,
 } from '@/types/onboarding-templates';
 import { safeExternalUrl } from '@/lib/utils';
+import { getAuthHeaders } from '@/lib/api-auth-client';
 
 // ----------------------------------------------------------------------
 // 1. QuizRenderer
@@ -1021,6 +1028,442 @@ export function RecordedResponseRenderer({
 }
 
 // ----------------------------------------------------------------------
+// 8. PdfFormRenderer
+// ----------------------------------------------------------------------
+export function PdfFormRenderer({
+  content,
+  onSubmit,
+  isDarkMode,
+  disabled,
+  existingResponse,
+  orgId,
+  taskId,
+}: {
+  content: PdfFormContent;
+  onSubmit: (data: any) => void;
+  isDarkMode: boolean;
+  disabled?: boolean;
+  existingResponse?: any;
+  orgId?: string;
+  taskId?: string;
+}) {
+  const [fieldValues, setFieldValues] = useState<Record<string, string | boolean>>(() => {
+    if (existingResponse?.fieldValues) return existingResponse.fieldValues;
+    const initial: Record<string, string | boolean> = {};
+    if (content.detectedFields) {
+      for (const f of content.detectedFields) {
+        if (f.currentValue !== undefined) {
+          initial[f.name] = f.currentValue;
+        } else if (f.type === 'checkbox') {
+          initial[f.name] = false;
+        } else {
+          initial[f.name] = '';
+        }
+      }
+    }
+    return initial;
+  });
+
+  const [typedName, setTypedName] = useState(existingResponse?.typedName || '');
+  const [signatureData, setSignatureData] = useState(existingResponse?.signatureData || '');
+  const [esignConsent, setEsignConsent] = useState(existingResponse?.esignConsent ?? false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [processResult, setProcessResult] = useState<{
+    downloadUrl?: string;
+    sha256Hash?: string;
+    fieldsFilled?: number;
+  } | null>(existingResponse ? { downloadUrl: existingResponse.downloadUrl, sha256Hash: existingResponse.sha256Hash } : null);
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  // Redraw existing signature if present
+  useEffect(() => {
+    if (signatureData && canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, 400, 150);
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = signatureData;
+      }
+    }
+  }, [signatureData]);
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (disabled || isSubmitting) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    setIsDrawing(true);
+    const rect = canvas.getBoundingClientRect();
+    const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.nativeEvent.offsetX;
+    const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.nativeEvent.offsetY;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing || disabled || isSubmitting) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.nativeEvent.offsetX;
+    const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.nativeEvent.offsetY;
+
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    if (canvasRef.current) {
+      setSignatureData(canvasRef.current.toDataURL());
+    }
+  };
+
+  const clearSignature = () => {
+    setSignatureData('');
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+
+  const updateField = (name: string, value: string | boolean) => {
+    setFieldValues((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const isFormValid = useMemo(() => {
+    if (content.requireEsignConsent && !esignConsent) return false;
+    if (content.requireSignature && (!signatureData || !typedName.trim())) return false;
+    return true;
+  }, [content, esignConsent, signatureData, typedName]);
+
+  const handleSubmit = async () => {
+    if (!isFormValid || disabled || isSubmitting) return;
+    setIsSubmitting(true);
+    setErrorMsg(null);
+
+    try {
+      let finalResult = null;
+
+      // If orgId and taskId are provided, call process API directly
+      if (orgId && taskId) {
+        const headers = await getAuthHeaders();
+        const signatures = signatureData && content.signaturePosition ? [
+          {
+            imageData: signatureData,
+            pageIndex: content.signaturePosition.pageIndex,
+            x: content.signaturePosition.x,
+            y: content.signaturePosition.y,
+            width: content.signaturePosition.width,
+            height: content.signaturePosition.height,
+          }
+        ] : undefined;
+
+        const res = await fetch('/api/onboarding/pdf-form/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers },
+          body: JSON.stringify({
+            orgId,
+            taskId,
+            pdfSourceStoragePath: content.pdfStoragePath,
+            pdfSourceUrl: content.pdfDownloadUrl,
+            fields: fieldValues,
+            signatures,
+            signerName: typedName || 'Signer',
+            documentCategory: content.documentCategory || 'fillable_pdf',
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to process PDF form');
+        }
+        finalResult = data;
+        setProcessResult(data);
+      }
+
+      onSubmit({
+        type: 'pdf_form_fill',
+        fieldValues,
+        typedName,
+        signatureData,
+        esignConsent,
+        submittedAt: new Date().toISOString(),
+        downloadUrl: finalResult?.downloadUrl,
+        sha256Hash: finalResult?.sha256Hash,
+      });
+    } catch (err: any) {
+      console.error('[PdfFormRenderer] Submit error:', err);
+      setErrorMsg(err.message || 'Failed to submit form');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const fields = content.detectedFields || [];
+
+  return (
+    <div className="space-y-6">
+      {/* Form Header */}
+      <div className={`p-4 rounded-xl border flex items-center justify-between ${
+        isDarkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
+      }`}>
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+            isDarkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600'
+          }`}>
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="font-bold text-sm">{content.pdfTitle || 'Fillable PDF Form'}</h4>
+            <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              {fields.length} field{fields.length !== 1 ? 's' : ''} to complete
+              {content.pageCount ? ` • ${content.pageCount} page${content.pageCount !== 1 ? 's' : ''}` : ''}
+            </p>
+          </div>
+        </div>
+        {content.pdfDownloadUrl && (
+          <a
+            href={content.pdfDownloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
+              isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-100 text-slate-700'
+            }`}
+          >
+            <ExternalLink className="w-3.5 h-3.5" /> View Original
+          </a>
+        )}
+      </div>
+
+      {/* Processed / Signed Result Banner */}
+      {processResult?.downloadUrl && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between ${
+          isDarkMode ? 'bg-emerald-950/30 border-emerald-800/50 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+        }`}>
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
+            <div>
+              <div className="font-bold text-sm">PDF Form Flattened & Sealed ✓</div>
+              {processResult.sha256Hash && (
+                <div className="text-[11px] opacity-80 font-mono truncate max-w-md">
+                  SHA-256: {processResult.sha256Hash}
+                </div>
+              )}
+            </div>
+          </div>
+          <a
+            href={processResult.downloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" /> Download Sealed PDF
+          </a>
+        </div>
+      )}
+
+      {/* AcroForm Fields Grid */}
+      {fields.length > 0 && (
+        <div className="space-y-4">
+          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400">Form Inputs</h5>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {fields.map((field) => {
+              const val = fieldValues[field.name];
+
+              if (field.type === 'checkbox') {
+                return (
+                  <label
+                    key={field.name}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      isDarkMode ? 'bg-slate-800/40 border-slate-700 hover:bg-slate-800' : 'bg-white border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={disabled || isSubmitting}
+                      checked={!!val}
+                      onChange={(e) => updateField(field.name, e.target.checked)}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-medium">{field.name}</span>
+                  </label>
+                );
+              }
+
+              if (field.type === 'dropdown' && field.options) {
+                return (
+                  <div key={field.name} className="space-y-1">
+                    <label className="block text-xs font-semibold">{field.name}</label>
+                    <select
+                      disabled={disabled || isSubmitting}
+                      value={String(val || '')}
+                      onChange={(e) => updateField(field.name, e.target.value)}
+                      className={`w-full p-2 text-sm rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none ${
+                        isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      }`}
+                    >
+                      <option value="">-- Select option --</option>
+                      {field.options.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={field.name} className="space-y-1">
+                  <label className="block text-xs font-semibold">{field.name}</label>
+                  <input
+                    type="text"
+                    disabled={disabled || isSubmitting}
+                    value={String(val || '')}
+                    onChange={(e) => updateField(field.name, e.target.value)}
+                    placeholder={`Enter ${field.name}`}
+                    className={`w-full p-2 text-sm rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none ${
+                      isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ESIGN Act Consent Checkbox */}
+      {content.requireEsignConsent && (
+        <div className={`p-4 rounded-xl border ${
+          isDarkMode ? 'bg-indigo-950/30 border-indigo-800/40' : 'bg-indigo-50/70 border-indigo-200/80'
+        }`}>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              disabled={disabled || isSubmitting}
+              checked={esignConsent}
+              onChange={(e) => setEsignConsent(e.target.checked)}
+              className="w-4 h-4 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className={`text-xs font-medium ${isDarkMode ? 'text-indigo-200' : 'text-indigo-900'}`}>
+              I agree to conduct business electronically and understand that my digital signature is legally binding under the ESIGN Act (15 U.S.C. § 7001 et seq.).
+            </span>
+          </label>
+        </div>
+      )}
+
+      {/* Signature & Typed Name Section */}
+      {content.requireSignature && (
+        <div className="space-y-4 pt-2">
+          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400">Electronic Signature</h5>
+
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold">
+              Type Full Legal Name <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              disabled={disabled || isSubmitting}
+              value={typedName}
+              onChange={(e) => setTypedName(e.target.value)}
+              placeholder="e.g. Jane Doe"
+              className={`w-full max-w-md p-2 text-sm rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none ${
+                isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+              }`}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between max-w-md">
+              <label className="block text-xs font-semibold">
+                Draw Signature <span className="text-rose-500">*</span>
+              </label>
+              {!disabled && !isSubmitting && (
+                <button
+                  type="button"
+                  onClick={clearSignature}
+                  className="text-xs text-indigo-500 hover:underline"
+                >
+                  Clear Pad
+                </button>
+              )}
+            </div>
+            <div className={`border rounded-lg max-w-md bg-white overflow-hidden ${
+              isDarkMode ? 'border-slate-700' : 'border-slate-300'
+            }`}>
+              <canvas
+                ref={canvasRef}
+                width={400}
+                height={150}
+                className={`w-full h-[150px] ${disabled || isSubmitting ? 'cursor-not-allowed opacity-70' : 'cursor-crosshair'}`}
+                style={{ touchAction: 'none' }}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseOut={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Alert */}
+      {errorMsg && (
+        <div className="flex items-center gap-2 p-3 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          {errorMsg}
+        </div>
+      )}
+
+      {/* Action Bar */}
+      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-800">
+        <button
+          onClick={handleSubmit}
+          disabled={disabled || isSubmitting || !isFormValid}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white transition-all shadow-sm ${
+            disabled || isSubmitting || !isFormValid
+              ? 'bg-indigo-400 opacity-50 cursor-not-allowed'
+              : 'bg-indigo-600 hover:bg-indigo-500 active:scale-95'
+          }`}
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Flattening & Sealing PDF...
+            </>
+          ) : (
+            <>
+              <PenTool className="w-4 h-4" />
+              Submit & Sign PDF Form
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------
 // Dispatcher
 // ----------------------------------------------------------------------
 export function InteractiveContentRenderer({ 
@@ -1028,13 +1471,17 @@ export function InteractiveContentRenderer({
   onSubmit, 
   isDarkMode, 
   disabled,
-  existingResponse
+  existingResponse,
+  orgId,
+  taskId,
 }: {
   content: InteractiveContent;
   onSubmit: (responseData: any) => void;
   isDarkMode: boolean;
   disabled?: boolean;
   existingResponse?: any;
+  orgId?: string;
+  taskId?: string;
 }) {
   switch (content.type) {
     case 'quiz':
@@ -1051,6 +1498,8 @@ export function InteractiveContentRenderer({
       return <ExternalVerificationRenderer content={content} onSubmit={onSubmit} isDarkMode={isDarkMode} disabled={disabled} existingResponse={existingResponse} />;
     case 'recorded_response':
       return <RecordedResponseRenderer content={content} onSubmit={onSubmit} isDarkMode={isDarkMode} disabled={disabled} existingResponse={existingResponse} />;
+    case 'pdf_form':
+      return <PdfFormRenderer content={content} onSubmit={onSubmit} isDarkMode={isDarkMode} disabled={disabled} existingResponse={existingResponse} orgId={orgId} taskId={taskId} />;
     default:
       return (
         <div className={`p-4 border rounded-md text-center ${isDarkMode ? 'border-red-800 bg-red-900/20 text-red-400' : 'border-red-200 bg-red-50 text-red-600'}`}>
@@ -1059,3 +1508,4 @@ export function InteractiveContentRenderer({
       );
   }
 }
+

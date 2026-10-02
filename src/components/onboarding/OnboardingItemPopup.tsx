@@ -200,7 +200,7 @@ export default function OnboardingItemPopup({
     }
 
     // Interactive types: hide the standard Complete button — the renderer handles submission
-    const interactiveGating = ['quiz_passed', 'response_required', 'response_reviewed', 'form_submitted', 'checklist_complete', 'acknowledgment_signed', 'external_verified'];
+    const interactiveGating = ['quiz_passed', 'response_required', 'response_reviewed', 'form_submitted', 'checklist_complete', 'acknowledgment_signed', 'external_verified', 'pdf_form_submitted'];
     if (meta.completionGating && interactiveGating.includes(meta.completionGating) && meta.interactiveContent) {
       return {
         disabled: true,
@@ -457,6 +457,8 @@ export default function OnboardingItemPopup({
                 isDarkMode={isDarkMode}
                 disabled={isCompleted || isSubmitting || meta.reviewStatus === 'pending_review'}
                 existingResponse={meta.userResponse?.[meta.userResponse.length - 1]}
+                orgId={orgId}
+                taskId={task.id}
               />
               {isSubmitting && (
                 <div className={`text-center py-3 text-sm font-semibold animate-pulse ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>

@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Plus, Trash2, GripVertical } from 'lucide-react';
-import type { 
+import { Plus, Trash2, GripVertical, FileText, Upload, Search, Check, Loader2, AlertCircle } from 'lucide-react';
+import { 
   InteractiveContent, 
   QuizContent, QuizQuestion, QuizOption,
   ShortAnswerContent, ShortAnswerPrompt,
@@ -10,8 +10,11 @@ import type {
   ChecklistContent, ChecklistItem,
   PolicyAcknowledgmentContent,
   ExternalVerificationContent,
-  RecordedResponseContent
+  RecordedResponseContent,
+  PdfFormContent,
+  COMPLIANCE_CATEGORY_LABELS,
 } from '@/types/onboarding-templates';
+import { getAuthHeaders } from '@/lib/api-auth-client';
 
 const inputClass = (isDarkMode: boolean) =>
   `w-full p-2 flex-1 rounded border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -604,6 +607,223 @@ export function RecordedResponseBuilder({ content, onChange, isDarkMode }: Build
   );
 }
 
+// ── 8. PDF Form Builder ──────────────────────────────────────────────────────
+
+export function PdfFormBuilder({ content, onChange, isDarkMode }: BuilderProps<PdfFormContent>) {
+  const [isDetecting, setIsDetecting] = React.useState(false);
+  const [detectMsg, setDetectMsg] = React.useState<string | null>(null);
+
+  const handleDetectFields = async () => {
+    if (!content.pdfStoragePath) {
+      setDetectMsg('Please enter a PDF Storage Path first.');
+      return;
+    }
+    setIsDetecting(true);
+    setDetectMsg(null);
+
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/onboarding/pdf-form/detect-fields', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ storagePath: content.pdfStoragePath }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to detect PDF fields');
+      }
+
+      onChange({
+        ...content,
+        detectedFields: data.fields || [],
+        pageCount: data.pageCount || 1,
+        pdfTitle: data.title || '',
+      });
+
+      setDetectMsg(`✓ Detected ${data.fillableFields || 0} fillable AcroForm fields across ${data.pageCount || 1} page(s).`);
+    } catch (err: any) {
+      console.error('[PdfFormBuilder] Detect error:', err);
+      setDetectMsg(err.message || 'Error detecting PDF fields.');
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
+  const sigPos = content.signaturePosition || { pageIndex: 0, x: 50, y: 50, width: 200, height: 60 };
+
+  return (
+    <div className="space-y-4">
+      <div className={cardClass(isDarkMode)}>
+        <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
+          <FileText className="w-4 h-4 text-indigo-500" />
+          Fillable PDF Template Configuration
+        </h4>
+        <p className={`text-xs mb-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          Specify a Firebase Storage path to an AcroForm fillable PDF template (e.g. W-4, I-9, state tax forms).
+        </p>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold mb-1">PDF Storage Path</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={content.pdfStoragePath || ''}
+                onChange={(e) => onChange({ ...content, pdfStoragePath: e.target.value })}
+                placeholder="e.g. compliance_templates/w4_2026.pdf"
+                className={inputClass(isDarkMode)}
+              />
+              <button
+                type="button"
+                onClick={handleDetectFields}
+                disabled={isDetecting || !content.pdfStoragePath}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-colors shrink-0"
+              >
+                {isDetecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                Detect Fields
+              </button>
+            </div>
+          </div>
+
+          {detectMsg && (
+            <div className={`p-2.5 rounded text-xs font-semibold flex items-center gap-2 ${
+              detectMsg.startsWith('✓')
+                ? isDarkMode ? 'bg-emerald-950/40 text-emerald-300' : 'bg-emerald-50 text-emerald-800'
+                : isDarkMode ? 'bg-rose-950/40 text-rose-300' : 'bg-rose-50 text-rose-800'
+            }`}>
+              {detectMsg.startsWith('✓') ? <Check className="w-4 h-4 shrink-0 text-emerald-500" /> : <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />}
+              {detectMsg}
+            </div>
+          )}
+
+          {content.detectedFields && content.detectedFields.length > 0 && (
+            <div className={`p-3 rounded-lg border text-xs space-y-1 ${isDarkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-white border-slate-200'}`}>
+              <div className="font-bold">Detected AcroForm Fields ({content.detectedFields.length}):</div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {content.detectedFields.map((f) => (
+                  <span
+                    key={f.name}
+                    className={`px-2 py-0.5 rounded text-[11px] font-mono ${
+                      isDarkMode ? 'bg-slate-800 text-indigo-300' : 'bg-slate-100 text-indigo-700'
+                    }`}
+                  >
+                    {f.name} ({f.type})
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold mb-1">Compliance Vault Category</label>
+            <select
+              value={content.documentCategory || 'other'}
+              onChange={(e) => onChange({ ...content, documentCategory: e.target.value })}
+              className={inputClass(isDarkMode)}
+            >
+              {Object.entries(COMPLIANCE_CATEGORY_LABELS).map(([catKey, label]) => (
+                <option key={catKey} value={catKey}>{label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="pt-2 space-y-2">
+            <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!content.requireSignature}
+                onChange={(e) => onChange({ ...content, requireSignature: e.target.checked })}
+                className={checkboxClass}
+              />
+              Require Electronic Drawn Signature
+            </label>
+
+            <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={content.requireEsignConsent !== false}
+                onChange={(e) => onChange({ ...content, requireEsignConsent: e.target.checked })}
+                className={checkboxClass}
+              />
+              Require Explicit ESIGN Act Consent Checkbox
+            </label>
+          </div>
+
+          {content.requireSignature && (
+            <div className={`p-3 rounded-lg border text-xs space-y-2 mt-2 ${isDarkMode ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
+              <div className="font-bold">Signature Stamp Coordinates (PDF Points):</div>
+              <div className="grid grid-cols-5 gap-2">
+                <div>
+                  <label className="block text-[10px] opacity-70">Page (0-based)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={sigPos.pageIndex}
+                    onChange={(e) => onChange({
+                      ...content,
+                      signaturePosition: { ...sigPos, pageIndex: parseInt(e.target.value) || 0 },
+                    })}
+                    className={inputClass(isDarkMode)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] opacity-70">X (Points)</label>
+                  <input
+                    type="number"
+                    value={sigPos.x}
+                    onChange={(e) => onChange({
+                      ...content,
+                      signaturePosition: { ...sigPos, x: parseInt(e.target.value) || 0 },
+                    })}
+                    className={inputClass(isDarkMode)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] opacity-70">Y (Points)</label>
+                  <input
+                    type="number"
+                    value={sigPos.y}
+                    onChange={(e) => onChange({
+                      ...content,
+                      signaturePosition: { ...sigPos, y: parseInt(e.target.value) || 0 },
+                    })}
+                    className={inputClass(isDarkMode)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] opacity-70">Width</label>
+                  <input
+                    type="number"
+                    value={sigPos.width}
+                    onChange={(e) => onChange({
+                      ...content,
+                      signaturePosition: { ...sigPos, width: parseInt(e.target.value) || 200 },
+                    })}
+                    className={inputClass(isDarkMode)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] opacity-70">Height</label>
+                  <input
+                    type="number"
+                    value={sigPos.height}
+                    onChange={(e) => onChange({
+                      ...content,
+                      signaturePosition: { ...sigPos, height: parseInt(e.target.value) || 60 },
+                    })}
+                    className={inputClass(isDarkMode)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Wrapper ──────────────────────────────────────────────────────────────────
 
 export function InteractiveContentBuilder({ itemType, content, onChange, isDarkMode }: {
@@ -676,6 +896,16 @@ export function InteractiveContentBuilder({ itemType, content, onChange, isDarkM
             reviewMode: 'auto_complete'
           };
           break;
+        case 'pdf_form':
+          defaultContent = {
+            type: 'pdf_form',
+            pdfStoragePath: '',
+            requireSignature: true,
+            requireEsignConsent: true,
+            signaturePosition: { pageIndex: 0, x: 50, y: 50, width: 200, height: 60 },
+            documentCategory: 'w4',
+          };
+          break;
       }
       
       if (defaultContent) {
@@ -701,7 +931,10 @@ export function InteractiveContentBuilder({ itemType, content, onChange, isDarkM
       return <ExternalVerificationBuilder content={content} onChange={onChange as any} isDarkMode={isDarkMode} />;
     case 'recorded_response':
       return <RecordedResponseBuilder content={content} onChange={onChange as any} isDarkMode={isDarkMode} />;
+    case 'pdf_form':
+      return <PdfFormBuilder content={content} onChange={onChange as any} isDarkMode={isDarkMode} />;
     default:
       return null;
   }
 }
+

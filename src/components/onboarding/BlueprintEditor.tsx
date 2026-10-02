@@ -567,6 +567,7 @@ export default function BlueprintEditor({
                                 <option value="policy_acknowledgment">Policy / E-Signature</option>
                                 <option value="external_verification">External Verification</option>
                                 <option value="recorded_response">Recorded Response</option>
+                                <option value="pdf_form">Fillable PDF Form</option>
                               </optgroup>
                             </select>
                             <select
@@ -824,7 +825,7 @@ export default function BlueprintEditor({
                               </div>
 
                               {/* Interactive Content Builder (for quiz, form, checklist, etc.) */}
-                              {['quiz', 'short_answer', 'form', 'checklist', 'policy_acknowledgment', 'external_verification', 'recorded_response'].includes(item.itemType) && (
+                              {['quiz', 'short_answer', 'form', 'checklist', 'policy_acknowledgment', 'external_verification', 'recorded_response', 'pdf_form'].includes(item.itemType) && (
                                 <div className={`p-4 rounded-lg border-2 border-dashed ${isDarkMode ? 'border-indigo-500/30 bg-indigo-950/20' : 'border-indigo-300/50 bg-indigo-50/30'}`}>
                                   <h4 className={`text-sm font-bold mb-3 ${isDarkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>
                                     ✨ Interactive Content Configuration
