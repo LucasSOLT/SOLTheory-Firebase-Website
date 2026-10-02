@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/firebase/admin';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { createCrmContactForNewMember } from '@/lib/crm-auto-integration';
 
 // In-memory rate limit: 10 registrations per IP per hour
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -199,6 +200,21 @@ export async function POST(req: NextRequest) {
         usedByEmail: trimmedEmail,
         usedAt: FieldValue.serverTimestamp(),
       });
+
+      // ── Auto-create CRM contact for new org member (best-effort) ──
+      try {
+        await createCrmContactForNewMember({
+          uid,
+          firstName: trimmedFirstName,
+          lastName: trimmedLastName,
+          email: trimmedEmail,
+          phone: trimmedPhone,
+          jobTitle: trimmedJobTitle,
+          certifications: userDoc.certifications,
+          orgId,
+          registrationSource: 'invite',
+        });
+      } catch { /* CRM integration is best-effort — never block registration */ }
     }
 
     // ── Audit log ──

@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyRequest } from '@/lib/api-auth';
 import { initAdmin } from '@/firebase/admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { createCrmContactForNewMember } from '@/lib/crm-auto-integration';
 
 export async function POST(req: NextRequest) {
   try {
@@ -126,6 +127,21 @@ export async function POST(req: NextRequest) {
         },
       });
     } catch { /* audit log is best-effort */ }
+
+    // ── Auto-create CRM contact for the upgraded member (best-effort) ──
+    try {
+      await createCrmContactForNewMember({
+        uid: auth.uid,
+        firstName: userData.firstName || userData.displayName?.split(' ')[0] || '',
+        lastName: userData.lastName || userData.displayName?.split(' ').slice(1).join(' ') || '',
+        email: auth.email || userData.email || '',
+        phone: userData.phoneNumber || userData.phone || '',
+        jobTitle: userData.jobTitle || '',
+        certifications: userData.certifications || [],
+        orgId,
+        registrationSource: 'demo_upgrade',
+      });
+    } catch { /* CRM integration is best-effort — never block upgrade */ }
 
     return NextResponse.json({
       success: true,
