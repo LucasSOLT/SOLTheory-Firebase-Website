@@ -15,7 +15,7 @@ export function BetaDisclaimerModal({ isOpen, onClose, featureName, isDarkMode }
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
       
       {/* Modal */}
       <div className={`relative w-full max-w-md mx-4 rounded-2xl shadow-2xl border p-6 animate-in zoom-in-95 fade-in duration-200 ${

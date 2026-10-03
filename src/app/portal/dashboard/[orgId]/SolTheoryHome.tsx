@@ -125,16 +125,16 @@ export function SolTheoryHome() {
   const [showConfetti, setShowConfetti] = useState(false);
   const { t, lang } = useTranslation();
   // Two-phase loading overlay:
-  // Phase 1 (0-3.5s): Overlay fully visible, dashboard content loads underneath
-  // Phase 2 (3.5-5s): Overlay fades out slowly (1.5s ease), revealing fully loaded content
-  // Phase 3 (5s+):    Overlay removed from DOM
+  // Phase 1 (0-400ms): Overlay visible while Firestore cache resolves (instant on repeat visits)
+  // Phase 2 (400-700ms): Overlay fades out quickly (300ms spring curve), revealing loaded content
+  // Phase 3 (700ms+): Overlay removed from DOM
   const [pageReady, setPageReady] = useState(false);      // triggers the fade
   const [overlayGone, setOverlayGone] = useState(false);  // removes overlay from DOM after fade completes
   useEffect(() => {
-    // Wait 3.5s for Firestore snapshots, images, and widgets to fully initialize
-    const fadeTimer = setTimeout(() => setPageReady(true), 3500);
-    // Remove overlay from DOM after the 1.5s fade animation completes
-    const removeTimer = setTimeout(() => setOverlayGone(true), 5000);
+    // 400ms is enough for Firestore cache hits; cold loads show shimmer briefly
+    const fadeTimer = setTimeout(() => setPageReady(true), 400);
+    // Remove overlay from DOM after the 300ms fade animation completes
+    const removeTimer = setTimeout(() => setOverlayGone(true), 700);
     return () => { clearTimeout(fadeTimer); clearTimeout(removeTimer); };
   }, []);
 
@@ -427,8 +427,10 @@ export function SolTheoryHome() {
   }, [contentManagerActive]);
 
   const tileStyle = isDarkMode
-    ? 'bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 hover:border-slate-600'
-    : 'bg-white/70 backdrop-blur-xl border border-slate-200/80 shadow-sm shadow-slate-200/50 transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/5 hover:border-slate-300';
+    ? 'bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 hover:border-slate-600'
+      + ' transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform'
+    : 'bg-white/70 backdrop-blur-xl border border-slate-200/80 shadow-sm shadow-slate-200/50 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/5 hover:border-slate-300'
+      + ' transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform';
 
   const staggerRow = (delay: number) => ({
     initial: { opacity: 0, y: 14 } as const,
@@ -440,7 +442,7 @@ export function SolTheoryHome() {
     <div className={`relative w-full mx-auto h-full overflow-y-auto overflow-x-hidden pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 focus:outline-none ${isDarkMode ? 'bg-slate-950 text-slate-200' : ''}`} tabIndex={-1}>
       {/* ── Login-to-Dashboard Bridge Overlay ──
           Shimmer skeleton preview while Firestore data loads.
-          Fades out after 3.5s, removed from DOM at 5s. */}
+          Fades out after 400ms, removed from DOM at 700ms. */}
       {!overlayGone && (
         <div
           style={{
@@ -449,7 +451,7 @@ export function SolTheoryHome() {
             zIndex: 50,
             background: isDarkMode ? "#020617" : "#faf8f3",
             opacity: pageReady ? 0 : 1,
-            transition: "opacity 1.5s ease-in-out",
+            transition: "opacity 300ms cubic-bezier(0.16, 1, 0.3, 1)",
             pointerEvents: pageReady ? "none" : "auto",
           }}
           className="pt-4 md:pt-6 pb-10 px-3 sm:px-4 md:px-8 overflow-hidden min-h-full"

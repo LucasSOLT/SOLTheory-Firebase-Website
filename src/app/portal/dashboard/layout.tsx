@@ -112,10 +112,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // If already expanded (e.g. pinned or re-entered during leave grace period), keep open immediately
     if (isHoverExpanded) return;
 
-    // Gentle 75ms buffer so fast cursor sweeps across screen don't trigger expansion
+    // Gentle 50ms buffer so fast cursor sweeps across screen don't trigger expansion
     sidebarEnterTimerRef.current = setTimeout(() => {
       setIsHoverExpanded(true);
-    }, 75);
+    }, 50);
   };
 
   const handleSidebarMouseLeave = () => {
@@ -129,10 +129,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       clearTimeout(sidebarLeaveTimerRef.current);
       sidebarLeaveTimerRef.current = null;
     }
-    // Half-second (500ms) grace period before collapsing so menu doesn't slam shut
+    // 300ms grace period before collapsing so menu doesn't slam shut
     sidebarLeaveTimerRef.current = setTimeout(() => {
       setIsHoverExpanded(false);
-    }, 500);
+    }, 300);
   };
 
   useEffect(() => {
@@ -1602,16 +1602,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* ========== DESKTOP SIDEBAR (hidden on mobile) ========== */}
+      {/* When hovering (unpinned): outer stays 64px, aside overlays as GPU flyout.
+          When pinned: outer width animates normally (250ms). */}
       <div
         className={`relative flex-col h-full flex-shrink-0 z-40 overflow-visible hidden md:flex`}
         style={{
-          width: isEffectiveCollapsed ? 64 : sidebarWidth,
-          minWidth: isEffectiveCollapsed ? 64 : 230,
-          maxWidth: isEffectiveCollapsed ? 64 : 500,
+          width: isSidebarPinned ? sidebarWidth : 64,
+          minWidth: isSidebarPinned ? 230 : 64,
+          maxWidth: isSidebarPinned ? 500 : 64,
           transition: sidebarResizeRef.current
             ? 'none'
-            : 'width 0.5s cubic-bezier(0.25, 1, 0.5, 1), min-width 0.5s cubic-bezier(0.25, 1, 0.5, 1), max-width 0.5s cubic-bezier(0.25, 1, 0.5, 1)',
-          willChange: 'width, min-width',
+            : 'width 250ms cubic-bezier(0.16, 1, 0.3, 1), min-width 250ms cubic-bezier(0.16, 1, 0.3, 1), max-width 250ms cubic-bezier(0.16, 1, 0.3, 1)',
+          willChange: isSidebarPinned ? 'width' : undefined,
         }}
         onMouseEnter={handleSidebarMouseEnter}
         onMouseLeave={handleSidebarMouseLeave}
@@ -1653,8 +1655,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           />
         )}
 
-        <aside className={`w-full flex flex-col h-full relative overflow-x-hidden overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-900 shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}>
-          <div style={{ width: isEffectiveCollapsed ? 64 : sidebarWidth, minWidth: isEffectiveCollapsed ? 64 : sidebarWidth, transition: sidebarResizeRef.current ? 'none' : 'width 0.5s cubic-bezier(0.25, 1, 0.5, 1), min-width 0.5s cubic-bezier(0.25, 1, 0.5, 1)' }} className="flex flex-col h-full overflow-hidden">
+        <aside className={`flex flex-col h-full relative overflow-x-hidden overflow-hidden transition-colors duration-500 ${
+          isHoverExpanded && !isSidebarPinned
+            ? 'absolute left-0 top-0 z-50 shadow-2xl shadow-black/20'
+            : 'w-full'
+        } ${isDarkMode ? 'bg-slate-900 shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}
+          style={isHoverExpanded && !isSidebarPinned ? { width: sidebarWidth, minWidth: 230, maxWidth: 500 } : undefined}
+        >
+          <div style={{
+            width: isEffectiveCollapsed ? 64 : sidebarWidth,
+            minWidth: isEffectiveCollapsed ? 64 : sidebarWidth,
+            transition: sidebarResizeRef.current ? 'none' : 'width 250ms cubic-bezier(0.16, 1, 0.3, 1), min-width 250ms cubic-bezier(0.16, 1, 0.3, 1)',
+          }} className="flex flex-col h-full overflow-hidden">
             {isDualOrgUser ? (
               /* ── Dual-org: org switcher with pin/collapse button ── */
               <div ref={orgSwitcherRef} className={`relative shrink-0 ${isEffectiveCollapsed ? 'p-2 pt-4 pb-2 flex justify-center' : 'p-3 pt-5 pb-3'}`}>
@@ -1802,25 +1814,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className={getSidebarIconClass(pathname === dashboardHome, isEffectiveCollapsed)}>
                   <Home className="w-5 h-5" />
                 </div>
-                {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.homepage}</span>}
+                {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{t.homepage}</span>}
               </Link>
               <Link href={`${dashboardHome}/ai-agents/jarvis`} className={getSidebarLinkClass(pathname.includes('/ai-agents'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.agentManager : undefined}>
                 <div className={getSidebarIconClass(pathname.includes('/ai-agents'), isEffectiveCollapsed)}>
                   <Users className="w-5 h-5" />
                 </div>
-                {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.agentManager}</span>}
+                {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{t.agentManager}</span>}
               </Link>
               <Link href={`${dashboardHome}/media-library`} className={getSidebarLinkClass(pathname.includes('/media-library'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? (t.aiBrain || t.mediaLibrary || 'AI Brain') : undefined}>
                 <div className={getSidebarIconClass(pathname.includes('/media-library'), isEffectiveCollapsed)}>
                   <Brain className="w-5 h-5" />
                 </div>
-                {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.aiBrain || t.mediaLibrary || 'AI Brain'}</span>}
+                {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{t.aiBrain || t.mediaLibrary || 'AI Brain'}</span>}
               </Link>
               <Link href={`${dashboardHome}/walkthroughs`} className={getSidebarLinkClass(pathname.includes('/walkthroughs'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.insightWalkthroughs : undefined}>
                 <div className={getSidebarIconClass(pathname.includes('/walkthroughs'), isEffectiveCollapsed)}>
                   <Lightbulb className="w-5 h-5" />
                 </div>
-                {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.insightWalkthroughs}</span>}
+                {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{t.insightWalkthroughs}</span>}
               </Link>
             </div>
             
@@ -1904,20 +1916,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className={getSidebarIconClass(pathname.endsWith('/action-board'), isEffectiveCollapsed)}>
                     <LayoutDashboard className="w-5 h-5" />
                   </div>
-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.actionBoard}</span>}
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{t.actionBoard}</span>}
                 </Link>
                 <Link href={`${dashboardHome}/timesheets`} className={getSidebarLinkClass(pathname.includes('/timesheets'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.timesheets : undefined}>
                   <div className={getSidebarIconClass(pathname.includes('/timesheets'), isEffectiveCollapsed)}>
                     <CalendarDays className="w-5 h-5" />
                   </div>
-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.timesheets}</span>}
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{t.timesheets}</span>}
                 </Link>
 
                 <Link href={`${dashboardHome}/crm`} className={getSidebarLinkClass(pathname.endsWith('/crm'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.crm : undefined}>
                   <div className={getSidebarIconClass(pathname.endsWith('/crm'), isEffectiveCollapsed)}>
                     <Users className="w-5 h-5" />
                   </div>
-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.crm}</span>}
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{t.crm}</span>}
                 </Link>
 
                 {!isEffectiveCollapsed && <div className={`my-1.5 mx-2 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/60'}`} />}
@@ -1936,8 +1948,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <div className={getSidebarIconClass(false, isEffectiveCollapsed)}>
                           {item.icon}
                         </div>
-                        {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>}
-                        {!isEffectiveCollapsed && <span className={`ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-600 border border-indigo-200'}`}>🔒</span>}
+                        {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{item.label}</span>}
+                        {!isEffectiveCollapsed && <span className={`ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap animate-in fade-in duration-150 ${isDarkMode ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-600 border border-indigo-200'}`}>🔒</span>}
                       </Link>
                     ))}
                   </>
@@ -1948,40 +1960,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className={getSidebarIconClass(pathname.includes('/agentic-prospecting'), isEffectiveCollapsed)}>
                     <Compass className="w-5 h-5" />
                   </div>
-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.agenticProspecting || 'Agentic Prospecting'}</span>}
-                  {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{t.agenticProspecting || 'Agentic Prospecting'}</span>}
+                  {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap animate-in fade-in duration-150 ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
                 <Link href={`${dashboardHome}/gmail`} onClick={(e) => handleBetaFeatureClick(e, 'Gmail', `${dashboardHome}/gmail`)} className={getSidebarLinkClass(pathname.endsWith('/gmail'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.email : undefined}>
                   <div className={getSidebarIconClass(pathname.endsWith('/gmail'), isEffectiveCollapsed)}>
                     <Mail className="w-5 h-5" />
                   </div>
-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.email}</span>}
-                  {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{t.email}</span>}
+                  {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap animate-in fade-in duration-150 ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
                 <Link href={`${dashboardHome}/agentic-campaigning`} onClick={(e) => handleBetaFeatureClick(e, 'Agentic Campaigning', `${dashboardHome}/agentic-campaigning`)} className={getSidebarLinkClass(pathname.endsWith('/agentic-campaigning'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.agenticCampaigning : undefined}>
                   <div className={getSidebarIconClass(pathname.endsWith('/agentic-campaigning'), isEffectiveCollapsed)}>
                     <Send className="w-5 h-5" />
                   </div>
-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.agenticCampaigning}</span>}
-                  {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{t.agenticCampaigning}</span>}
+                  {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap animate-in fade-in duration-150 ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
                 <Link href={`${dashboardHome}/business-intelligence`} onClick={(e) => handleBetaFeatureClick(e, 'Business Intelligence', `${dashboardHome}/business-intelligence`)} className={getSidebarLinkClass(pathname.includes('/business-intelligence'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? t.businessIntelligence : undefined}>
                   <div className={getSidebarIconClass(pathname.includes('/business-intelligence'), isEffectiveCollapsed)}>
                     <BarChart3 className="w-5 h-5" />
                   </div>
-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">{t.businessIntelligence}</span>}
-                  {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{t.businessIntelligence}</span>}
+                  {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap animate-in fade-in duration-150 ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
                 </Link>
 
                 <Link href={`${dashboardHome}/onboarding`} className={getSidebarLinkClass(pathname.includes('/onboarding'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'Onboarding' : undefined}>
                   <div className={getSidebarIconClass(pathname.includes('/onboarding'), isEffectiveCollapsed)}>
                     <GraduationCap className="w-5 h-5" />
                   </div>
-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">Onboarding</span>}
-                  {!isEffectiveCollapsed && isUserAdmin && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/25' : 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'}`}>Admin</span>}
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">Onboarding</span>}
+                  {!isEffectiveCollapsed && isUserAdmin && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap animate-in fade-in duration-150 ${isDarkMode ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/25' : 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'}`}>Admin</span>}
                 </Link>
                   </>
                 )}
@@ -1991,7 +2003,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className={getSidebarIconClass(pathname.endsWith('/admin'), isEffectiveCollapsed)}>
                     <ShieldCheck className="w-5 h-5 text-indigo-500" />
                   </div>
-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">Admin Dashboard</span>}
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">Admin Dashboard</span>}
                 </Link>
                 )}
 
@@ -1999,8 +2011,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className={getSidebarIconClass(pathname.includes('/store'), isEffectiveCollapsed)}>
                     <ShoppingBag className="w-5 h-5 text-indigo-400" />
                   </div>
-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap">Store</span>}
-                  {!isEffectiveCollapsed && isDemoUser && <span className={`ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap ${isDarkMode ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-600 border border-indigo-200'}`}>Upgrade</span>}
+                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">Store</span>}
+                  {!isEffectiveCollapsed && isDemoUser && <span className={`ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap animate-in fade-in duration-150 ${isDarkMode ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-600 border border-indigo-200'}`}>Upgrade</span>}
                 </Link>
               </div>
             )}
