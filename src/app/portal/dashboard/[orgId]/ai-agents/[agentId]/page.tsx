@@ -2481,16 +2481,27 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 )}
               </div>
 
-              {/* Compact System Instructions trigger */}
-              <button
-                onClick={() => setIsSystemInstructionsOpen(true)}
-                className={`w-full text-left px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between ${isDarkMode ? 'border-[#383838] bg-[#2F2F2F] hover:bg-[#353535]' : 'border-[#E5E4DE] bg-white hover:bg-[#F3F2EC]'}`}
-              >
-                <span className={`text-xs font-medium truncate ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`}>
-                  {sessionInstructions ? sessionInstructions.substring(0, 30) + (sessionInstructions.length > 30 ? '…' : '') : 'System instructions'}
-                </span>
-                {sessionInstructions && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
-              </button>
+              {/* Compact System Instructions trigger — SOFT-DELETED ("Coming soon").
+                  UI is kept, greyed out and non-interactive. To re-enable, set
+                  SYSTEM_INSTRUCTIONS_ENABLED to true; the popup + session plumbing below are intact. */}
+              {(() => {
+                const SYSTEM_INSTRUCTIONS_ENABLED = false;
+                return (
+                  <button
+                    onClick={() => { if (SYSTEM_INSTRUCTIONS_ENABLED) setIsSystemInstructionsOpen(true); }}
+                    disabled={!SYSTEM_INSTRUCTIONS_ENABLED}
+                    aria-disabled={!SYSTEM_INSTRUCTIONS_ENABLED}
+                    title={SYSTEM_INSTRUCTIONS_ENABLED ? undefined : 'Coming soon'}
+                    className={`w-full text-left px-3 py-2 rounded-lg border transition-all flex items-center justify-between ${SYSTEM_INSTRUCTIONS_ENABLED ? 'cursor-pointer' : 'cursor-not-allowed opacity-50 select-none'} ${isDarkMode ? `border-[#383838] bg-[#2F2F2F] ${SYSTEM_INSTRUCTIONS_ENABLED ? 'hover:bg-[#353535]' : ''}` : `border-[#E5E4DE] bg-white ${SYSTEM_INSTRUCTIONS_ENABLED ? 'hover:bg-[#F3F2EC]' : ''}`}`}
+                  >
+                    <span className={`text-xs font-medium truncate ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`}>
+                      {SYSTEM_INSTRUCTIONS_ENABLED && sessionInstructions ? sessionInstructions.substring(0, 30) + (sessionInstructions.length > 30 ? '…' : '') : 'System instructions'}
+                      {!SYSTEM_INSTRUCTIONS_ENABLED && <span className="ml-1.5 font-normal">(Coming soon)</span>}
+                    </span>
+                    {SYSTEM_INSTRUCTIONS_ENABLED && sessionInstructions && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+                  </button>
+                );
+              })()}
             </div>
             <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-hide mt-2">
               {/* Agent Library Button */}

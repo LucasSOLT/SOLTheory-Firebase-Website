@@ -1,3 +1,5 @@
+// 🔒 FROZEN — Org/Personal AI-Brain document pipeline (see .agents/AGENTS.md). Vector retrieval + org/personal
+// scope isolation. `npm run build` runs scripts/guard-org-docs.mjs which fails if this file's invariants change.
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { embedText } from "@/lib/gemini-embed";
 

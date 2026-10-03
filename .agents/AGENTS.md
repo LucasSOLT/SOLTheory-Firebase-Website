@@ -219,3 +219,32 @@ The following is the APPROVED implementation plan for the Onboarding Document Sy
 2. **Never** auto-send a document. Reminders and escalations carry links only, never the PDF.
 3. Cron routes **must fail closed** (no `CRON_SECRET` configured ⇒ no access).
 4. **Always** ask for deployment approval before pushing to main.
+
+
+---
+
+## ⚠️ FROZEN CODE — Org / Personal AI-Brain Document Pipeline (DO NOT MODIFY) ⚠️
+
+**Effective: October 3, 2026 — INDEFINITELY**
+
+Org document separation, storage, embedding, retrieval and comprehension is **PRODUCTION-VERIFIED and FROZEN** (owner-confirmed working). It silently broke once already (Google retired `text-embedding-004`; uploads stored zero vectors and search fell back to keyword matching with no error). **Do NOT modify, refactor, rename, delete, or restructure** any of the following unless the project owner (Lucas) explicitly requests it:
+
+### Frozen Files:
+- `src/lib/gemini-embed.ts` — the ONLY place embeddings are produced. Model `gemini-embedding-001`, 768 dims.
+- `src/lib/kb-vector-retriever.ts` — vector query + org/personal scope isolation.
+- `src/lib/jarvis-org-brain-tools.ts` — `search_org_brain` (org vectors only) / `search_personal_brain` (personal vectors only).
+- `src/app/api/ai-brain-upload/route.ts` — upload → extract → chunk → embed → store (+ `vectorStatus`).
+- `src/app/api/knowledge-base/process/route.ts` — KB ingest.
+- `src/app/api/ai-brain-move/route.ts` — moves docs + vectors between personal and org.
+- `firestore.indexes.json` — the 768-dim vector index entries for `kb_vectors` and `ai_brain_vectors`.
+- `scripts/guard-org-docs.mjs`, `scripts/verify-org-docs-e2e.ts`, `scripts/reembed-vectors.ts` — the safety net.
+- In `src/app/api/chat/route.ts`: the `retrieveSemanticChunks(...)` call and its `scope: chatScope === 'org' ? 'org' : 'personal'` argument.
+
+### Rules:
+1. **Never** call an embedding API anywhere except `embedText()` in `src/lib/gemini-embed.ts`. Never use `embedContent(` directly or reference `text-embedding-004`.
+2. **Never** change `EMBED_MODEL` or `EMBED_DIM` without (a) re-embedding every stored chunk with `scripts/reembed-vectors.ts --apply`, (b) updating the Firestore vector indexes, and (c) updating `scripts/guard-org-docs.mjs` in the same commit. Vectors from different models are NOT comparable.
+3. **Never** weaken org/personal separation: org chats read only `orgs/{orgId}/kb_vectors`; personal chats read only `users/{uid}/ai_brain_vectors`.
+4. **`npm run build` runs `scripts/guard-org-docs.mjs` first.** If it fails you broke a locked invariant — fix the code; do NOT delete or loosen the guard to get a green build.
+5. After ANY change touching these files, run `node scripts/guard-org-docs.mjs` and `npx tsx scripts/verify-org-docs-e2e.ts` before asking to deploy.
+6. If a bug is found, **only fix the specific bug** — no surrounding refactors.
+7. New features needing different behaviour must **create new files** rather than modify frozen ones.

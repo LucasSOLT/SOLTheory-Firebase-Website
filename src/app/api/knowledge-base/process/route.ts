@@ -1,3 +1,5 @@
+// 🔒 FROZEN — Org/Personal AI-Brain document pipeline (see .agents/AGENTS.md). KB ingest: chunk → embed → store.
+// Embeddings MUST go through embedText() (src/lib/gemini-embed.ts). `npm run build` runs scripts/guard-org-docs.mjs.
 import { NextResponse } from "next/server";
 import { verifyRequest } from "@/lib/api-auth";
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";

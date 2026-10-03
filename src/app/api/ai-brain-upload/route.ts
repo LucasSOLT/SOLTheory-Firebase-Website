@@ -1,3 +1,5 @@
+// 🔒 FROZEN — Org/Personal AI-Brain document pipeline (see .agents/AGENTS.md). Upload → extract → chunk → embed → store.
+// Embeddings MUST go through embedText() (src/lib/gemini-embed.ts). `npm run build` runs scripts/guard-org-docs.mjs.
 import { NextResponse } from "next/server";
 import { verifyRequest } from "@/lib/api-auth";
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
@@ -392,9 +394,12 @@ export async function POST(req: Request) {
       : `orgs/${orgId}/kb_vectors`;
 
     let chunksCreated = 0;
+    let totalChunks = 0;
+    let embedError: string | null = null;
 
     if (plaintext.length >= 20) {
       const chunks = chunkDocument(plaintext);
+      totalChunks = chunks.length;
 
       if (chunks.length > 0) {
         try {
@@ -435,15 +440,22 @@ export async function POST(req: Request) {
             console.log(`[AI Brain Upload] ${chunksCreated} vector chunks created in ${vectorCollectionPath}`);
           }
         } catch (embedErr: any) {
-          console.warn("[AI Brain Upload] Vector embedding failed (non-fatal):", embedErr.message);
+          // Non-fatal for the upload itself, but NEVER silent: recorded on the doc below as
+          // vectorStatus="incomplete" + vectorError (repair with scripts/reembed-vectors.ts --apply).
+          embedError = String(embedErr?.message || embedErr).slice(0, 300);
+          console.error("[AI Brain Upload] Vector embedding failed (non-fatal):", embedError);
         }
       }
     }
 
     // ── Update document status to "ready" ────────────────────────────────
+    const vectorStatus: "none" | "complete" | "incomplete" =
+      totalChunks === 0 ? "none" : (chunksCreated === totalChunks && !embedError ? "complete" : "incomplete");
     await db.collection(firestoreCollectionPath).doc(docId).update({
       status: "ready",
       vectorChunkCount: chunksCreated,
+      vectorStatus,
+      vectorError: embedError,
     });
 
     return NextResponse.json({
@@ -451,6 +463,7 @@ export async function POST(req: Request) {
       docId,
       downloadUrl,
       chunksCreated,
+      vectorStatus,
       status: "ready",
       textLength: plaintext.length,
       docType,
