@@ -166,3 +166,34 @@ The Gmail UI screen is **PRODUCTION-FROZEN**. **Do NOT modify, refactor, rename,
 3. **Never** change the exports, interfaces, or function signatures in these files.
 4. The email tools (`search_emails`, `email`, `delete_email`, `block_sender`, `create_folder`) in `src/app/api/chat/route.ts` are **NOT frozen** and remain fully functional.
 5. If a bug is found in these files, **only fix the specific bug** — do not refactor surrounding code.
+
+
+---
+
+## ⚠️ ACTIVE BUILD PLAN — Onboarding Document System (DO NOT DEVIATE) ⚠️
+
+**Effective: October 2, 2026 — Until all 5 phases are complete**
+
+The following is the APPROVED implementation plan for the Onboarding Document System upgrade. **Do NOT deviate from this plan, invent new features, or redesign the architecture differently than specified below.** The full specification artifact is at: `onboarding-full-specification.md` in the conversation artifacts.
+
+### Approved Decisions (LOCKED):
+1. **PDF Embedding: Option A (PDF.js)** — Use Mozilla's `pdfjs-dist` to render PDF pages as `<canvas>` with interactive HTML field overlays positioned at native PDF `/Rect` coordinates. Do NOT use iframe/embed or HTML-only approaches.
+2. **Email Delivery: Manual "Send & Archive"** — Never auto-send completed documents. Always require admin/supervisor to manually click "Send & Archive" to trigger SendGrid delivery. This allows Re-Request before sending.
+3. **Signing Order: Configurable** — Flowchart-style card chain UI in BlueprintEditor with searchable org member dropdowns. Boxes can be added/removed/reordered. First box defaults to "Employee" (auto-assigned). Each box shows user name, role, avatar.
+4. **Re-Request / Redo** — Supervisors can click "Re-Request" on any completed item to reset it to `todo` state with notes. Employee sees the notes and resubmits.
+5. **Supervisor Visibility** — Supervisors see their assigned employees' blueprint progress in real-time (page refresh). They can drill into any item to see uploads, form responses, quiz answers, signatures, PDFs.
+6. **Multi-Party Signing** — Documents route from signer to signer in configured order. Partial filling (no flatten until ALL signers done). Each signer sees previous signers' fields as read-only.
+
+### Phase Order (FOLLOW EXACTLY):
+- **Phase 1:** Supervisor Assignment & Progress Visibility (Steps 1.1–1.4)
+- **Phase 2:** PDF.js Visual Document Embedding (Steps 2.1–2.5)
+- **Phase 3:** Multi-Party Signing Workflow (Steps 3.1–3.5)
+- **Phase 4:** Send & Archive + Email Delivery (Steps 4.1–4.3)
+- **Phase 5:** Polish, Testing & Edge Cases (Steps 5.1–5.4)
+
+### Rules:
+1. **Always** follow the Split-Model Workflow (Opus for architecture, Flash for polish).
+2. **Never** skip phases or steps. Complete each step fully before moving to the next.
+3. **Never** flatten a multi-signer PDF until ALL signers have completed their portions.
+4. **Always** use `supervisorUid`/`supervisorEmail` (not `mentorUid`/`mentorEmail`) for new supervisor assignment code.
+5. **Always** ask for deployment approval before pushing to main.

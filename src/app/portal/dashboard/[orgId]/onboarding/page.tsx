@@ -43,6 +43,7 @@ import OnboardingItemPopup from '@/components/onboarding/OnboardingItemPopup';
 import AdminSubmissionViewer from '@/components/onboarding/AdminSubmissionViewer';
 import ScheduleOrientationModal from '@/components/onboarding/ScheduleOrientationModal';
 import ManageUserBlueprintsModal from '@/components/onboarding/ManageUserBlueprintsModal';
+import SupervisorProgressView from '@/components/onboarding/SupervisorProgressView';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import type { ComplianceDocumentCategory } from '@/types/onboarding-templates';
 import { logActivity } from '@/lib/activity-logger';
@@ -254,52 +255,142 @@ export default function OnboardingPage() {
 
   // ── Real-Time Firestore Listeners ─────────────────────────────────────────
 
-  // Load onboarding instances
+  // Load onboarding instances (own + supervisor-assigned)
   useEffect(() => {
     if (!firestore || !orgId || !user?.uid) return;
 
     const instancesRef = collection(firestore, 'onboarding_instances');
-    const q = isAdmin
-      ? query(instancesRef, where('orgId', '==', orgId))
-      : query(instancesRef, where('orgId', '==', orgId), where('userId', '==', user.uid));
+    const unsubs: (() => void)[] = [];
 
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as OnboardingInstanceDoc));
-        setInstances(items);
+    if (isAdmin) {
+      // Admins see all instances in the org
+      const q = query(instancesRef, where('orgId', '==', orgId));
+      unsubs.push(
+        onSnapshot(
+          q,
+          (snap) => {
+            const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as OnboardingInstanceDoc));
+            setInstances(items);
+            setLoading(false);
+          },
+          () => fetchServerData(),
+        ),
+      );
+    } else {
+      // Non-admins: merge own instances + supervisor instances
+      let ownInstances: OnboardingInstanceDoc[] = [];
+      let supervisorInstances: OnboardingInstanceDoc[] = [];
+
+      const mergeInstances = () => {
+        const map = new Map<string, OnboardingInstanceDoc>();
+        for (const inst of [...ownInstances, ...supervisorInstances]) {
+          map.set(inst.id, inst);
+        }
+        setInstances(Array.from(map.values()));
         setLoading(false);
-      },
-      (err) => {
-        // Permissions fallback — server API already fetched
-        fetchServerData();
-      },
-    );
+      };
 
-    return () => unsub();
+      // Query 1: instances where this user is the employee
+      const qOwn = query(instancesRef, where('orgId', '==', orgId), where('userId', '==', user.uid));
+      unsubs.push(
+        onSnapshot(
+          qOwn,
+          (snap) => {
+            ownInstances = snap.docs.map(d => ({ id: d.id, ...d.data() } as OnboardingInstanceDoc));
+            mergeInstances();
+          },
+          () => fetchServerData(),
+        ),
+      );
+
+      // Query 2: instances where this user is the supervisor/mentor
+      const qMentor = query(instancesRef, where('orgId', '==', orgId), where('mentorUid', '==', user.uid));
+      unsubs.push(
+        onSnapshot(
+          qMentor,
+          (snap) => {
+            supervisorInstances = snap.docs.map(d => ({ id: d.id, ...d.data() } as OnboardingInstanceDoc));
+            mergeInstances();
+          },
+          () => { /* mentor query fail is non-fatal */ },
+        ),
+      );
+    }
+
+    return () => unsubs.forEach(u => u());
   }, [firestore, orgId, user?.uid, isAdmin, fetchServerData]);
 
-  // Load onboarding tasks
+  // Load onboarding tasks (own + tasks from supervised instances)
+  const supervisedInstanceIds = useMemo(() => {
+    if (isAdmin) return []; // Admins already get all tasks
+    return instances
+      .filter(i => i.mentorUid === user?.uid && i.userId !== user?.uid)
+      .map(i => i.id);
+  }, [instances, user?.uid, isAdmin]);
+
   useEffect(() => {
     if (!firestore || !orgId || !user?.uid) return;
 
     const tasksRef = collection(firestore, 'action_board_tasks');
-    const q = isAdmin
-      ? query(tasksRef, where('orgId', '==', orgId), where('category', '==', 'onboarding'))
-      : query(tasksRef, where('orgId', '==', orgId), where('category', '==', 'onboarding'), where('assignedTo', '==', user.uid));
+    const unsubs: (() => void)[] = [];
 
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskDoc)));
-      },
-      (err) => {
-        console.error('[Onboarding] Tasks query error:', err);
-      },
-    );
+    if (isAdmin) {
+      // Admins see all onboarding tasks in the org
+      const q = query(tasksRef, where('orgId', '==', orgId), where('category', '==', 'onboarding'));
+      unsubs.push(
+        onSnapshot(q, (snap) => {
+          setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskDoc)));
+        }, (err) => console.error('[Onboarding] Tasks query error:', err)),
+      );
+    } else {
+      // Non-admins: own tasks + supervised instance tasks
+      let ownTasks: TaskDoc[] = [];
+      let supervisedTasks: TaskDoc[] = [];
 
-    return () => unsub();
-  }, [firestore, orgId, user?.uid, isAdmin]);
+      const mergeTasks = () => {
+        const map = new Map<string, TaskDoc>();
+        for (const t of [...ownTasks, ...supervisedTasks]) {
+          map.set(t.id, t);
+        }
+        setTasks(Array.from(map.values()));
+      };
+
+      // Query 1: tasks assigned to this user
+      const qOwn = query(tasksRef, where('orgId', '==', orgId), where('category', '==', 'onboarding'), where('assignedTo', '==', user.uid));
+      unsubs.push(
+        onSnapshot(qOwn, (snap) => {
+          ownTasks = snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskDoc));
+          mergeTasks();
+        }, (err) => console.error('[Onboarding] Own tasks query error:', err)),
+      );
+
+      // Query 2: tasks from supervised instances (batched, max 30 per Firestore 'in')
+      if (supervisedInstanceIds.length > 0) {
+        const batches = [];
+        for (let i = 0; i < supervisedInstanceIds.length; i += 30) {
+          batches.push(supervisedInstanceIds.slice(i, i + 30));
+        }
+        for (const batch of batches) {
+          const qSupervised = query(
+            tasksRef,
+            where('orgId', '==', orgId),
+            where('category', '==', 'onboarding'),
+            where('metadata.onboardingInstanceId', 'in', batch),
+          );
+          unsubs.push(
+            onSnapshot(qSupervised, (snap) => {
+              // Append to supervised tasks (may overlap between batches)
+              const batchTasks = snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskDoc));
+              supervisedTasks = [...supervisedTasks.filter(t => !batch.includes(t.metadata?.onboardingInstanceId || '')), ...batchTasks];
+              mergeTasks();
+            }, () => { /* supervised tasks query fail is non-fatal */ }),
+          );
+        }
+      }
+    }
+
+    return () => unsubs.forEach(u => u());
+  }, [firestore, orgId, user?.uid, isAdmin, supervisedInstanceIds]);
 
   // Load compliance documents
   useEffect(() => {
@@ -730,6 +821,22 @@ export default function OnboardingPage() {
               );
             })()}
           </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* SUPERVISOR VIEW — Monitor assigned employees (Phase 1)        */}
+        {/* Shows for any user who is a mentor/supervisor for ≥1 instance */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {user?.uid && (
+          <SupervisorProgressView
+            supervisorUid={user.uid}
+            instances={instances}
+            tasks={tasks}
+            orgId={orgId}
+            isDarkMode={isDarkMode}
+            onTaskClick={(task) => setSelectedTaskForPopup(task as any)}
+            onRefresh={fetchServerData}
+          />
         )}
 
         {/* ════════════════════════════════════════════════════════════════ */}
