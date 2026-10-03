@@ -2131,90 +2131,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   )}
                 </button>
 
-                {/* Notifications Popup */}
-                {isNotificationsOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
-                    <div className={`fixed md:absolute inset-x-2 md:inset-x-auto bottom-2 md:bottom-auto md:right-0 md:top-full md:mt-2 w-[calc(100vw-1rem)] md:w-[380px] min-w-[300px] md:min-w-[380px] rounded-2xl border shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-4 md:slide-in-from-top-2 duration-200 max-h-[70vh] md:max-h-[unset] ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
-                      <div className={`flex items-center justify-between px-5 py-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
-                        <div className="flex items-center gap-2">
-                          <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.notifications}</h3>
-                          {notifications.filter(n => !readNotifIds.includes(n.id)).length > 0 && (
-                            <span className="bg-indigo-100 text-indigo-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{notifications.filter(n => !readNotifIds.includes(n.id)).length} {t.newBadge}</span>
-                          )}
-                        </div>
-                        <button onClick={() => setIsNotificationsOpen(false)} className={`p-1 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}>
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="max-h-[400px] overflow-y-auto">
-                        <div className="px-4 py-2">
-                          {notifications.length === 0 ? (
-                            <div className="py-8 text-center text-slate-500 text-sm font-medium">{t.noNewNotifications}</div>
-                          ) : (
-                            notifications.slice(0, 3).map(n => {
-                              const isUnread = !readNotifIds.includes(n.id);
-                              return (
-                              <div 
-                                key={n.id} 
-                                onClick={() => {
-                                  setIsNotificationsOpen(false);
-                                  if (n.link) router.push(n.link);
-                                }}
-                                className={`flex items-start gap-3 p-3 rounded-xl transition-colors mb-1.5 cursor-pointer border border-transparent group/notif ${isDarkMode ? 'hover:bg-slate-800 hover:border-slate-700' : 'hover:bg-[#f2ece0] hover:border-slate-100'}`}
-                              >
-                                <div className={`w-8 h-8 rounded-lg ${n.bg} flex items-center justify-center shrink-0 mt-0.5`}>
-                                  {n.icon}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{n.title}</p>
-                                  <p className={`text-[11px] mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{n.desc}</p>
-                                  <p className="text-[10px] text-indigo-500 font-medium mt-1">
-                                    {new Date(n.time).toLocaleString()}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
-                                  {isUnread && <div className="w-2 h-2 rounded-full bg-indigo-500"></div>}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Track deleted ID so Firestore listeners don't re-add it
-                                      setDeletedNotifIds(prev => {
-                                        const updated = [...prev, n.id];
-                                        localStorage.setItem('st_deleted_notifications', JSON.stringify(updated));
-                                        return updated;
-                                      });
-                                      setNotifications(prev => prev.filter(p => p.id !== n.id));
-                                      // Also clean from localStorage
-                                      try {
-                                        const raw = localStorage.getItem('st_all_notifications');
-                                        if (raw) {
-                                          const parsed = JSON.parse(raw).filter((p: any) => p.id !== n.id);
-                                          localStorage.setItem('st_all_notifications', JSON.stringify(parsed));
-                                        }
-                                      } catch {}
-                                    }}
-                                    className="p-1 rounded-md opacity-30 md:opacity-0 group-hover/notif:opacity-100 hover:bg-red-50 text-slate-300 hover:text-red-400 transition-all"
-                                    title="Delete notification"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </div>
-                            )})
-                          )}
-                        </div>
-                      </div>
-
-                      <div className={`px-5 py-3 border-t ${isDarkMode ? 'border-slate-700 bg-slate-800/80' : 'border-slate-100 bg-[#faf6ed]/50'}`}>
-                        <button onClick={() => { setIsNotificationsOpen(false); router.push(`${dashboardHome}/notifications`); }} className="w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors py-1">
-                          {t.viewAllNotifications}
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
               </div>
 
               {/* Developer Tools — Oracle & Admin */}
@@ -2903,6 +2819,91 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         featureName={betaModalFeature || ''}
         isDarkMode={isDarkMode}
       />
+
+      {/* Notifications Popup */}
+      {isNotificationsOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)} />
+          <div className={`fixed inset-x-3 md:inset-x-auto md:right-8 top-16 md:top-[76px] w-[calc(100vw-1rem)] md:w-[380px] min-w-[300px] md:min-w-[380px] rounded-2xl border shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-4 md:slide-in-from-top-2 duration-200 max-h-[70vh] md:max-h-[unset] ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-[#faf8f3] border-slate-200'}`}>
+            <div className={`flex items-center justify-between px-5 py-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+              <div className="flex items-center gap-2">
+                <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.notifications}</h3>
+                {notifications.filter(n => !readNotifIds.includes(n.id)).length > 0 && (
+                  <span className="bg-indigo-100 text-indigo-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{notifications.filter(n => !readNotifIds.includes(n.id)).length} {t.newBadge}</span>
+                )}
+              </div>
+              <button onClick={() => setIsNotificationsOpen(false)} className={`p-1 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[400px] overflow-y-auto">
+              <div className="px-4 py-2">
+                {notifications.length === 0 ? (
+                  <div className="py-8 text-center text-slate-500 text-sm font-medium">{t.noNewNotifications}</div>
+                ) : (
+                  notifications.slice(0, 3).map(n => {
+                    const isUnread = !readNotifIds.includes(n.id);
+                    return (
+                    <div 
+                      key={n.id} 
+                      onClick={() => {
+                        setIsNotificationsOpen(false);
+                        if (n.link) router.push(n.link);
+                      }}
+                      className={`flex items-start gap-3 p-3 rounded-xl transition-colors mb-1.5 cursor-pointer border border-transparent group/notif ${isDarkMode ? 'hover:bg-slate-800 hover:border-slate-700' : 'hover:bg-[#f2ece0] hover:border-slate-100'}`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg ${n.bg} flex items-center justify-center shrink-0 mt-0.5`}>
+                        {n.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{n.title}</p>
+                        <p className={`text-[11px] mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>{n.desc}</p>
+                        <p className="text-[10px] text-indigo-500 font-medium mt-1">
+                          {new Date(n.time).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                        {isUnread && <div className="w-2 h-2 rounded-full bg-indigo-500"></div>}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Track deleted ID so Firestore listeners don't re-add it
+                            setDeletedNotifIds(prev => {
+                              const updated = [...prev, n.id];
+                              localStorage.setItem('st_deleted_notifications', JSON.stringify(updated));
+                              return updated;
+                            });
+                            setNotifications(prev => prev.filter(p => p.id !== n.id));
+                            // Also clean from localStorage
+                            try {
+                              const raw = localStorage.getItem('st_all_notifications');
+                              if (raw) {
+                                const parsed = JSON.parse(raw).filter((p: any) => p.id !== n.id);
+                                localStorage.setItem('st_all_notifications', JSON.stringify(parsed));
+                              }
+                            } catch {}
+                          }}
+                          className="p-1 rounded-md opacity-30 md:opacity-0 group-hover/notif:opacity-100 hover:bg-red-50 text-slate-300 hover:text-red-400 transition-all"
+                          title="Delete notification"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )})
+                )}
+              </div>
+            </div>
+
+            <div className={`px-5 py-3 border-t ${isDarkMode ? 'border-slate-700 bg-slate-800/80' : 'border-slate-100 bg-[#faf6ed]/50'}`}>
+              <button onClick={() => { setIsNotificationsOpen(false); router.push(`${dashboardHome}/notifications`); }} className="w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors py-1">
+                {t.viewAllNotifications}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

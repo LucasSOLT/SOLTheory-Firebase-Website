@@ -241,6 +241,19 @@ export async function POST(req: Request) {
     const isLiteMode = LITE_MODELS.has(selectedModel);
     console.log(`[MODEL] Requested: "${requestedModel}" → Using: "${selectedModel}" | Stream: ${wantStream} | Lite: ${isLiteMode}`);
 
+    // ── Vision Auto-Routing ──
+    // If user attached images and selected model is text-only (Groq), route to Gemini Direct for vision
+    const hasImages = messages.some((m: any) =>
+      Array.isArray(m.content) && m.content.some((p: any) => p.type === 'image_url')
+    );
+    if (hasImages) {
+      const modelConfig = getModelConfig(selectedModel);
+      if (modelConfig?.provider === 'groq') {
+        console.log(`[VISION ROUTING] Image detected. Switching from ${selectedModel} (Groq, text-only) to gemini-2.5-flash for vision analysis.`);
+        selectedModel = 'gemini-2.5-flash';
+      }
+    }
+
     // Parse out scope prefixes for logic, but keep raw for database
     const agentId = (rawAgentId || "").replace("soltheory_", "").replace("nxtchapter_", "");
 

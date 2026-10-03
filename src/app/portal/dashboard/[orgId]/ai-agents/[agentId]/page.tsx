@@ -1280,11 +1280,26 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   // Strip markdown from session titles for clean sidebar display
   const stripMarkdown = (text: string) => text.replace(/#{1,6}\s?/g, '').replace(/\*{1,2}([^*]*)\*{1,2}/g, '$1').trim();
 
+  // Immediately stop speech recognition and prevent trailing callbacks
+  const stopSpeechRecognition = () => {
+    if (speechRecRef.current) {
+      try {
+        speechRecRef.current.onresult = null;
+        speechRecRef.current.onend = null;
+        speechRecRef.current.onerror = null;
+        speechRecRef.current.abort();
+      } catch (e) {
+        console.warn('Error aborting speech recognition:', e);
+      }
+      speechRecRef.current = null;
+    }
+    setIsListening(false);
+  };
+
   // Speech-to-text handler
   const toggleSpeechToText = () => {
     if (isListening) {
-      speechRecRef.current?.stop();
-      setIsListening(false);
+      stopSpeechRecognition();
       return;
     }
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -1393,8 +1408,6 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     const userMsg: Message = { id: uid(), text: msgText, isSelf: true, sendTimestamp: msgSendTimestamp };
     if (userMsgImageUrl) {
       userMsg.imageUrl = userMsgImageUrl;
-      const imageNote = `[System Note: The user has attached an image named "pasted-image.jpg" to this message.]`;
-      userMsg.hiddenContext = imageNote;
     }
     if (attachedFilesTextContext) {
       const fileNote = `The user has attached files. Here are their extracted contents:${attachedFilesTextContext}`;
@@ -1407,6 +1420,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     // Create bot placeholder immediately so the ThinkingDisplay timer starts from 0s
     const botMsgIdEarly = uid();
     const botPlaceholder: Message = { id: botMsgIdEarly, text: '', isSelf: false, sendTimestamp: msgSendTimestamp, agentEvents: [{ type: 'thinking' as const, content: '', timestamp: msgSendTimestamp }] };
+    stopSpeechRecognition();
     setMessages([...newMessages, botPlaceholder]); setIsTyping(false); setInputValue("");
     // Mark this session as 'thinking' in the store (persists across sidebar navigation)
     if (currentSessionId) chatStore.setSessionThinking(currentSessionId);
@@ -2618,7 +2632,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           </div>
           <div className="flex items-center gap-2">
             {/* Agent Switcher — moved to header for mobile space conservation */}
-            <div className="relative" data-dropdown="agent-switcher">
+            <div className="relative hidden md:block" data-dropdown="agent-switcher">
               <button
                 onClick={() => {
                   if (!isAgentSwitcherOpen) setIsModelDropdownOpen(false);
@@ -2771,6 +2785,46 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                       Free model only. Upgrade for premium AI.
                     </div>
                   )}
+                  {/* Agent Switcher — mobile only, merged into model dropdown */}
+                  <div className={`px-3 pt-2.5 pb-1 border-t ${isDarkMode ? 'text-[#737373] border-[#383838]' : 'text-[#9C978D] border-[#E5E4DE]'}`}>
+                    <span className="text-[9px] font-bold uppercase tracking-widest">Agents</span>
+                  </div>
+                  {Object.entries(agents).map(([id, ag]) => {
+                    const isCurrent = id === params.agentId;
+                    const isAvailable = id === 'jarvis' || id === 'iris';
+                    const subtitle = id === 'iris' ? 'Creative Studio' : id === 'bobby' ? 'Workflow Maestro' : id === 'monica' ? 'Compliance Controller' : 'Chief of Staff';
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => {
+                          if (!isAvailable || isCurrent) return;
+                          setIsModelDropdownOpen(false);
+                          router.push(`/portal/dashboard/${orgId}/ai-agents/${id}`);
+                        }}
+                        disabled={!isAvailable}
+                        className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors ${
+                          !isAvailable
+                            ? 'opacity-40 cursor-not-allowed'
+                            : isCurrent
+                              ? (isDarkMode ? 'bg-[#383838]' : 'bg-[#F3F2EC]')
+                              : (isDarkMode ? 'hover:bg-[#383838]' : 'hover:bg-[#F3F2EC]')
+                        }`}
+                      >
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                          isCurrent
+                            ? (isDarkMode ? 'bg-[#444]' : 'bg-[#EAE7DF]')
+                            : (isDarkMode ? 'bg-[#383838]' : 'bg-[#EAE7DF]')
+                        }`}>
+                          {id === 'iris' ? <Palette className={`w-3.5 h-3.5 ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`} /> : id === 'bobby' ? <Settings className={`w-3.5 h-3.5 ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`} /> : id === 'monica' ? <ShieldCheck className={`w-3.5 h-3.5 ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`} /> : <Bot className={`w-3.5 h-3.5 ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`} />}
+                        </div>
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className={`text-xs font-semibold truncate ${isCurrent ? (isDarkMode ? 'text-[#ECECEC]' : 'text-[#1F1E1D]') : (isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]')}`}>{ag.name.split(' (')[0]}</span>
+                          <span className={`text-[10px] ${isDarkMode ? 'text-[#737373]' : 'text-[#9C978D]'}`}>{isAvailable ? subtitle : 'Coming Soon'}</span>
+                        </div>
+                        {isCurrent && <Check className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? 'text-[#ECECEC]' : 'text-[#1F1E1D]'}`} />}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -3126,7 +3180,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                               e.preventDefault();
                               if (inputValue.trim()) {
                                 // Stop STT if active when sending
-                                if (isListening) { speechRecRef.current?.stop(); setIsListening(false); }
+                                stopSpeechRecognition();
                                 handleSendMessage();
                                 setIsPlusMenuOpen(false);
                                 setIsAgentSwitcherOpen(false);
@@ -3150,7 +3204,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           )}
 
                           {/* Send button — inside the text entry box */}
-                          <Button size="icon" onClick={() => { if (isListening) { speechRecRef.current?.stop(); setIsListening(false); } handleSendMessage(); setIsPlusMenuOpen(false); setIsAgentSwitcherOpen(false); }} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`rounded-full w-8 h-8 sm:w-10 sm:h-10 disabled:opacity-30 transition-all ${isDarkMode ? 'bg-[#ECECEC] text-[#171717] hover:bg-white' : 'bg-[#1F1E1D] text-white hover:bg-[#383734]'}`}>
+                          <Button size="icon" onClick={() => { stopSpeechRecognition(); handleSendMessage(); setIsPlusMenuOpen(false); setIsAgentSwitcherOpen(false); }} disabled={(!inputValue.trim() && pendingAttachments.length === 0) || isTyping} className={`rounded-full w-8 h-8 sm:w-10 sm:h-10 disabled:opacity-30 transition-all ${isDarkMode ? 'bg-[#ECECEC] text-[#171717] hover:bg-white' : 'bg-[#1F1E1D] text-white hover:bg-[#383734]'}`}>
                             {isTyping ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />}
                           </Button>
                         </div>

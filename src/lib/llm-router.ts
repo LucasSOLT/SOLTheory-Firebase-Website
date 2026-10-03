@@ -296,10 +296,24 @@ function convertMessagesToGeminiFormat(messages: any[]): { systemInstruction?: s
     if (typeof msg.content === "string" && msg.content) {
       parts.push({ text: msg.content });
     } else if (Array.isArray(msg.content)) {
-      // Handle multimodal content arrays
+      // Handle multimodal content arrays (text + vision)
       for (const part of msg.content) {
         if (part.type === "text") {
           parts.push({ text: part.text });
+        } else if (part.type === "image_url" && part.image_url?.url) {
+          // Convert base64 data URL to Gemini's inlineData format
+          const url = part.image_url.url;
+          if (url.startsWith("data:")) {
+            const match = url.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              parts.push({
+                inlineData: {
+                  mimeType: match[1],
+                  data: match[2],
+                },
+              } as any);
+            }
+          }
         }
       }
     }
