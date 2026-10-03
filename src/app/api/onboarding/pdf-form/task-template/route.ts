@@ -23,6 +23,8 @@ import { initAdmin, getFirestore as getAdminFirestore } from '@/firebase/admin';
 import { getStorage } from 'firebase-admin/storage';
 import { firebaseConfig } from '@/firebase/config';
 import { detectPdfFields } from '@/lib/pdf-form-engine';
+import { isMultiSignerWorkflow } from '@/lib/signing-workflow';
+import { canViewSession, loadOrCreateSession } from '@/lib/onboarding-signing';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -70,24 +72,38 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'No PDF form found on this task' }, { status: 404 });
     }
 
-    if (!(await canAccessTask(db, task, auth.uid, auth.email))) {
+    // Phase 3: multi-signer documents serve the current WORKING copy (earlier
+    // signers' values filled + locked) and every signer may load it.
+    const bucket = getStorage().bucket(firebaseConfig.storageBucket);
+    let pdfPath: string = content.pdfStoragePath;
+    let allowed = false;
+    let cacheControl = 'private, max-age=300';
+    if (isMultiSignerWorkflow(content)) {
+      const loaded = await loadOrCreateSession(db, bucket, taskId);
+      if (loaded) {
+        pdfPath = loaded.session.workingPdfPath || loaded.session.templatePath;
+        allowed = await canViewSession(db, loaded.session, auth.uid, auth.email);
+        cacheControl = 'no-store';
+      }
+    }
+
+    if (!allowed && !(await canAccessTask(db, task, auth.uid, auth.email))) {
       return NextResponse.json({ error: 'You do not have access to this document' }, { status: 403 });
     }
 
-    const bucket = getStorage().bucket(firebaseConfig.storageBucket);
-    const [buffer] = await bucket.file(content.pdfStoragePath).download();
+    const [buffer] = await bucket.file(pdfPath).download();
     const bytes = new Uint8Array(buffer);
 
     if (wantFields) {
       const fields = await detectPdfFields(bytes);
-      return NextResponse.json({ fields }, { headers: { 'Cache-Control': 'private, max-age=300' } });
+      return NextResponse.json({ fields }, { headers: { 'Cache-Control': cacheControl } });
     }
 
     return new NextResponse(bytes, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'inline',
-        'Cache-Control': 'private, max-age=300',
+        'Cache-Control': cacheControl,
       },
     });
   } catch (err: any) {

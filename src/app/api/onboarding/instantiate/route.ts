@@ -22,8 +22,12 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { verifyRole } from '@/lib/api-auth';
 import { getSystemTemplateById } from '@/lib/onboarding-templates-registry';
-import type { OnboardingInstance } from '@/types/onboarding-templates';
+import type { OnboardingInstance, PdfFormContent } from '@/types/onboarding-templates';
 import { notifyOnboardingAssigned } from '@/lib/onboarding-notifications';
+import { getStorage } from 'firebase-admin/storage';
+import { firebaseConfig } from '@/firebase/config';
+import { isMultiSignerWorkflow } from '@/lib/signing-workflow';
+import { SIGNING_SESSIONS, SigningSetupError, buildSigningSession, mirrorFor } from '@/lib/onboarding-signing';
 
 const LOG_PREFIX = '[Onboarding:Instantiate]';
 
@@ -97,6 +101,7 @@ export async function POST(req: Request) {
     // Track results for all templates
     const createdInstances: { instanceId: string; tasksCreated: number; roleName: string; taskIds: string[] }[] = [];
     const notificationPromises: Promise<number>[] = [];
+    const preparedBatches: { batch: FirebaseFirestore.WriteBatch; instanceId: string; taskIds: string[]; roleName: string }[] = [];
 
     // ── 3a. Resolve user's role tags for step suppression ──
     // Build a set of lowercase tags from the user's profile so we can
@@ -239,6 +244,29 @@ export async function POST(req: Request) {
 
         const dueDate = new Date(startDateMs + step.dayOffset * MS_PER_DAY);
 
+        // ── Phase 3: multi-party signing session (server-only state) ──
+        // Built BEFORE anything is committed so a bad signing order (e.g. a
+        // signer who left the org, or no supervisor chosen) fails cleanly.
+        let signingMirror: ReturnType<typeof mirrorFor> | null = null;
+        const stepContent = step.interactiveContent as PdfFormContent | undefined;
+        if (stepContent?.type === 'pdf_form' && isMultiSignerWorkflow(stepContent)) {
+          const session = await buildSigningSession(db, getStorage().bucket(firebaseConfig.storageBucket), {
+            orgId,
+            parentTaskId: taskId,
+            instanceId,
+            title: step.title,
+            content: stepContent,
+            employee: { uid: resolvedUserId, email: targetUserEmail, name: targetUserName },
+            supervisor: { uid: body.supervisorUid || mentorUid || null, email: body.supervisorEmail || mentorEmail || null },
+          });
+          signingMirror = mirrorFor(session);
+          batch.set(db.collection(SIGNING_SESSIONS).doc(taskId), {
+            ...session,
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
+
         batch.set(taskRef, {
           // Standard Action Board fields
           id: taskId,
@@ -286,6 +314,7 @@ export async function POST(req: Request) {
             ...(step.mediaUrl ? { mediaUrl: step.mediaUrl } : {}),
             ...(step.mediaType ? { mediaType: step.mediaType } : {}),
             interactiveContent: step.interactiveContent || null,
+            ...(signingMirror ? { signing: signingMirror } : {}),
           },
 
           // Automations — notify admin on completion
@@ -351,17 +380,24 @@ export async function POST(req: Request) {
         },
       });
 
-      // ── Commit the batch for this template ──
+      // ── Queue the batch for this template ──
+      // Phase 3: commits are deferred until EVERY template is prepared, so a
+      // signing-order problem in a later template can't leave an earlier one
+      // half-assigned.
+      preparedBatches.push({ batch, instanceId, taskIds, roleName: template.roleName });
+    }
+
+    for (const { batch, instanceId, taskIds, roleName } of preparedBatches) {
       await batch.commit();
 
       console.log(
-        `${LOG_PREFIX} ✅ Successfully created ${taskIds.length} tasks + instance ${instanceId} for ${targetUserEmail} (${template.roleName})`,
+        `${LOG_PREFIX} ✅ Successfully created ${taskIds.length} tasks + instance ${instanceId} for ${targetUserEmail} (${roleName})`,
       );
 
       createdInstances.push({
         instanceId,
         tasksCreated: taskIds.length,
-        roleName: template.roleName,
+        roleName,
         taskIds,
       });
 
@@ -373,7 +409,7 @@ export async function POST(req: Request) {
           employeeUid: resolvedUserId,
           employeeEmail: targetUserEmail,
           employeeName: targetUserName,
-          roleName: template.roleName,
+          roleName,
           supervisorUid: body.supervisorUid || mentorUid,
           supervisorEmail: body.supervisorEmail || mentorEmail,
           actorUid: auth.uid,
@@ -400,6 +436,9 @@ export async function POST(req: Request) {
     });
   } catch (err: any) {
     // Handle role verification errors cleanly
+    if (err instanceof SigningSetupError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     if (err.message === 'Unauthorized') {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }

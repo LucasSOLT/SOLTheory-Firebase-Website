@@ -835,6 +835,7 @@ export default function BlueprintEditor({
                                     content={item.interactiveContent}
                                     onChange={(content) => handleUpdateItem(phase.id, item.id, { interactiveContent: content })}
                                     isDarkMode={isDarkMode}
+                                    orgId={orgId}
                                   />
                                 </div>
                               )}

@@ -12,6 +12,7 @@ import {
   where,
   onSnapshot,
   doc,
+  getDoc,
   updateDoc,
   serverTimestamp,
 } from 'firebase/firestore';
@@ -44,6 +45,7 @@ import AdminSubmissionViewer from '@/components/onboarding/AdminSubmissionViewer
 import ScheduleOrientationModal from '@/components/onboarding/ScheduleOrientationModal';
 import ManageUserBlueprintsModal from '@/components/onboarding/ManageUserBlueprintsModal';
 import SupervisorProgressView from '@/components/onboarding/SupervisorProgressView';
+import AwaitingSignaturePanel from '@/components/onboarding/AwaitingSignaturePanel';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import type { ComplianceDocumentCategory } from '@/types/onboarding-templates';
 import { logActivity } from '@/lib/activity-logger';
@@ -253,6 +255,28 @@ export default function OnboardingPage() {
   useEffect(() => {
     fetchServerData();
   }, [fetchServerData]);
+
+  // ── Phase 3: deep link from "awaiting your signature" notices (?sign=<taskId>) ──
+  useEffect(() => {
+    if (!firestore || !user?.uid || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const signTaskId = params.get('sign');
+    if (!signTaskId) return;
+    let cancelled = false;
+    getDoc(doc(firestore, 'action_board_tasks', signTaskId))
+      .then((snap) => {
+        if (cancelled || !snap.exists()) return;
+        setSelectedTaskForPopup({ id: snap.id, ...(snap.data() as Omit<TaskDoc, 'id'>) });
+        // Drop the param so closing the popup / refreshing doesn't reopen it.
+        params.delete('sign');
+        const qs = params.toString();
+        window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+      })
+      .catch((err) => console.warn('[Onboarding] Could not open signing link:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [firestore, user?.uid]);
 
   // ── Real-Time Firestore Listeners ─────────────────────────────────────────
 
@@ -699,6 +723,16 @@ export default function OnboardingPage() {
       {/* ── Main Content ──────────────────────────────────────────────────── */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
 
+        {/* Phase 3: documents waiting on this user's signature (countersigners) */}
+        {user?.uid && orgId && (
+          <AwaitingSignaturePanel
+            orgId={orgId}
+            uid={user.uid}
+            isDarkMode={isDarkMode}
+            onOpen={(task) => setSelectedTaskForPopup(task as any)}
+          />
+        )}
+
         {/* ════════════════════════════════════════════════════════════════ */}
         {/* NEW HIRE VIEW — 4-Phase Onboarding Roadmap                     */}
         {/* ════════════════════════════════════════════════════════════════ */}
@@ -768,7 +802,7 @@ export default function OnboardingPage() {
                   />
                 );
               });
-            })()}\
+            })()}
 
             {/* ── My Signed Documents ─────────────────────────────────── */}
             {(() => {

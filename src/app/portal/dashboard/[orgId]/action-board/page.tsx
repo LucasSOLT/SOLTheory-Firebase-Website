@@ -117,6 +117,9 @@ interface ActionBoardTask {
   // Estimated duration for timesheet auto-logging
   estimatedMinutes?: number;
   autoLogTimesheet?: boolean;
+  // Onboarding Phase 3: countersign tasks (category 'onboarding_signature') carry metadata.signLink
+  category?: string;
+  metadata?: { signLink?: string; [key: string]: unknown };
 }
 
 type EmailTrigger = "assigned" | "in_progress" | "completed" | "overdue";
@@ -1650,6 +1653,17 @@ ${activeFilterSummary}`;
                           {/* Description */}
                           {task.description && (
                             <p className="text-xs text-slate-500 leading-relaxed mb-2 line-clamp-2">{task.description}</p>
+                          )}
+
+                          {/* Onboarding Phase 3: countersign task → open the document */}
+                          {task.category === 'onboarding_signature' && task.metadata?.signLink && task.column !== 'done' && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); router.push(String(task.metadata!.signLink)); }}
+                              className="mb-2 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                            >
+                              ✍️ Open &amp; sign
+                            </button>
                           )}
 
                           {/* Attachments */}

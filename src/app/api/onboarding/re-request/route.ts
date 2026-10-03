@@ -21,6 +21,13 @@ import { NextResponse } from 'next/server';
 import { initAdmin } from '@/firebase/admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { verifyRole } from '@/lib/api-auth';
+import {
+  SIGNING_SESSIONS,
+  currentSigner,
+  mirrorFor,
+  notifyNextSigner,
+  type SigningSessionDoc,
+} from '@/lib/onboarding-signing';
 
 const LOG_PREFIX = '[Onboarding:ReRequest]';
 
@@ -68,7 +75,7 @@ export async function POST(req: Request) {
       const instanceSnap = await db.collection('onboarding_instances').doc(instanceId).get();
       if (instanceSnap.exists) {
         const instanceData = instanceSnap.data()!;
-        isSupervisor = instanceData.mentorUid === auth.uid;
+        isSupervisor = instanceData.mentorUid === auth.uid || instanceData.supervisorUid === auth.uid;
       }
     }
 
@@ -77,10 +84,32 @@ export async function POST(req: Request) {
     const memberRole = memberSnap.data()?.role || 'user';
     const isAdminOrOracle = memberRole === 'admin' || memberRole === 'oracle';
 
-    if (!isAdminOrOracle && !isSupervisor) {
+    // Phase 3: multi-signer documents keep server-only signing state.
+    const sessionRef = db.collection(SIGNING_SESSIONS).doc(taskId);
+    const sessionSnap = await sessionRef.get();
+    const session = sessionSnap.exists ? (sessionSnap.data() as SigningSessionDoc) : null;
+    // The signer whose turn it is (e.g. HR reviewing the employee's part) may
+    // also send the document back — but not the employee to themself.
+    const cur = session ? currentSigner(session) : null;
+    const isCurrentCountersigner =
+      !!session &&
+      session.status !== 'fully_executed' &&
+      session.status !== 'archived' &&
+      !!cur &&
+      cur.uid === auth.uid &&
+      cur.uid !== session.employeeUid;
+
+    if (!isAdminOrOracle && !isSupervisor && !isCurrentCountersigner) {
       return NextResponse.json(
         { error: 'Only admins or the assigned supervisor can re-request tasks' },
         { status: 403 },
+      );
+    }
+
+    if (session?.status === 'archived') {
+      return NextResponse.json(
+        { error: 'This document was already sent and archived, so it can no longer be re-requested.' },
+        { status: 409 },
       );
     }
 
@@ -98,6 +127,71 @@ export async function POST(req: Request) {
       'metadata.reRequestedByEmail': auth.email,
       updatedAt: FieldValue.serverTimestamp(),
     });
+
+    // ── Phase 3: reset the signing session (new round, back to signer #1) ──
+    if (session) {
+      const reset: SigningSessionDoc = {
+        ...session,
+        status: 'draft',
+        round: session.round + 1,
+        currentSignerOrder: 1,
+        completions: [],
+        signatures: [],
+        workingPdfPath: null,
+        openCountersignTaskId: null,
+        finalDocument: null,
+        history: [
+          ...session.history,
+          {
+            round: session.round,
+            completions: session.completions,
+            workingPdfPath: session.workingPdfPath,
+            resetAt: new Date().toISOString(),
+            resetBy: auth.uid,
+            notes: notes.trim(),
+          },
+        ],
+      };
+      await sessionRef.update({
+        status: reset.status,
+        round: reset.round,
+        currentSignerOrder: reset.currentSignerOrder,
+        completions: [],
+        signatures: [],
+        workingPdfPath: null,
+        openCountersignTaskId: null,
+        finalDocument: null,
+        history: reset.history,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      await taskRef.update({ 'metadata.signing': mirrorFor(reset) });
+
+      if (session.openCountersignTaskId) {
+        await db.collection('action_board_tasks').doc(session.openCountersignTaskId).update({
+          column: 'done',
+          isArchived: true,
+          'metadata.cancelled': true,
+          'metadata.cancelledReason': 'Document was sent back for changes',
+          updatedAt: FieldValue.serverTimestamp(),
+        }).catch(() => undefined);
+      }
+
+      // A fully executed copy that hasn't been sent yet is superseded.
+      if (session.finalDocument?.vaultDocId) {
+        await db.collection('orgs').doc(orgId).collection('compliance_documents').doc(session.finalDocument.vaultDocId).update({
+          status: 'rejected',
+          notes: `Superseded — re-requested: ${notes.trim()}`.substring(0, 500),
+          supersededAt: FieldValue.serverTimestamp(),
+        }).catch(() => undefined);
+      }
+
+      // Signer #1 gets an in-app notice when it isn't the employee (the
+      // employee already sees the re-request notes on their task).
+      const first = currentSigner(reset);
+      if (first && first.uid !== session.employeeUid) {
+        await notifyNextSigner(reset, first, auth.uid);
+      }
+    }
 
     // Update progress on the onboarding instance
     if (instanceId) {

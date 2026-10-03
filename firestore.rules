@@ -800,6 +800,16 @@ service cloud.firestore {
     }
 
     /**
+     * @description Phase 3 multi-party signing sessions. Server-only (Admin
+     * SDK via /api/onboarding/pdf-form/*). Clients never read or write them —
+     * the parent task carries a display-only mirror at metadata.signing.
+     * @path /onboarding_signing_sessions/{taskId}
+     */
+    match /onboarding_signing_sessions/{taskId} {
+      allow read, write: if false;
+    }
+
+    /**
      * @description Compliance documents uploaded to the secure vault.
      * @path /orgs/{orgId}/compliance_documents/{docId}
      */

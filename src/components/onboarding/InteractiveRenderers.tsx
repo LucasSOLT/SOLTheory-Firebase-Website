@@ -34,6 +34,8 @@ import { safeExternalUrl } from '@/lib/utils';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import PdfFormVisualRenderer from './pdf/PdfFormVisualRenderer';
 import { usePdfFormSource } from './pdf/usePdfFormSource';
+import MultiSignerPdfForm from './pdf/MultiSignerPdfForm';
+import { isMultiSignerWorkflow } from '@/lib/signing-workflow';
 
 // ----------------------------------------------------------------------
 // 1. QuizRenderer
@@ -1528,6 +1530,10 @@ export function InteractiveContentRenderer({
     case 'recorded_response':
       return <RecordedResponseRenderer content={content} onSubmit={onSubmit} isDarkMode={isDarkMode} disabled={disabled} existingResponse={existingResponse} />;
     case 'pdf_form':
+      // Phase 3: multi-signer documents (inside a real task) use the signing workflow UI.
+      if (taskId && isMultiSignerWorkflow(content)) {
+        return <MultiSignerPdfForm content={content} taskId={taskId} orgId={orgId} isDarkMode={isDarkMode} />;
+      }
       return <PdfFormRenderer content={content} onSubmit={onSubmit} isDarkMode={isDarkMode} disabled={disabled} existingResponse={existingResponse} orgId={orgId} taskId={taskId} />;
     default:
       return (

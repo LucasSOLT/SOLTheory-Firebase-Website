@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { getAuthHeaders } from '@/lib/api-auth-client';
+import type { TaskSigningMirror } from '@/types/onboarding-templates';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,8 @@ interface TaskDoc {
     mediaUrl?: string | null;
     mediaType?: string | null;
     orgId?: string;
+    /** Phase 3: display-only multi-signer mirror. */
+    signing?: TaskSigningMirror;
   };
   attachments?: { url: string; name: string; type: string }[];
 }
@@ -408,6 +411,34 @@ export default function SupervisorProgressView({
                                     }`}>
                                       {task.title}
                                     </span>
+
+                                    {/* Phase 3: multi-signer progress */}
+                                    {task.metadata?.signing && task.metadata.signing.totalSigners >= 2 && (() => {
+                                      const s = task.metadata.signing;
+                                      if (s.status === 'fully_executed' || s.status === 'archived') {
+                                        return (
+                                          <span
+                                            title="Fully executed. Send & Archive arrives in the next update."
+                                            className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                                              isDarkMode ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/50' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                            }`}
+                                          >
+                                            {s.status === 'archived' ? 'Archived' : 'Ready to Send & Archive'}
+                                          </span>
+                                        );
+                                      }
+                                      return (
+                                        <span
+                                          title={`${s.completedOrders.length} of ${s.totalSigners} signed`}
+                                          className={`shrink-0 hidden sm:inline text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                                            isDarkMode ? 'bg-amber-950/30 text-amber-300 border-amber-800/40' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                          }`}
+                                        >
+                                          {s.completedOrders.length > 0 ? `${s.completedOrders.length}/${s.totalSigners} signed ✓ · ` : ''}
+                                          ⏳ Awaiting {s.currentSignerName || 'next signer'} ({s.currentSignerOrder} of {s.totalSigners})
+                                        </span>
+                                      );
+                                    })()}
 
                                     {/* Action Buttons */}
                                     <div className="flex items-center gap-1.5 shrink-0">

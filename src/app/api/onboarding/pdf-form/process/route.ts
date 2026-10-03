@@ -36,6 +36,7 @@ import {
   type PdfSignatureStamp,
 } from '@/lib/pdf-form-engine';
 import { notifyOnboardingTaskCompleted } from '@/lib/onboarding-notifications';
+import { isMultiSignerWorkflow } from '@/lib/signing-workflow';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -72,34 +73,17 @@ export async function POST(req: Request) {
     if (!fields || typeof fields !== 'object') {
       return NextResponse.json({ error: 'Missing or invalid fields object' }, { status: 400 });
     }
-    if (!pdfSourceUrl && !pdfSourceStoragePath) {
-      return NextResponse.json({ error: 'Missing PDF source (provide pdfSourceUrl or pdfSourceStoragePath)' }, { status: 400 });
-    }
+    // Phase 3 hardening: `pdfSourceUrl` / `pdfSourceStoragePath` are accepted
+    // for backward compatibility but IGNORED — the PDF path is always read
+    // from the server-side task record below.
+    void pdfSourceUrl;
+    void pdfSourceStoragePath;
 
     await initAdmin();
     const db = getAdminFirestore();
     const bucket = getStorage().bucket(firebaseConfig.storageBucket);
 
-    // ── 1. Fetch the original PDF template bytes ──
-    let pdfBytes: Uint8Array;
-
-    if (pdfSourceStoragePath) {
-      // Direct Storage path (most reliable)
-      const [buffer] = await bucket.file(pdfSourceStoragePath).download();
-      pdfBytes = new Uint8Array(buffer);
-    } else if (pdfSourceUrl) {
-      // Fetch from URL (works for signed URLs)
-      const response = await fetch(pdfSourceUrl);
-      if (!response.ok) {
-        return NextResponse.json({ error: 'Failed to fetch PDF from source URL' }, { status: 400 });
-      }
-      const arrayBuffer = await response.arrayBuffer();
-      pdfBytes = new Uint8Array(arrayBuffer);
-    } else {
-      return NextResponse.json({ error: 'No PDF source provided' }, { status: 400 });
-    }
-
-    // ── 2. Fetch the task to get metadata ──
+    // ── 1. Fetch the task (authoritative source of the template + assignee) ──
     const taskRef = db.collection('action_board_tasks').doc(taskId);
     const taskDoc = await taskRef.get();
 
@@ -109,6 +93,27 @@ export async function POST(req: Request) {
 
     const task = taskDoc.data()!;
     const taskTitle = task.title || 'PDF Form Submission';
+    const taskContent = task.metadata?.interactiveContent;
+
+    if (task.orgId && task.orgId !== orgId) {
+      return NextResponse.json({ error: 'Task does not belong to this organization' }, { status: 403 });
+    }
+    if (task.assignedTo !== auth.uid) {
+      return NextResponse.json({ error: 'Only the person this document is assigned to can submit it' }, { status: 403 });
+    }
+    if (taskContent?.type !== 'pdf_form' || !taskContent.pdfStoragePath) {
+      return NextResponse.json({ error: 'No PDF form found on this task' }, { status: 404 });
+    }
+    if (isMultiSignerWorkflow(taskContent)) {
+      return NextResponse.json(
+        { error: 'This document has multiple signers. Please reload the page and sign again.' },
+        { status: 409 },
+      );
+    }
+
+    // ── 2. Fetch the original PDF template bytes (server-side path only) ──
+    const [templateBuffer] = await bucket.file(taskContent.pdfStoragePath).download();
+    const pdfBytes = new Uint8Array(templateBuffer);
 
     // ── 3. Fetch signer info ──
     let signerEmail = auth.email;

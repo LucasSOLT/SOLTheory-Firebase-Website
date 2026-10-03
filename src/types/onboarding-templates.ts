@@ -527,6 +527,90 @@ export interface PdfFormContent {
   documentCategory?: string;
   /** Whether to require ESIGN Act consent checkbox. */
   requireEsignConsent?: boolean;
+  /**
+   * Phase 3 — multi-party signing. When enabled with 2+ signers, the document
+   * routes signer → signer in `order`, is partially filled at each step, and is
+   * only flattened + sealed after the LAST signer completes. When absent or
+   * disabled, the single-signer flow (requireSignature / signaturePosition
+   * above) is used unchanged.
+   */
+  signingWorkflow?: SigningWorkflow;
+}
+
+// ── Phase 3: Multi-Party Signing ────────────────────────────────────────────
+
+/**
+ * Who fills a signer slot.
+ *  - 'employee'   → whoever the blueprint is assigned to
+ *  - 'supervisor' → the supervisor chosen for that onboarding track (mentorUid)
+ *  - 'member'     → one specific org member picked in the Blueprint Editor
+ */
+export type SignerKind = 'employee' | 'supervisor' | 'member';
+
+/** One box in the signing-order chain (configured in the Blueprint Editor). */
+export interface SignerDefinition {
+  /** Stable ID (survives reordering). */
+  id: string;
+  /** 1-based position in the chain. */
+  order: number;
+  kind: SignerKind;
+  /** kind === 'member': the chosen org member. */
+  memberUid?: string;
+  memberEmail?: string;
+  memberName?: string;
+  /** Optional role label shown to everyone, e.g. "HR Director". */
+  label?: string;
+  /**
+   * AcroForm field names this signer fills. A field belongs to at most one
+   * signer; unassigned fields belong to the employee signer.
+   */
+  fieldNames: string[];
+  /** Whether this signer must draw a signature. */
+  requireSignature: boolean;
+  /** Where to stamp this signer's signature when the PDF has no signature field for them. */
+  signaturePosition?: { pageIndex: number; x: number; y: number; width: number; height: number };
+}
+
+export interface SigningWorkflow {
+  enabled: boolean;
+  signers: SignerDefinition[];
+}
+
+/** Document lifecycle for multi-signer PDFs (locked spec). */
+export type DocumentSigningStatus = 'draft' | 'partially_signed' | 'fully_executed' | 'archived';
+
+/** Audit record written when a signer completes their portion. */
+export interface SignerCompletion {
+  order: number;
+  signerUid: string;
+  signerEmail: string;
+  signerName: string;
+  typedName: string;
+  signedAt: string; // ISO
+  ipAddress: string;
+  userAgent: string;
+  fieldsFilled: number;
+  signaturesApplied: number;
+  /** SHA-256 of the partially filled PDF produced by this step. */
+  partialPdfSha256: string;
+  esignConsent: boolean;
+}
+
+/**
+ * Display-only mirror of the signing state on the parent task
+ * (`metadata.signing`). The authoritative state lives server-side in
+ * `onboarding_signing_sessions/{taskId}` and is never trusted from the client.
+ */
+export interface TaskSigningMirror {
+  status: DocumentSigningStatus;
+  round: number;
+  currentSignerOrder: number;
+  totalSigners: number;
+  currentSignerUid?: string | null;
+  currentSignerName?: string | null;
+  completedOrders: number[];
+  /** True once fully executed — Phase 4 "Send & Archive" becomes available. */
+  readyToSendAndArchive?: boolean;
 }
 
 /** Metadata shape for a detected PDF AcroForm field (mirrored from pdf-form-engine). */

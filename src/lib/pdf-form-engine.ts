@@ -28,7 +28,7 @@ import {
   AnnotationFlags,
   rgb,
 } from 'pdf-lib';
-import type { PDFField, PDFWidgetAnnotation, PDFObject } from 'pdf-lib';
+import type { PDFField, PDFForm, PDFWidgetAnnotation, PDFObject } from 'pdf-lib';
 import { createHash } from 'crypto';
 import type { PdfFieldWidget } from '@/types/onboarding-templates';
 
@@ -357,7 +357,41 @@ export async function fillAndFlattenPdf(
   const totalFieldsDetected = form.getFields().length;
 
   // ── Fill Fields ──
-  for (const [fieldName, value] of Object.entries(fillData.fields)) {
+  fieldsFilled = applyFieldValues(form, fillData.fields);
+
+  // ── Flatten ──
+  // Flatten makes all fields read-only and bakes their values into the page content.
+  // This prevents post-signing tampering.
+  // Phase 2 Step 2.4: flatten BEFORE stamping. Flattening appends each field's
+  // appearance to the page content, so a field with a background drawn after
+  // the stamp could paint over the signature. Stamping last keeps it on top.
+  form.flatten();
+
+  // ── Stamp Signatures ──
+  signaturesApplied = await stampSignatures(pdfDoc, fillData.signatures);
+
+  // ── Serialize ──
+  const resultBytes = await pdfDoc.save();
+
+  // ── SHA-256 Seal ──
+  const sha256Hash = createHash('sha256').update(resultBytes).digest('hex');
+
+  return {
+    pdfBytes: resultBytes,
+    sha256Hash,
+    fieldsFilled,
+    signaturesApplied,
+    totalFieldsDetected,
+  };
+}
+
+/**
+ * Sets AcroForm values. Booleans → checkboxes; strings → text field, then
+ * dropdown, then radio group. Returns how many fields were filled. Never throws.
+ */
+function applyFieldValues(form: PDFForm, fields: Record<string, string | boolean>): number {
+  let fieldsFilled = 0;
+  for (const [fieldName, value] of Object.entries(fields)) {
     try {
       if (typeof value === 'boolean') {
         // Checkbox
@@ -394,56 +428,103 @@ export async function fillAndFlattenPdf(
       console.warn(`[PDF Form Engine] Error filling field "${fieldName}":`, err);
     }
   }
+  return fieldsFilled;
+}
 
-  // ── Flatten ──
-  // Flatten makes all fields read-only and bakes their values into the page content.
-  // This prevents post-signing tampering.
-  // Phase 2 Step 2.4: flatten BEFORE stamping. Flattening appends each field's
-  // appearance to the page content, so a field with a background drawn after
-  // the stamp could paint over the signature. Stamping last keeps it on top.
-  form.flatten();
+/** Draws signature images onto pages. Returns how many were applied. Never throws. */
+async function stampSignatures(pdfDoc: PDFDocument, signatures: PdfSignatureStamp[] | undefined): Promise<number> {
+  let signaturesApplied = 0;
+  if (!signatures || signatures.length === 0) return 0;
+  for (const stamp of signatures) {
+    try {
+      // Extract raw PNG bytes from the data URL
+      const base64Data = stamp.imageData.replace(/^data:image\/\w+;base64,/, '');
+      const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+      const pngImage = await pdfDoc.embedPng(imageBytes);
 
-  // ── Stamp Signatures ──
-  if (fillData.signatures && fillData.signatures.length > 0) {
-    for (const stamp of fillData.signatures) {
-      try {
-        // Extract raw PNG bytes from the data URL
-        const base64Data = stamp.imageData.replace(/^data:image\/\w+;base64,/, '');
-        const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-        const pngImage = await pdfDoc.embedPng(imageBytes);
-
-        const pages = pdfDoc.getPages();
-        const page = pages[stamp.pageIndex];
-        if (!page) {
-          console.warn(`[PDF Form Engine] Signature stamp page ${stamp.pageIndex} does not exist`);
-          continue;
-        }
-
-        page.drawImage(pngImage, {
-          x: stamp.x,
-          y: stamp.y,
-          width: stamp.width,
-          height: stamp.height,
-        });
-        signaturesApplied++;
-      } catch (err) {
-        console.warn('[PDF Form Engine] Error stamping signature:', err);
+      const pages = pdfDoc.getPages();
+      const page = pages[stamp.pageIndex];
+      if (!page) {
+        console.warn(`[PDF Form Engine] Signature stamp page ${stamp.pageIndex} does not exist`);
+        continue;
       }
+
+      page.drawImage(pngImage, {
+        x: stamp.x,
+        y: stamp.y,
+        width: stamp.width,
+        height: stamp.height,
+      });
+      signaturesApplied++;
+    } catch (err) {
+      console.warn('[PDF Form Engine] Error stamping signature:', err);
+    }
+  }
+  return signaturesApplied;
+}
+
+// ── Phase 3: Multi-Party Signing ────────────────────────────────────────────
+//
+// Each signer's step fills ONLY their fields and marks them read-only, but does
+// NOT flatten (locked rule: never flatten a multi-signer PDF until ALL signers
+// are done). Signature images are kept aside and stamped once, at the very end,
+// after the final flatten — stamping earlier would let flattened field
+// appearances paint over them (see the Step 2.4 note above).
+
+export interface PdfPartialFillResult {
+  pdfBytes: Uint8Array;
+  sha256Hash: string;
+  fieldsFilled: number;
+}
+
+/**
+ * One signer's step: fill `fields`, then mark every field in `lockFieldNames`
+ * read-only so the next signers see them but can't change them. No flatten.
+ */
+export async function fillPdfPartial(
+  pdfBytes: Uint8Array | ArrayBuffer,
+  fields: Record<string, string | boolean>,
+  lockFieldNames: string[],
+): Promise<PdfPartialFillResult> {
+  const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  const form = pdfDoc.getForm();
+
+  const fieldsFilled = applyFieldValues(form, fields);
+
+  const lock = new Set(lockFieldNames);
+  for (const field of form.getFields()) {
+    if (!lock.has(field.getName())) continue;
+    try {
+      field.enableReadOnly();
+    } catch (err) {
+      console.warn(`[PDF Form Engine] Could not lock field "${field.getName()}":`, err);
     }
   }
 
-  // ── Serialize ──
   const resultBytes = await pdfDoc.save();
-
-  // ── SHA-256 Seal ──
-  const sha256Hash = createHash('sha256').update(resultBytes).digest('hex');
-
   return {
     pdfBytes: resultBytes,
-    sha256Hash,
+    sha256Hash: createHash('sha256').update(resultBytes).digest('hex'),
     fieldsFilled,
+  };
+}
+
+/**
+ * Final step after the LAST signer: flatten the fully filled PDF, then stamp
+ * every signer's signature on top, then hash.
+ */
+export async function flattenAndStampPdf(
+  pdfBytes: Uint8Array | ArrayBuffer,
+  signatures: PdfSignatureStamp[],
+): Promise<{ pdfBytes: Uint8Array; sha256Hash: string; signaturesApplied: number }> {
+  const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  pdfDoc.getForm().flatten();
+  const signaturesApplied = await stampSignatures(pdfDoc, signatures);
+  const resultBytes = await pdfDoc.save();
+  return {
+    pdfBytes: resultBytes,
+    sha256Hash: createHash('sha256').update(resultBytes).digest('hex'),
     signaturesApplied,
-    totalFieldsDetected,
   };
 }
 

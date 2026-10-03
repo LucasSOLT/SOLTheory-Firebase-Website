@@ -15,6 +15,7 @@ import {
   COMPLIANCE_CATEGORY_LABELS,
 } from '@/types/onboarding-templates';
 import { getAuthHeaders } from '@/lib/api-auth-client';
+import SigningOrderConfigurator from './SigningOrderConfigurator';
 
 const inputClass = (isDarkMode: boolean) =>
   `w-full p-2 flex-1 rounded border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -609,9 +610,10 @@ export function RecordedResponseBuilder({ content, onChange, isDarkMode }: Build
 
 // ── 8. PDF Form Builder ──────────────────────────────────────────────────────
 
-export function PdfFormBuilder({ content, onChange, isDarkMode }: BuilderProps<PdfFormContent>) {
+export function PdfFormBuilder({ content, onChange, isDarkMode, orgId }: BuilderProps<PdfFormContent> & { orgId?: string }) {
   const [isDetecting, setIsDetecting] = React.useState(false);
   const [detectMsg, setDetectMsg] = React.useState<string | null>(null);
+  const multiSigner = !!content.signingWorkflow?.enabled;
 
   const handleDetectFields = async () => {
     if (!content.pdfStoragePath) {
@@ -729,15 +731,17 @@ export function PdfFormBuilder({ content, onChange, isDarkMode }: BuilderProps<P
           </div>
 
           <div className="pt-2 space-y-2">
-            <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!!content.requireSignature}
-                onChange={(e) => onChange({ ...content, requireSignature: e.target.checked })}
-                className={checkboxClass}
-              />
-              Require Electronic Drawn Signature
-            </label>
+            {!multiSigner && (
+              <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!content.requireSignature}
+                  onChange={(e) => onChange({ ...content, requireSignature: e.target.checked })}
+                  className={checkboxClass}
+                />
+                Require Electronic Drawn Signature
+              </label>
+            )}
 
             <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
               <input
@@ -750,7 +754,10 @@ export function PdfFormBuilder({ content, onChange, isDarkMode }: BuilderProps<P
             </label>
           </div>
 
-          {content.requireSignature && (
+          {/* Phase 3: multi-party signing order */}
+          <SigningOrderConfigurator content={content} onChange={onChange} isDarkMode={isDarkMode} orgId={orgId} />
+
+          {content.requireSignature && !multiSigner && (
             <div className={`p-3 rounded-lg border text-xs space-y-2 mt-2 ${isDarkMode ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
               <div className="font-bold">Signature Stamp Coordinates (PDF Points):</div>
               <div className="grid grid-cols-5 gap-2">
@@ -826,11 +833,13 @@ export function PdfFormBuilder({ content, onChange, isDarkMode }: BuilderProps<P
 
 // ── Wrapper ──────────────────────────────────────────────────────────────────
 
-export function InteractiveContentBuilder({ itemType, content, onChange, isDarkMode }: {
+export function InteractiveContentBuilder({ itemType, content, onChange, isDarkMode, orgId }: {
   itemType: string;
   content: InteractiveContent | undefined;
   onChange: (content: InteractiveContent) => void;
   isDarkMode: boolean;
+  /** Phase 3: lets the PDF builder's signing-order picker list org members. */
+  orgId?: string;
 }) {
   // Auto-initialize content based on type if undefined
   React.useEffect(() => {
@@ -932,7 +941,7 @@ export function InteractiveContentBuilder({ itemType, content, onChange, isDarkM
     case 'recorded_response':
       return <RecordedResponseBuilder content={content} onChange={onChange as any} isDarkMode={isDarkMode} />;
     case 'pdf_form':
-      return <PdfFormBuilder content={content} onChange={onChange as any} isDarkMode={isDarkMode} />;
+      return <PdfFormBuilder content={content} onChange={onChange as any} isDarkMode={isDarkMode} orgId={orgId} />;
     default:
       return null;
   }
