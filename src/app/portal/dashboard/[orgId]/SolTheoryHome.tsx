@@ -544,8 +544,8 @@ export function SolTheoryHome() {
 
             {/* Slot: News Slideshow (Tile 6) — compact inline */}
             {!isDemo && (
-            <CmsTileWrapper tileId="tile-6" tileName="What's New" className="flex-[6] h-full min-h-[220px]">
-            <div className="relative w-full h-full rounded-2xl overflow-hidden min-h-[220px]">
+            <CmsTileWrapper tileId="tile-6" tileName="What's New" className="flex-[6] h-full min-h-[320px]">
+            <div className="relative w-full h-full rounded-2xl overflow-hidden min-h-[320px]">
               <NewsSlideshow />
               <div className="absolute inset-0 bg-amber-100/10 pointer-events-none rounded-2xl" />
             </div>

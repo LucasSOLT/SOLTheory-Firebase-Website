@@ -231,7 +231,7 @@ export function NewsSlideshow() {
               <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-white leading-tight mb-1 sm:mb-2 drop-shadow-lg">
                 {slide.headline}
               </h2>
-              <p className="hidden sm:block text-sm sm:text-base text-white/70 font-medium leading-relaxed line-clamp-2 sm:line-clamp-3">
+              <p className="text-sm sm:text-base text-white/70 font-medium leading-relaxed line-clamp-2 sm:line-clamp-3">
                 {slide.subtitle}
               </p>
             </div>

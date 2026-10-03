@@ -939,10 +939,15 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       if (isModelDropdownOpen && !target.closest('[data-dropdown="model"], [data-dropdown="model-mobile"]')) {
         setIsModelDropdownOpen(false);
       }
+      // Close agent switcher if clicking outside it
+      if (isAgentSwitcherOpen && !target.closest('[data-dropdown="agent-switcher"]')) {
+        setIsAgentSwitcherOpen(false);
+      }
     };
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsModelDropdownOpen(false);
+        setIsAgentSwitcherOpen(false);
         if (isSystemInstructionsOpen) setIsSystemInstructionsOpen(false);
         if (lightboxImage) setLightboxImage(null);
         if (isObserverFullScreen) setIsObserverFullScreen(false);
@@ -955,7 +960,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [isModelDropdownOpen, isSystemInstructionsOpen, lightboxImage, isObserverFullScreen, isKnowledgeBaseOpen]);
+  }, [isModelDropdownOpen, isAgentSwitcherOpen, isSystemInstructionsOpen, lightboxImage, isObserverFullScreen, isKnowledgeBaseOpen]);
 
   const agents: Record<string, { name: string, greeting: string, theme: string, chatBg: string, accent: string, heroDesc?: string, heroIcon?: string, quickActions?: { label: string, action: string }[] }> = {
     "jarvis": {
@@ -2350,7 +2355,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
               {/* Compact Model Selector */}
               <div className="relative" data-dropdown="model">
                 <button
-                  onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                  onClick={() => {
+                    if (!isModelDropdownOpen) setIsAgentSwitcherOpen(false);
+                    setIsModelDropdownOpen(!isModelDropdownOpen);
+                  }}
                   className={`w-full text-left px-3 py-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between ${isDarkMode ? 'border-[#383838] bg-[#2F2F2F] hover:bg-[#353535]' : 'border-[#E5E4DE] bg-white hover:bg-[#F3F2EC]'}`}
                 >
                   <span className={`text-xs font-medium truncate ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`}>
@@ -2590,8 +2598,8 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         {/* Background — clean editorial surface, no ambient glow */}
 
         {/* Top Navigator */}
-        <div className={`h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 shrink-0 z-20 sticky top-0 ${isDarkMode ? 'bg-[#212121] border-b border-[#383838]' : 'bg-[#FAF9F5] border-b border-[#E5E4DE]'}`}>
-          <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className={`h-11 sm:h-16 flex items-center justify-between px-3 sm:px-6 shrink-0 z-20 sticky top-0 ${isDarkMode ? 'bg-[#212121] border-b border-[#383838]' : 'bg-[#FAF9F5] border-b border-[#E5E4DE]'}`}>
+          <div className="flex items-center gap-2 min-w-0">
             {/* Mobile hamburger menu */}
             <button
               onClick={() => setIsMobileSidebarOpen(true)}
@@ -2612,7 +2620,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             {/* Agent Switcher — moved to header for mobile space conservation */}
             <div className="relative" data-dropdown="agent-switcher">
               <button
-                onClick={() => setIsAgentSwitcherOpen(!isAgentSwitcherOpen)}
+                onClick={() => {
+                  if (!isAgentSwitcherOpen) setIsModelDropdownOpen(false);
+                  setIsAgentSwitcherOpen(!isAgentSwitcherOpen);
+                }}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
                   isAgentSwitcherOpen
                     ? (isDarkMode ? 'bg-[#383838] text-[#ECECEC]' : 'bg-[#E0DDD4] text-[#1F1E1D]')
@@ -2678,7 +2689,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             {/* Mobile-only model selector */}
             <div className="relative md:hidden" data-dropdown="model">
               <button
-                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                onClick={() => {
+                  if (!isModelDropdownOpen) setIsAgentSwitcherOpen(false);
+                  setIsModelDropdownOpen(!isModelDropdownOpen);
+                }}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${isDarkMode ? 'bg-[#2F2F2F] text-[#B4B4B4] border border-[#383838]' : 'bg-white text-[#6B6860] border border-[#E5E4DE]'}`}
               >
                 <span className="max-w-[100px] truncate">
