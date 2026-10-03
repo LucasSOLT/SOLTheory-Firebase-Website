@@ -7,6 +7,9 @@ import { TimesheetCustomerModal } from "./TimesheetCustomerModal";
 import { TimesheetServiceModal } from "./TimesheetServiceModal";
 import { logActivity } from "@/lib/activity-logger";
 import { useDarkMode } from "@/lib/useDarkMode";
+import { useParams } from "next/navigation";
+import { reportNotificationEvent } from "@/lib/notify-client";
+import { getOrgByEmailDomain } from "@/lib/org-config";
 
 interface TimesheetUser {
   name: string;
@@ -83,6 +86,10 @@ export function TimesheetEntryModal({
   editingEntry,
 }: TimesheetEntryModalProps) {
   const isDarkMode = useDarkMode();
+  // orgId for notification events: route is /portal/dashboard/[orgId]/..., fall back to email domain
+  const params = useParams();
+  const routeOrgId = typeof params?.orgId === "string" ? params.orgId : Array.isArray(params?.orgId) ? params.orgId[0] : "";
+  const notifyOrgId = routeOrgId || (userEmail ? getOrgByEmailDomain(userEmail)?.id : "") || "";
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -201,7 +208,7 @@ export function TimesheetEntryModal({
         });
         logActivity(firestore, 'timesheet_entry_updated', { email: userEmail, displayName: form.userName }, `Updated entry: ${form.durationHours || 0}h ${form.durationMinutes || 0}m for ${form.customerName} on ${form.startDate}`);
       } else {
-        await addDoc(collection(firestore, "timesheet_entries"), {
+        const entryRef = await addDoc(collection(firestore, "timesheet_entries"), {
           userName: form.userName,
           userEmail: userEmail,
           orgDomain: orgDomain,
@@ -214,6 +221,7 @@ export function TimesheetEntryModal({
           createdAt: serverTimestamp(),
           createdBy: userEmail,
         });
+        reportNotificationEvent("timesheet_entry", notifyOrgId, entryRef.id);
         logActivity(firestore, 'timesheet_entry_created', { email: userEmail, displayName: form.userName }, `Logged ${form.durationHours || 0}h ${form.durationMinutes || 0}m for ${form.customerName} on ${form.startDate}`);
       }
       

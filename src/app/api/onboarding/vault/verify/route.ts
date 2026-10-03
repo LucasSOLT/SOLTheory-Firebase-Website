@@ -17,6 +17,7 @@ import { verifyRole } from '@/lib/api-auth';
 import { initAdmin, getFirestore as getAdminFirestore } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { COMPLIANCE_CATEGORY_LABELS } from '@/types/onboarding-templates';
+import { notifyOnboardingTaskCompleted } from '@/lib/onboarding-notifications';
 
 export async function POST(req: Request) {
   try {
@@ -84,6 +85,16 @@ export async function POST(req: Request) {
           }
 
           await taskRef.update(taskUpdates);
+
+          // Verifying the document may complete a phase or the whole onboarding
+          if (taskUpdates.column === 'done') {
+            await notifyOnboardingTaskCompleted({
+              orgId,
+              taskId: docData.taskId,
+              actorUid: auth.uid,
+              actorEmail: auth.email,
+            });
+          }
         }
       } catch (tErr: any) {
         console.warn('[Vault Verify] Task update warning:', tErr.message);

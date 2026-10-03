@@ -5,6 +5,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import crypto from 'crypto';
 import { generateSignedPdf } from '@/lib/generate-signed-pdf';
 import { sendSignedCopy } from '@/lib/send-signed-copy';
+import { notifyOnboardingTaskCompleted } from '@/lib/onboarding-notifications';
 
 export async function POST(req: NextRequest) {
   try {
@@ -266,6 +267,12 @@ export async function POST(req: NextRequest) {
         needsReview,
       }
     });
+
+    // Notify supervisor/admin when this completes a document, a phase, or the whole blueprint
+    // (task just became 'done', or a document entered pending review). Failed quizzes skip this.
+    if (passed || needsReview) {
+      await notifyOnboardingTaskCompleted({ orgId, taskId, actorUid: auth.uid, actorEmail: auth.email });
+    }
 
     return NextResponse.json({ success: true, passed, score, message });
 

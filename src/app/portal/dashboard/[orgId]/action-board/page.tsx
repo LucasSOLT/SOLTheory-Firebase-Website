@@ -64,6 +64,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { logActivity } from '@/lib/activity-logger';
+import { reportNotificationEvent } from '@/lib/notify-client';
 import { useTranslation } from '@/lib/i18n';
 import { ActionBoardTimer } from '@/components/portal/ActionBoardTimer';
 
@@ -795,6 +796,8 @@ function ActionBoardContent() {
       console.log("[ActionBoard] Creating task:", taskData);
       const docRef = await addDoc(collection(firestore, "action_board_tasks"), taskData);
       console.log("[ActionBoard] Task created with ID:", docRef.id);
+      // Notify the assignee (server re-reads the task and dedupes)
+      if (!isSelfAssign) reportNotificationEvent('action_board_assigned', ORG_ID, docRef.id);
       // Upload attachments if any
       if (pendingAttachments.length > 0) {
         const attachments = await uploadAttachments(docRef.id);
@@ -955,6 +958,8 @@ function ActionBoardContent() {
     try {
       console.log("[ActionBoard] Updating task:", editingTaskId, taskData);
       await updateDoc(doc(firestore, "action_board_tasks", editingTaskId), taskData);
+      // Notify the new assignee on reassignment (server re-reads the task and dedupes per assignee)
+      if (isAssigneeChanged && !isSelfAssign) reportNotificationEvent('action_board_assigned', ORG_ID, editingTaskId);
       // Upload new attachments if any
       if (pendingAttachments.length > 0) {
         const newAttachments = await uploadAttachments(editingTaskId);
@@ -1115,7 +1120,7 @@ function ActionBoardContent() {
           if (task.autoLogTimesheet) {
             // Auto-log immediately
             try {
-              await addDoc(collection(firestore, "timesheet_entries"), {
+              const tsRef = await addDoc(collection(firestore, "timesheet_entries"), {
                 userName: task.assignedToName || user?.displayName || "",
                 userEmail: task.assignedToEmail || user?.email || "",
                 orgDomain: `${ORG_ID}.com`,
@@ -1129,6 +1134,7 @@ function ActionBoardContent() {
                 createdBy: user?.email || "",
                 sourceTaskId: task.id,
               });
+              reportNotificationEvent('timesheet_entry', ORG_ID, tsRef.id);
               const hrs = Math.floor(task.estimatedMinutes / 60);
               const mins = task.estimatedMinutes % 60;
               console.log(`[ActionBoard] Auto-logged ${hrs}h ${mins}m to timesheet for "${task.title}"`);
@@ -1182,6 +1188,8 @@ function ActionBoardContent() {
         updateData.assignedToName = targetName || targetEmail;
       }
       await updateDoc(doc(firestore, "action_board_tasks", id), updateData);
+      // Restored to a different user → notify them (server dedupes per assignee)
+      if (targetUid && targetEmail && targetUid !== user?.uid) reportNotificationEvent('action_board_assigned', ORG_ID, id);
       setRestoreDropdownId(null);
     } catch (err) { console.error("[ActionBoard] Restore failed:", err); }
   };
@@ -2424,7 +2432,7 @@ ${activeFilterSummary}`;
                 onClick={async () => {
                   if (!firestore || !user?.email) { setTimesheetPrompt(null); return; }
                   try {
-                    await addDoc(collection(firestore, "timesheet_entries"), {
+                    const tsRef = await addDoc(collection(firestore, "timesheet_entries"), {
                       userName: timesheetPrompt.assignedToName,
                       userEmail: timesheetPrompt.assignedToEmail,
                       orgDomain: `${ORG_ID}.com`,
@@ -2438,6 +2446,7 @@ ${activeFilterSummary}`;
                       createdBy: user.email,
                       sourceTaskId: timesheetPrompt.taskId,
                     });
+                    reportNotificationEvent('timesheet_entry', ORG_ID, tsRef.id);
                   } catch (err) { console.error("[ActionBoard] Manual timesheet log failed:", err); }
                   setTimesheetPrompt(null);
                 }}

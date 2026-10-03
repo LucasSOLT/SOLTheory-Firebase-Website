@@ -4,6 +4,7 @@ import { collection, addDoc, Timestamp, doc, getDoc, getDocs, query, where, upda
 import type { Firestore } from "firebase/firestore";
 import type { GrantAgentConfig } from "@/components/portal/GrantAgentConfigModal";
 import { getAuthHeaders } from "@/lib/api-auth-client";
+import { reportNotificationEvent } from "@/lib/notify-client";
 
 /* ═══════════════════════════════════════════════════════
    Grant Agent Worker — BULLETPROOF ARCHITECTURE
@@ -599,6 +600,8 @@ async function executeAgentScan(
 
     // 10. Write the primary grant
     const docRef = await addDoc(grantsRef, grantDoc);
+    // Notify org admins (server dedupes per grant, so multiple tabs are safe)
+    if (handle.orgId) reportNotificationEvent("grant_found", handle.orgId, docRef.id);
     handle.suggestedUrls.add(selectedUrl);
     handle.suggestedTitles.add(selected.title.toLowerCase().trim());
     console.log(`[GrantAgent:${agentId}] ✓ Found: "${selected.title}" → ${selectedUrl}`);
@@ -635,7 +638,8 @@ async function executeAgentScan(
           opportunityNumber: extra.grant.opportunityNumber || "",
           ...(extraCloseDate ? { closeDate: Timestamp.fromDate(extraCloseDate) } : {}),
         };
-        await addDoc(grantsRef, extraDoc);
+        const extraRef = await addDoc(grantsRef, extraDoc);
+        if (handle.orgId) reportNotificationEvent("grant_found", handle.orgId, extraRef.id);
         handle.suggestedUrls.add(extraUrl);
         handle.suggestedTitles.add(extra.grant.title.toLowerCase().trim());
         console.log(`[GrantAgent:${agentId}] ✓ Extra grant ${g + 1}: "${extra.grant.title.substring(0, 50)}"`);

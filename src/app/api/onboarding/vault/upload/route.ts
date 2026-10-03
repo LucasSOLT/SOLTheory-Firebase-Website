@@ -20,6 +20,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { FieldValue } from 'firebase-admin/firestore';
 import { firebaseConfig } from '@/firebase/config';
 import { COMPLIANCE_CATEGORY_LABELS, type ComplianceDocumentCategory } from '@/types/onboarding-templates';
+import { notifyOnboardingDocumentSubmitted } from '@/lib/onboarding-notifications';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -177,6 +178,20 @@ export async function POST(req: Request) {
       });
     } catch (aErr) {
       console.warn('[Vault Upload] Audit log warning:', aErr);
+    }
+
+    // ── 5. Notify reviewers (supervisor / initiating admin) — only for self-uploads,
+    //       admins uploading on someone's behalf are already the reviewer. Never throws. ──
+    if (effectiveUserId === auth.uid) {
+      await notifyOnboardingDocumentSubmitted({
+        orgId,
+        docId,
+        taskId,
+        employeeName: targetName,
+        documentLabel: COMPLIANCE_CATEGORY_LABELS[documentCategory] || documentCategory,
+        actorUid: auth.uid,
+        actorEmail: auth.email,
+      });
     }
 
     return NextResponse.json({

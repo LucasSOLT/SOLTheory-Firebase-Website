@@ -16,6 +16,7 @@ import { NextResponse } from 'next/server';
 import { verifyRole } from '@/lib/api-auth';
 import { initAdmin, getFirestore as getAdminFirestore } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { notifyOnboardingTaskCompleted } from '@/lib/onboarding-notifications';
 
 export async function POST(req: Request) {
   try {
@@ -113,6 +114,11 @@ export async function POST(req: Request) {
       });
     } catch (aErr) {
       console.warn('[Review Submission] Audit log warning:', aErr);
+    }
+
+    // ── 4. Approval moves the task to 'done' → may complete a document/phase/blueprint ──
+    if (action === 'approve') {
+      await notifyOnboardingTaskCompleted({ orgId, taskId, actorUid: auth.uid, actorEmail: auth.email });
     }
 
     return NextResponse.json({

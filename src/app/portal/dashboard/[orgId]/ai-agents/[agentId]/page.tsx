@@ -1878,7 +1878,19 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       if (!errorMsg.includes("Failed to fetch") && !errorMsg.includes("NetworkError")) {
         try {
           console.log("[handleSendMessage] Auto-retrying...");
-          const retryMessages = newMessages.map(m => ({ role: m.isSelf ? "user" : "assistant", content: m.text }));
+          // Preserve images + hidden file context on retry (text-only retry made the model
+          // claim it couldn't see the image, or hallucinate its contents)
+          const retryMessages = newMessages.map(m => {
+            const role = m.isSelf ? "user" : "assistant";
+            const textContent = m.hiddenContext ? `${m.hiddenContext}\n\n[USER COMMENT]: ${m.text}` : m.text;
+            if (m.isSelf && m.imageUrl && m.imageUrl.startsWith('data:')) {
+              return { role, content: [
+                { type: 'text' as const, text: textContent },
+                { type: 'image_url' as const, image_url: { url: m.imageUrl } },
+              ] };
+            }
+            return { role, content: textContent };
+          });
           const retryRes = await fetch("/api/chat", {
             method: "POST",
             headers: await getAuthHeaders(),

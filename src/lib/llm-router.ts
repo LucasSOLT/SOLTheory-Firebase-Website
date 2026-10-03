@@ -31,6 +31,8 @@ export interface ModelConfig {
   outputCostPer1M: number;  // USD per 1M output tokens
   maxTokens: number;
   supportsTools: boolean;
+  /** True if the model accepts image_url (vision) content parts */
+  supportsVision?: boolean;
 }
 
 export const MODEL_REGISTRY: Record<string, ModelConfig> = {
@@ -45,6 +47,7 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
     outputCostPer1M: 0.30,
     maxTokens: 8192,
     supportsTools: true,
+    supportsVision: true,
   },
 
   // ── Budget Models (Groq — fast & cheap) ──
@@ -93,6 +96,7 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
     outputCostPer1M: 25.00,
     maxTokens: 8192,
     supportsTools: true,
+    supportsVision: true,
   },
   "gpt-5.6-sol": {
     provider: "openrouter",
@@ -104,6 +108,7 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
     outputCostPer1M: 30.00,
     maxTokens: 8192,
     supportsTools: true,
+    supportsVision: true,
   },
   "gemini-3.5-flash": {
     provider: "openrouter",
@@ -115,6 +120,7 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
     outputCostPer1M: 9.00,
     maxTokens: 8192,
     supportsTools: true,
+    supportsVision: true,
   },
 };
 
@@ -168,6 +174,34 @@ function getFallbackCascade(startProvider: "gemini" | "openrouter" | "groq"): Ar
   // Filter out degraded providers (but always keep at least one)
   const healthy = reordered.filter(p => !isProviderDegraded(p));
   return healthy.length > 0 ? healthy : [reordered[reordered.length - 1]];
+}
+
+// ── Vision Helpers ──
+
+/** True if any message carries an image_url content part */
+export function messagesHaveImages(messages: any[]): boolean {
+  return Array.isArray(messages) && messages.some((m: any) =>
+    Array.isArray(m?.content) && m.content.some((p: any) => p?.type === "image_url")
+  );
+}
+
+/**
+ * Text-only models reject (or silently ignore) image parts. Replace each image with an
+ * explicit note so the model tells the user honestly instead of inventing image contents.
+ */
+function prepareMessagesForModel(config: ModelConfig, messages: any[]): any[] {
+  if (config.supportsVision || !messagesHaveImages(messages)) return messages;
+  console.warn(`[LLM Router] Model "${config.modelId}" has no vision support — stripping image parts`);
+  return messages.map((m: any) => {
+    if (!Array.isArray(m?.content)) return m;
+    const text = m.content
+      .map((p: any) => p?.type === "text" ? p.text
+        : p?.type === "image_url" ? "[An image was attached, but this model cannot view images. Tell the user you could not see the image — never guess or describe its contents.]"
+        : "")
+      .filter(Boolean)
+      .join("\n");
+    return { ...m, content: text };
+  });
 }
 
 // ── Smart Auto-Routing ──
@@ -255,7 +289,8 @@ export async function createCompletion(options: CompletionOptions & { _originalM
         if (provider === "gemini") {
           result = await createGeminiCompletion(MODEL_REGISTRY["gemini-2.5-flash"], { ...options, model: "gemini-2.5-flash" });
         } else if (provider === "openrouter") {
-          result = await createOpenRouterCompletion(MODEL_REGISTRY["nemotron-3-ultra"], { ...options, model: "nemotron-3-ultra" });
+          const orFallback = messagesHaveImages(options.messages) ? "gemini-3.5-flash" : "nemotron-3-ultra";
+          result = await createOpenRouterCompletion(MODEL_REGISTRY[orFallback], { ...options, model: orFallback });
         } else {
           result = await createGroqCompletion(MODEL_REGISTRY["openai/gpt-oss-120b"], { ...options, model: "openai/gpt-oss-120b" });
         }
@@ -443,7 +478,7 @@ async function createGeminiCompletion(config: ModelConfig, options: CompletionOp
 async function createGroqCompletion(config: ModelConfig, options: CompletionOptions): Promise<CompletionResult> {
   const groq = getGroqClient();
   const params: any = {
-    messages: options.messages,
+    messages: prepareMessagesForModel(config, options.messages),
     model: config.modelId,
     temperature: options.temperature ?? 0.7,
     top_p: options.topP ?? 0.9,
@@ -479,7 +514,7 @@ async function createOpenRouterCompletion(config: ModelConfig, options: Completi
 
   const body: any = {
     model: config.modelId,
-    messages: options.messages,
+    messages: prepareMessagesForModel(config, options.messages),
     temperature: options.temperature ?? 0.7,
     top_p: options.topP ?? 0.9,
     max_tokens: options.maxTokens ?? config.maxTokens,
@@ -563,7 +598,7 @@ export async function* createStreamingCompletion(options: CompletionOptions): As
         // Fallback: use best model for that provider
         const fallbackModel = provider === "gemini" ? "gemini-2.5-flash"
           : provider === "groq" ? "openai/gpt-oss-120b"
-          : "nemotron-3-ultra";
+          : (messagesHaveImages(options.messages) ? "gemini-3.5-flash" : "nemotron-3-ultra");
         const fallbackConfig = MODEL_REGISTRY[fallbackModel];
         if (!fallbackConfig) continue;
 
@@ -628,7 +663,7 @@ async function* streamFromGemini(config: ModelConfig, options: CompletionOptions
 async function* streamFromGroq(config: ModelConfig, options: CompletionOptions): AsyncGenerator<StreamChunk> {
   const groq = getGroqClient();
   const stream = await groq.chat.completions.create({
-    messages: options.messages,
+    messages: prepareMessagesForModel(config, options.messages),
     model: config.modelId,
     temperature: options.temperature ?? 0.7,
     top_p: options.topP ?? 0.9,
@@ -669,7 +704,7 @@ async function* streamFromOpenRouter(config: ModelConfig, options: CompletionOpt
     },
     body: JSON.stringify({
       model: config.modelId,
-      messages: options.messages,
+      messages: prepareMessagesForModel(config, options.messages),
       temperature: options.temperature ?? 0.7,
       top_p: options.topP ?? 0.9,
       max_tokens: options.maxTokens ?? config.maxTokens,

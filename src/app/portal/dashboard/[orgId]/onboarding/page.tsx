@@ -47,6 +47,7 @@ import SupervisorProgressView from '@/components/onboarding/SupervisorProgressVi
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import type { ComplianceDocumentCategory } from '@/types/onboarding-templates';
 import { logActivity } from '@/lib/activity-logger';
+import { reportNotificationEvent } from '@/lib/notify-client';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -528,6 +529,11 @@ export default function OnboardingPage() {
           ...(newColumn === 'done' ? { completedAt: serverTimestamp() } : { completedAt: null }),
         });
 
+        // Notify supervisor/admin if this completed a document, phase, or blueprint (server decides)
+        if (newColumn === 'done' && orgId) {
+          reportNotificationEvent('onboarding_task_completed', orgId, taskId);
+        }
+
         // Log activity
         if (user?.email) {
           await logActivity(
@@ -542,7 +548,7 @@ export default function OnboardingPage() {
         console.error('[Onboarding] Failed to toggle task:', err);
       }
     },
-    [firestore, user],
+    [firestore, user, orgId],
   );
 
   const handleUploadDocument = useCallback(

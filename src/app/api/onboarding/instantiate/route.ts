@@ -23,6 +23,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { verifyRole } from '@/lib/api-auth';
 import { getSystemTemplateById } from '@/lib/onboarding-templates-registry';
 import type { OnboardingInstance } from '@/types/onboarding-templates';
+import { notifyOnboardingAssigned } from '@/lib/onboarding-notifications';
 
 const LOG_PREFIX = '[Onboarding:Instantiate]';
 
@@ -95,6 +96,7 @@ export async function POST(req: Request) {
 
     // Track results for all templates
     const createdInstances: { instanceId: string; tasksCreated: number; roleName: string; taskIds: string[] }[] = [];
+    const notificationPromises: Promise<number>[] = [];
 
     // ── 3a. Resolve user's role tags for step suppression ──
     // Build a set of lowercase tags from the user's profile so we can
@@ -362,7 +364,26 @@ export async function POST(req: Request) {
         roleName: template.roleName,
         taskIds,
       });
+
+      // ── Notify employee (+ supervisor) — never throws, awaited before returning ──
+      notificationPromises.push(
+        notifyOnboardingAssigned({
+          orgId,
+          instanceId,
+          employeeUid: resolvedUserId,
+          employeeEmail: targetUserEmail,
+          employeeName: targetUserName,
+          roleName: template.roleName,
+          supervisorUid: body.supervisorUid || mentorUid,
+          supervisorEmail: body.supervisorEmail || mentorEmail,
+          actorUid: auth.uid,
+          actorEmail: auth.email,
+        }),
+      );
     }
+
+    // Wait for assignment notifications (serverless may kill un-awaited work after the response)
+    await Promise.all(notificationPromises);
 
     // ── Return combined results ──
     const totalTasks = createdInstances.reduce((sum, i) => sum + i.tasksCreated, 0);

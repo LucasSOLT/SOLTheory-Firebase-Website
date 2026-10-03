@@ -7,7 +7,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, setDoc } from "fireb
 import { updateProfile } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
-import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, Flame, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain, Compass, Pin, PinOff, ShoppingBag } from "lucide-react";
+import { Search, Bell, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, Hash, UserSquare, Ticket, LogOut, FileText, Presentation, Table, Settings, Video, Youtube, Megaphone, MapPin, Globe, HardDrive, Sparkles, Activity, Lightbulb, ClipboardList, BookUser, Home, Users, HelpCircle, Instagram, Facebook, X, Bot, Mail, CalendarDays, ShieldCheck, Smartphone, MessageCircle, GraduationCap, BarChart3, Database, Factory, Flame, LayoutDashboard, Check, AlertTriangle, Monitor, RefreshCw, Moon, Sun, Send, Brain, Compass, Pin, PinOff, ShoppingBag, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -18,6 +18,7 @@ import { FEATURE_FLAGS } from '@/lib/feature-flags';
 import { ORG_REGISTRY, getOrgLabel, getAllOrgIds, getOrgConfig, isDeveloper, isOracle, DEVELOPER_EMAIL, getOrgByEmailDomain, normalizeAllowedOrgs, resolveUserOrg } from "@/lib/org-config";
 import { OrgProvider } from "@/contexts/OrgContext";
 import { useContentManagerStore } from "@/stores/content-manager-store";
+import { useNotificationStore, useMergedNotifications } from "@/stores/notification-store";
 import { getAuthHeaders } from "@/lib/api-auth-client";
 import { WalkthroughPlayer } from "@/components/portal/WalkthroughPlayer";
 import { InsightOmnibar } from "@/components/portal/InsightOmnibar";
@@ -922,6 +923,82 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [notifications, latestNotifId, readNotifIds]);
 
+  // ── Persistent notifications (/api/notifications) merged with the computed list ──
+  const fetchPersistedNotifs = useNotificationStore((s) => s.fetchPersisted);
+  const markAllPersistedRead = useNotificationStore((s) => s.markAllRead);
+  const markPersistedRead = useNotificationStore((s) => s.markRead);
+  const removePersistedNotifs = useNotificationStore((s) => s.remove);
+  const setComputedNotifs = useNotificationStore((s) => s.setComputed);
+  const setStoreComputedReadIds = useNotificationStore((s) => s.setComputedReadIds);
+  const storeComputedReadIds = useNotificationStore((s) => s.computedReadIds);
+  const dismissComputedNotifs = useNotificationStore((s) => s.dismissComputed);
+  const storeDismissedIds = useNotificationStore((s) => s.dismissedComputedIds);
+  const mergedNotifications = useMergedNotifications();
+  const unreadNotifCount = mergedNotifications.filter(n => !n.read).length;
+
+  // Share the computed list + read state with the store (used by the Notifications page)
+  React.useEffect(() => { setComputedNotifs(notifications); }, [notifications, setComputedNotifs]);
+  React.useEffect(() => { setStoreComputedReadIds(readNotifIds); }, [readNotifIds, setStoreComputedReadIds]);
+
+  // Pick up computed items marked read / deleted elsewhere (e.g. the Notifications page)
+  React.useEffect(() => {
+    const missing = storeComputedReadIds.filter(id => !readNotifIds.includes(id));
+    if (missing.length === 0) return;
+    const next = Array.from(new Set([...readNotifIds, ...missing]));
+    setReadNotifIds(next);
+    if (user?.uid) localStorage.setItem(`read_notifications_${user.uid}`, JSON.stringify(next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeComputedReadIds]);
+  React.useEffect(() => {
+    setDeletedNotifIds(prev => {
+      const missing = storeDismissedIds.filter(id => !prev.includes(id));
+      return missing.length === 0 ? prev : [...prev, ...missing];
+    });
+  }, [storeDismissedIds]);
+
+  // Load persisted notifications, poll every 60s, and refresh on window focus
+  React.useEffect(() => {
+    if (!user?.uid) return;
+    fetchPersistedNotifs();
+    const interval = setInterval(() => fetchPersistedNotifs(), 60_000);
+    const onFocus = () => fetchPersistedNotifs();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [user?.uid, fetchPersistedNotifs]);
+
+  // Opening the popup refreshes persisted notifications and marks them read
+  React.useEffect(() => {
+    if (!isNotificationsOpen || !user?.uid) return;
+    let cancelled = false;
+    (async () => {
+      await fetchPersistedNotifs();
+      if (!cancelled) markAllPersistedRead();
+    })();
+    return () => { cancelled = true; };
+  }, [isNotificationsOpen, user?.uid, fetchPersistedNotifs, markAllPersistedRead]);
+
+  // Icon + tinted background for persisted notification types
+  const getPersistedNotifVisual = (type?: string): { icon: React.ReactNode; bg: string } => {
+    switch (type) {
+      case 'action_board_assigned':
+        return { icon: <ClipboardList className="w-4 h-4 text-amber-600" />, bg: 'bg-amber-100' };
+      case 'onboarding_assigned':
+      case 'onboarding_phase_completed':
+      case 'onboarding_document_completed':
+      case 'onboarding_blueprint_completed':
+        return { icon: <GraduationCap className="w-4 h-4 text-emerald-600" />, bg: 'bg-emerald-100' };
+      case 'timesheet_entry':
+        return { icon: <Clock className="w-4 h-4 text-sky-600" />, bg: 'bg-sky-100' };
+      case 'grant_found':
+        return { icon: <Sparkles className="w-4 h-4 text-violet-600" />, bg: 'bg-violet-100' };
+      default:
+        return { icon: <Bell className="w-4 h-4 text-slate-600" />, bg: 'bg-slate-100' };
+    }
+  };
+
   React.useEffect(() => {
     if (!firestore || !user?.email) return;
 
@@ -1362,7 +1439,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className={`w-11 h-11 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer relative ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 active:bg-slate-700' : 'bg-[#faf8f3] border-slate-200 text-slate-600 active:bg-slate-100'}`}
           >
             <Bell className="w-4.5 h-4.5" />
-            {notifications.filter(n => !readNotifIds.includes(n.id)).length > 0 && (
+            {unreadNotifCount > 0 && (
               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-900"></span>
             )}
           </button>
@@ -2126,7 +2203,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="relative">
                 <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className={`p-2.5 text-slate-400 transition-colors shadow-sm border rounded-full flex items-center justify-center relative ${isDarkMode ? 'hover:text-white hover:bg-slate-800 bg-slate-800 border-slate-700' : 'hover:text-slate-700 hover:bg-[#faf8f3] bg-[#faf8f3] border-slate-100'}`}>
                   <Bell className="h-4 w-4" />
-                  {notifications.filter(n => !readNotifIds.includes(n.id)).length > 0 && (
+                  {unreadNotifCount > 0 && (
                     <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
                   )}
                 </button>
@@ -2828,8 +2905,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className={`flex items-center justify-between px-5 py-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
               <div className="flex items-center gap-2">
                 <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{t.notifications}</h3>
-                {notifications.filter(n => !readNotifIds.includes(n.id)).length > 0 && (
-                  <span className="bg-indigo-100 text-indigo-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{notifications.filter(n => !readNotifIds.includes(n.id)).length} {t.newBadge}</span>
+                {unreadNotifCount > 0 && (
+                  <span className="bg-indigo-100 text-indigo-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{unreadNotifCount} {t.newBadge}</span>
                 )}
               </div>
               <button onClick={() => setIsNotificationsOpen(false)} className={`p-1 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}>
@@ -2839,22 +2916,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <div className="max-h-[400px] overflow-y-auto">
               <div className="px-4 py-2">
-                {notifications.length === 0 ? (
+                {mergedNotifications.length === 0 ? (
                   <div className="py-8 text-center text-slate-500 text-sm font-medium">{t.noNewNotifications}</div>
                 ) : (
-                  notifications.slice(0, 3).map(n => {
-                    const isUnread = !readNotifIds.includes(n.id);
+                  mergedNotifications.slice(0, 3).map(n => {
+                    const isUnread = !n.read;
+                    const isPersisted = n.source === 'persisted';
+                    const visual = isPersisted ? getPersistedNotifVisual(n.type) : { icon: n.icon, bg: n.bg };
                     return (
                     <div 
                       key={n.id} 
                       onClick={() => {
                         setIsNotificationsOpen(false);
+                        if (isPersisted) markPersistedRead([n.id]);
                         if (n.link) router.push(n.link);
                       }}
                       className={`flex items-start gap-3 p-3 rounded-xl transition-colors mb-1.5 cursor-pointer border border-transparent group/notif ${isDarkMode ? 'hover:bg-slate-800 hover:border-slate-700' : 'hover:bg-[#f2ece0] hover:border-slate-100'}`}
                     >
-                      <div className={`w-8 h-8 rounded-lg ${n.bg} flex items-center justify-center shrink-0 mt-0.5`}>
-                        {n.icon}
+                      <div className={`w-8 h-8 rounded-lg ${visual.bg || 'bg-slate-100'} flex items-center justify-center shrink-0 mt-0.5`}>
+                        {visual.icon || <Bell className="w-4 h-4 text-slate-600" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={`text-xs font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{n.title}</p>
@@ -2868,6 +2948,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            // Persisted (server) notifications are deleted via the API
+                            if (isPersisted) {
+                              removePersistedNotifs([n.id]);
+                              return;
+                            }
                             // Track deleted ID so Firestore listeners don't re-add it
                             setDeletedNotifIds(prev => {
                               const updated = [...prev, n.id];
@@ -2883,6 +2968,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 localStorage.setItem('st_all_notifications', JSON.stringify(parsed));
                               }
                             } catch {}
+                            // Keep the shared store (Notifications page) in sync
+                            dismissComputedNotifs([n.id]);
                           }}
                           className="p-1 rounded-md opacity-30 md:opacity-0 group-hover/notif:opacity-100 hover:bg-red-50 text-slate-300 hover:text-red-400 transition-all"
                           title="Delete notification"

@@ -35,6 +35,7 @@ import {
   computeSha256,
   type PdfSignatureStamp,
 } from '@/lib/pdf-form-engine';
+import { notifyOnboardingTaskCompleted } from '@/lib/onboarding-notifications';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -241,6 +242,9 @@ export async function POST(req: Request) {
         },
       });
     } catch { /* audit log is best-effort */ }
+
+    // ── 9. Notify supervisor/admin (document / phase / blueprint completion) — never throws ──
+    await notifyOnboardingTaskCompleted({ orgId, taskId, actorUid: auth.uid, actorEmail: auth.email });
 
     return NextResponse.json({
       status: 'ok',

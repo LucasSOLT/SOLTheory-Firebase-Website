@@ -10,7 +10,7 @@ import { logAIUsage, calculateGroqCost } from "@/lib/log-ai-usage";
 import { extractPACTFacts } from "@/lib/pact-extractor";
 import { retrieveRelevantSnippets } from "@/lib/kb-retriever";
 import { retrieveSemanticChunks } from "@/lib/kb-semantic-retriever";
-import { createStreamingCompletion, createCompletion, autoSelectModel, MODEL_REGISTRY, getModelConfig, calculateCost } from "@/lib/llm-router";
+import { createStreamingCompletion, createCompletion, autoSelectModel, MODEL_REGISTRY, getModelConfig, calculateCost, messagesHaveImages } from "@/lib/llm-router";
 import { CRM_TOOL_DEFINITIONS, buildCrmSystemPrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmGetContactProfile, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, executeCrmMergeContacts, executeCrmAddActivity, executeCrmCreateContactBook, executeCrmRenameContactBook, executeCrmDeleteContactBook, executeCrmMoveContact, executeCrmScheduleFollowup, executeCrmCompleteTask, CrmInstance } from "@/lib/jarvis-crm-tools";
 import { routeIntent, type JarvisDomain } from "@/lib/jarvis-router";
 import { filterToolsForDomain, getDomainPrompt } from "@/lib/jarvis-agents";
@@ -193,6 +193,23 @@ const tools: any = [
   ...PERSONAL_BRAIN_TOOL_DEFINITIONS,
 ];
 
+/**
+ * Extract plain text from a chat message's content.
+ * Content may be a string OR a multimodal array (text + image_url parts) when the
+ * user attaches an image. All intent/routing/analysis code must read text via this
+ * helper — calling string methods directly on an array throws and breaks vision.
+ */
+const textOf = (content: any): string => {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((p: any) => p && p.type === 'text' && typeof p.text === 'string')
+      .map((p: any) => p.text)
+      .join('\n');
+  }
+  return '';
+};
+
 // Increase serverless function timeout for multi-step orchestration with premium models
 export const maxDuration = 60; // seconds (Pro plan supports up to 300s)
 
@@ -242,14 +259,13 @@ export async function POST(req: Request) {
     console.log(`[MODEL] Requested: "${requestedModel}" → Using: "${selectedModel}" | Stream: ${wantStream} | Lite: ${isLiteMode}`);
 
     // ── Vision Auto-Routing ──
-    // If user attached images and selected model is text-only (Groq), route to Gemini Direct for vision
-    const hasImages = messages.some((m: any) =>
-      Array.isArray(m.content) && m.content.some((p: any) => p.type === 'image_url')
-    );
+    // If user attached images and the selected model can't view images (Groq models,
+    // Nemotron), route to Gemini 2.5 Flash Direct so the image is actually analyzed.
+    const hasImages = messagesHaveImages(messages);
     if (hasImages) {
       const modelConfig = getModelConfig(selectedModel);
-      if (modelConfig?.provider === 'groq') {
-        console.log(`[VISION ROUTING] Image detected. Switching from ${selectedModel} (Groq, text-only) to gemini-2.5-flash for vision analysis.`);
+      if (!modelConfig?.supportsVision) {
+        console.log(`[VISION ROUTING] Image detected. Switching from ${selectedModel} (no vision) to gemini-2.5-flash for vision analysis.`);
         selectedModel = 'gemini-2.5-flash';
       }
     }
@@ -430,8 +446,8 @@ The current date/time for the user is: ${monicaTime}.`;
         try {
           // Dynamic max_tokens based on query complexity
           const lastMsg = messagesArray.filter((m: any) => m.role === 'user').pop();
-          const queryLen = (lastMsg?.content || '').length;
-          const isToolQuery = useTools && (lastMsg?.content || '').toLowerCase().match(/^(draft|send|delete|create|schedule|book|search|list)/);
+          const queryLen = textOf(lastMsg?.content).length;
+          const isToolQuery = useTools && textOf(lastMsg?.content).toLowerCase().match(/^(draft|send|delete|create|schedule|book|search|list)/);
           const dynamicMaxTokens = isToolQuery ? 4096 : queryLen > 200 ? 4096 : queryLen > 80 ? 3072 : 2048;
 
           // Use the unified llm-router for correct provider dispatch
@@ -543,7 +559,7 @@ The current date/time for the user is: ${monicaTime}.`;
     // OPTIMIZATION: Run org profile fetch AND semantic retrieval IN PARALLEL
     const userMsgsForKB = messages.filter((m: any) => m.role === "user");
     const recentUserMsgs = userMsgsForKB.slice(-3);
-    const userQueryForKB = recentUserMsgs.map((m: any) => m.content).join(" ").substring(0, 500);
+    const userQueryForKB = recentUserMsgs.map((m: any) => textOf(m.content)).join(" ").substring(0, 500);
 
     // Fire semantic retrieval promise immediately (don't wait for org profile)
     const semanticPromise = (uid && agentId && userQueryForKB.trim().length > 3)
@@ -690,11 +706,11 @@ If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer re
       // Build a compact narrative summary of older messages
       const userQuestions = oldMessages
         .filter((m: any) => m.role === 'user')
-        .map((m: any) => (m.content || '').substring(0, 100))
+        .map((m: any) => textOf(m.content).substring(0, 100))
         .slice(-5); // last 5 user messages from old section
       const assistantHighlights = oldMessages
         .filter((m: any) => m.role === 'assistant')
-        .map((m: any) => (m.content || '').substring(0, 100))
+        .map((m: any) => textOf(m.content).substring(0, 100))
         .slice(-3); // last 3 assistant messages from old section
 
       groqMessages.push({
@@ -709,13 +725,13 @@ If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer re
     // --- PERSONA BOOKEND (recency position — reinforces identity right before generation) ---
     groqMessages.push({
       role: "system",
-      content: `[REMINDER] You are J.A.R.V.I.S. First person only. No meta-commentary. Maintain your configured voice and strictly observe all operational rules. Use ## headers, short paragraphs, **bold** lead-ins on bullets. Answer directly.`
+      content: `[REMINDER] You are J.A.R.V.I.S. First person only. No meta-commentary. Maintain your configured voice and strictly observe all operational rules. Use ## headers, short paragraphs, **bold** lead-ins on bullets. Answer directly.\n\n[IMAGE RULES]\n1. You do NOT have image generation permissions. If the user asks you to generate, create, draw, design, render, or edit an image, picture, logo, illustration, artwork, or graphic, do not attempt it and do not describe an image as if you made one. Reply that image generation is only available through Iris, and that they can switch by selecting Iris from the agent selector.\n2. When the user attaches an image, analyze only what you can actually see in it. If no image content is visible to you, say plainly that the image did not come through and ask them to re-upload it. Never guess, assume, or invent what an image shows.`
     });
 
     // --- STRUCTURED REASONING ENGINE ---
     // For substantive questions, inject multi-step reasoning framework
     const lastUserMsg = messages[messages.length - 1];
-    const lastUserText = (lastUserMsg?.content || '').toLowerCase().trim();
+    const lastUserText = textOf(lastUserMsg?.content).toLowerCase().trim();
     const taskPrefixes = ['draft', 'send', 'delete', 'create', 'schedule', 'book'];
     const isTaskCommand = taskPrefixes.some(p => lastUserText.startsWith(p)) && lastUserText.length < 80;
     const questionIndicators = [
@@ -745,7 +761,7 @@ If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer re
     // that selects the right domain (EMAIL, CALENDAR, CRM, etc.) and
     // loads only that domain's tools — reducing token overhead by ~75%.
     const hasToolApis = !!(gmail || calendar);
-    const lastUserText2 = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
+    const lastUserText2 = textOf(messages.filter((m: any) => m.role === 'user').pop()?.content);
     let routedDomain: JarvisDomain = await routeIntent(lastUserText2);
     const toolKeywords = /doc|dco|docs|document|slide|sheet|spreadsheet|presentation|youtube|calendar|event|meeting|meet|appointment|email|emai|emial|draft|mail|text|message|imessage|contact|crm|dossier|profile|search web|look up|find\s+(in|my|the|their|his|her|contact|lead|email)|what\s*do\s*we\s*know|google|gogle|googl|goolge|calender|calandar|survey|questionnaire|feedback form|grant|block sender|unsubscribe|trash|spam|knowledge base|web search|remember when|past conversation|what did we|merge|move\s+(the\s+)?contact|follow[\s-]?up|log\s+(a\s+)?(note|call|activity)|schedule\s+(a\s+)?follow|complete\s+(the\s+)?task|contact\s*book/i;
     let forceTools = toolKeywords.test(lastUserText2);
@@ -761,11 +777,11 @@ If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer re
       // Check prior user messages for domain hints
       const userMsgs = messages.filter((m: any) => m.role === 'user');
       const priorUserMsgs = userMsgs.slice(-3, -1); // 2nd-to-last and 3rd-to-last user messages
-      const lastAssistantMsg = [...messages].reverse().find((m: any) => m.role === 'assistant')?.content || '';
+      const lastAssistantMsg = textOf([...messages].reverse().find((m: any) => m.role === 'assistant')?.content);
 
       // Combine recent context for domain detection
       const recentContext = [
-        ...priorUserMsgs.map((m: any) => m.content || ''),
+        ...priorUserMsgs.map((m: any) => textOf(m.content)),
         lastAssistantMsg
       ].join(' ');
 
@@ -786,7 +802,7 @@ If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer re
       if (isClarificationResponse || isShortReply) {
         // Route the prior user message instead to recover the original domain
         const priorRoute = priorUserMsgs.length > 0
-          ? await routeIntent(priorUserMsgs[priorUserMsgs.length - 1].content || '')
+          ? await routeIntent(textOf(priorUserMsgs[priorUserMsgs.length - 1].content))
           : 'GENERAL';
 
         if (priorRoute !== 'GENERAL') {
@@ -912,7 +928,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
     if (wantStream && !useTools) {
       // Resolve 'auto' mode to an actual model
       if (selectedModel === 'auto') {
-        const lastUserText = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
+        const lastUserText = textOf(messages.filter((m: any) => m.role === 'user').pop()?.content);
         selectedModel = autoSelectModel(lastUserText, useTools);
         console.log(`[AUTO] Auto-selected model: ${selectedModel}`);
       }
@@ -923,7 +939,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
 
       // Dynamic max_tokens based on query complexity
       const lastMsg = groqMessages.filter((m: any) => m.role === 'user').pop();
-      const queryLen = (lastMsg?.content || '').length;
+      const queryLen = textOf(lastMsg?.content).length;
       const dynamicMaxTokens = queryLen > 200 ? 8192 : queryLen > 80 ? 4096 : 3072;
 
       const streamGenerator = createStreamingCompletion({
@@ -1030,7 +1046,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
             // Retrieve citations after stream completes
             const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
             const citations = lastUserMessage
-              ? retrieveRelevantSnippets(lastUserMessage.content || '', {
+              ? retrieveRelevantSnippets(textOf(lastUserMessage.content), {
                   pactText: pactText || '',
                   knowledgeBaseText: knowledgeBaseText || '',
                   orgBrainText: orgBrainText || '',
@@ -1060,7 +1076,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
 
       // Fire-and-forget PACT extraction
       if (uid && userName && fullResponse.length > 20) {
-        const lastUserMsg = messages.filter((m: any) => m.role === "user").pop()?.content || "";
+        const lastUserMsg = textOf(messages.filter((m: any) => m.role === "user").pop()?.content);
         if (lastUserMsg.length > 5) {
           extractPACTFacts(lastUserMsg, fullResponse, userName, messages.slice(-6))
             .catch(() => {});
@@ -1081,7 +1097,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
     // ── PASS 1: Generate Response or Tool Target (synchronous for tool calls) ──
     // Resolve 'auto' mode for synchronous path (tool calls always use Groq for speed)
     if (selectedModel === 'auto') {
-      const lastUserText = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
+      const lastUserText = textOf(messages.filter((m: any) => m.role === 'user').pop()?.content);
       selectedModel = autoSelectModel(lastUserText, useTools);
       console.log(`[AUTO] Auto-selected model for sync path: ${selectedModel}`);
     }
@@ -1142,7 +1158,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
       // Retrieve knowledge base citations
       const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
       const citations = lastUserMessage
-        ? retrieveRelevantSnippets(lastUserMessage.content || '', {
+        ? retrieveRelevantSnippets(textOf(lastUserMessage.content), {
             pactText: pactText || '',
             knowledgeBaseText: knowledgeBaseText || '',
             orgBrainText: orgBrainText || '',
@@ -1200,7 +1216,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
 
       // Fire-and-forget server-side PACT extraction — writes to Supabase working_memories (scope-aware)
       if (uid && userName && responseText.length > 20) {
-        const lastUserMsg = messages.filter((m: any) => m.role === "user").pop()?.content || "";
+        const lastUserMsg = textOf(messages.filter((m: any) => m.role === "user").pop()?.content);
         if (lastUserMsg.length > 5) {
           const effectiveScope = chatScope === 'org' ? 'org' : 'user';
           extractPACTFacts(lastUserMsg, responseText, userName, messages.slice(-6))
@@ -1358,9 +1374,9 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
 
       // Handle document context injection
       if (body.includes('[INSERT_DOCUMENT_CONTEXT]')) {
-        const lastContextMsg = messages.slice().reverse().find((m: any) => m.role === 'user' && m.content.includes("Here are the extracted contents:"));
+        const lastContextMsg = messages.slice().reverse().find((m: any) => m.role === 'user' && textOf(m.content).includes("Here are the extracted contents:"));
         if (lastContextMsg) {
-          const match = lastContextMsg.content.match(/Here are the extracted contents:\n\n([\s\S]+?)(?=\n\n\[USER COMMENT\]:|$)/);
+          const match = textOf(lastContextMsg.content).match(/Here are the extracted contents:\n\n([\s\S]+?)(?=\n\n\[USER COMMENT\]:|$)/);
           body = body.replace('[INSERT_DOCUMENT_CONTEXT]', (match && match[1]) ? match[1].trim() : lastContextMsg.content);
         }
       }
@@ -1989,7 +2005,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
       console.log(`[ORCHESTRATOR] Multi-step request detected, invoking orchestrator...`);
       const recentContext = messages.slice(-4)
         .filter((m: any) => m.role === 'user' || m.role === 'assistant')
-        .map((m: any) => `${m.role}: ${(m.content || '').substring(0, 200)}`)
+        .map((m: any) => `${m.role}: ${textOf(m.content).substring(0, 200)}`)
         .join('\n');
 
       const encoder = new TextEncoder();
@@ -2039,7 +2055,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
             // Retrieve citations
             const lastUserMessageLocal = messages.filter((m: any) => m.role === 'user').pop();
             const citationsLocal = lastUserMessageLocal
-              ? retrieveRelevantSnippets(lastUserMessageLocal.content || '', {
+              ? retrieveRelevantSnippets(textOf(lastUserMessageLocal.content), {
                   pactText: pactText || '',
                   knowledgeBaseText: knowledgeBaseText || '',
                   orgBrainText: orgBrainText || '',
@@ -2176,7 +2192,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
             // Calculate citations for done event
             const lastUserMessageLocal = messages.filter((m: any) => m.role === 'user').pop();
             const citationsLocal = lastUserMessageLocal
-              ? retrieveRelevantSnippets(lastUserMessageLocal.content || '', {
+              ? retrieveRelevantSnippets(textOf(lastUserMessageLocal.content), {
                   pactText: pactText || '',
                   knowledgeBaseText: knowledgeBaseText || '',
                   orgBrainText: orgBrainText || '',
@@ -2342,7 +2358,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
 
     if ((hallucinatedSearchMatch || isEntirelyJSON) && executedTools.length === 0) {
       // Extract the query from JSON, or fall back to using the user's original message
-      const hallucinatedQuery = hallucinatedSearchMatch?.[1] || messages[messages.length - 1]?.content || "general search";
+      const hallucinatedQuery = hallucinatedSearchMatch?.[1] || textOf(messages[messages.length - 1]?.content) || "general search";
       console.log(`[RECOVERY] Detected hallucinated output for: "${hallucinatedQuery}". Executing real search + re-generation...`);
       try {
         const tavilyKey = process.env.TAVILY_API_KEY;
@@ -2431,7 +2447,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
     // Retrieve knowledge base citations for the user's latest message
     const lastUserMessage = messages.filter((m: any) => m.role === "user").pop();
     const citations = lastUserMessage
-      ? retrieveRelevantSnippets(lastUserMessage.content || "", {
+      ? retrieveRelevantSnippets(textOf(lastUserMessage.content), {
           pactText: pactText || "",
           knowledgeBaseText: knowledgeBaseText || "",
           orgBrainText: orgBrainText || "",
@@ -2507,7 +2523,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
     // Fire-and-forget server-side PACT extraction for non-streaming path (voice, fallback) — Supabase scope-aware
     const nonStreamResponseText = finalResponse || "";
     if (uid && userName && nonStreamResponseText.length > 20) {
-      const lastUserMsg = messages.filter((m: any) => m.role === "user").pop()?.content || "";
+      const lastUserMsg = textOf(messages.filter((m: any) => m.role === "user").pop()?.content);
       if (lastUserMsg.length > 5) {
         const effectiveScope = chatScope === 'org' ? 'org' : 'user';
         extractPACTFacts(lastUserMsg, nonStreamResponseText, userName, messages.slice(-6))
