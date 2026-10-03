@@ -16,6 +16,11 @@
 // Because hideFormWidgets removes the PDF's widget appearances from the canvas,
 // read-only fields are rendered here too (as static text) so nothing disappears.
 // `isFieldEditable` lets Phase 3 lock other signers' fields without changes here.
+//
+// Step 2.5 (mobile): on touch devices, small editable fields get an invisible
+// enlarged tap area (painted UNDER all real controls, so tapping a control
+// directly always hits that control), and focusing a text/dropdown field whose
+// text would be unreadably small asks the viewer to zoom in and center it.
 // ============================================================================
 
 import React, { useMemo, useState } from 'react';
@@ -30,6 +35,7 @@ import {
   type PdfFieldValues,
 } from './overlayLayout';
 import SignaturePadModal from './SignaturePadModal';
+import { usePdfViewer } from './viewerContext';
 
 export interface PdfFieldOverlayProps {
   metrics: PageViewportMetrics;
@@ -47,6 +53,12 @@ export interface PdfFieldOverlayProps {
 
 const INK = '#111111';
 const FONT_STACK = 'Helvetica, Arial, sans-serif';
+
+// Step 2.5 — touch sizing
+const READABLE_FONT_PX = 14; // focusing a field with smaller text zooms the viewer in (touch only)
+const FOCUS_ZOOM_MAX = 2.5; // never auto-zoom past this scale
+const TOUCH_TARGET_PX = 32; // desired minimum tap area for small controls
+const MAX_TOUCH_SLOP_PX = 10; // max expansion per side (keeps dense forms usable)
 
 const prettyName = (name: string) =>
   name
@@ -86,6 +98,47 @@ export default function PdfFieldOverlay({
     !disabled && !field.readOnly && (isFieldEditable ? isFieldEditable(field) : true);
 
   const valueOf = (field: PdfFormField) => values[field.name] ?? field.currentValue;
+
+  // ── Step 2.5: touch helpers ──
+  const viewer = usePdfViewer();
+  const isTouch = !!viewer?.isCoarsePointer;
+
+  /** On phones, tiny text is unreadable while typing — zoom so it's ~14px, then center the field. */
+  const revealOnFocus = (item: OverlayItem) => (e: React.FocusEvent<HTMLElement>) => {
+    if (!viewer || !isTouch) return;
+    const minScale =
+      item.fontSize < READABLE_FONT_PX
+        ? Math.min(FOCUS_ZOOM_MAX, metrics.scale * (READABLE_FONT_PX / item.fontSize))
+        : undefined;
+    viewer.revealElement(e.currentTarget, { minScale });
+  };
+
+  /** A tap on an enlarged hit area activates the real control it surrounds. */
+  const activateControl = (container: HTMLElement | null, key: string) => {
+    const el = container?.querySelector<HTMLElement>(`[data-pdf-control="${CSS.escape(key)}"]`);
+    if (!el) return;
+    if (el instanceof HTMLButtonElement) {
+      el.click();
+      return;
+    }
+    el.focus();
+    if (el instanceof HTMLSelectElement) {
+      try {
+        (el as HTMLSelectElement & { showPicker?: () => void }).showPicker?.();
+      } catch {
+        /* showPicker unsupported or blocked — focus alone is fine */
+      }
+    }
+  };
+
+  /** Enlarged tap area for an editable control (touch only), or null if it's already big enough. */
+  const touchSlopFor = (item: OverlayItem) => {
+    if (!isTouch || !canEdit(item.field)) return null;
+    const sx = Math.min(MAX_TOUCH_SLOP_PX, Math.max(0, (TOUCH_TARGET_PX - item.width) / 2));
+    const sy = Math.min(MAX_TOUCH_SLOP_PX, Math.max(0, (TOUCH_TARGET_PX - item.height) / 2));
+    if (sx < 1 && sy < 1) return null;
+    return { left: item.left - sx, top: item.top - sy, width: item.width + sx * 2, height: item.height + sy * 2 };
+  };
 
   const renderControl = (item: OverlayItem) => {
     const { field, innerWidth: w, innerHeight: h, fontSize } = item;
@@ -127,6 +180,8 @@ export default function PdfFieldOverlay({
           'aria-invalid': missing || undefined,
           title: label,
           style: textStyle,
+          'data-pdf-control': item.key,
+          onFocus: revealOnFocus(item),
           className: `block rounded-[2px] outline-none transition-colors ${boxClasses(true, missing, !!text)}`,
         };
         return field.multiline ? (
@@ -149,6 +204,8 @@ export default function PdfFieldOverlay({
           <select
             value={selected}
             onChange={(e) => onChange(field.name, e.target.value)}
+            onFocus={revealOnFocus(item)}
+            data-pdf-control={item.key}
             aria-label={label}
             aria-required={field.required || undefined}
             aria-invalid={missing || undefined}
@@ -187,6 +244,7 @@ export default function PdfFieldOverlay({
           <button
             type="button"
             role={isRadio ? 'radio' : 'checkbox'}
+            data-pdf-control={item.key}
             aria-checked={checked}
             aria-label={isRadio ? `${label}: ${radioValueFor(item)}` : label}
             title={label}
@@ -218,6 +276,7 @@ export default function PdfFieldOverlay({
           <button
             type="button"
             onClick={() => setSigningField(field)}
+            data-pdf-control={item.key}
             aria-label={signature ? `${label} (signed — click to re-sign)` : `${label} (click to sign)`}
             title={signature ? 'Click to re-sign' : 'Click to sign'}
             style={{ width: w, height: h, fontSize: Math.max(8, Math.min(fontSize, 13)), fontFamily: FONT_STACK }}
@@ -241,6 +300,22 @@ export default function PdfFieldOverlay({
 
   return (
     <>
+      {/* Step 2.5: enlarged tap areas (touch only). Rendered FIRST so every real control paints above them. */}
+      {isTouch &&
+        items.map((item) => {
+          const slop = touchSlopFor(item);
+          if (!slop) return null;
+          return (
+            <div
+              key={`slop-${item.key}`}
+              aria-hidden
+              className="absolute"
+              style={slop}
+              onClick={(e) => activateControl(e.currentTarget.parentElement, item.key)}
+            />
+          );
+        })}
+
       {items.map((item) => (
         <div
           key={item.key}

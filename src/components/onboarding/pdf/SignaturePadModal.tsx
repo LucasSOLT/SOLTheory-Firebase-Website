@@ -24,7 +24,8 @@ interface SignaturePadModalProps {
   onApply: (dataUrl: string) => void;
 }
 
-const PAD_HEIGHT = 200;
+// 200px normally; shrinks on short (landscape phone) screens so header + pad + buttons all fit.
+const PAD_HEIGHT = 'min(200px, 42vh)';
 
 /** Crops a canvas to the bounding box of its non-transparent pixels (+ padding). */
 function cropToInk(canvas: HTMLCanvasElement): string | null {
@@ -65,24 +66,60 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, onC
 
   useEffect(() => setMounted(true), []);
 
-  // Size the canvas backing store for the device pixel ratio each time the pad opens.
-  useEffect(() => {
-    if (!open) return;
+  /**
+   * Size the canvas backing store to its CSS box × devicePixelRatio. When
+   * `preserve` is set (rotation/resize mid-signature) the existing ink is
+   * redrawn at the same CSS position instead of being lost.
+   */
+  const setupCanvas = useCallback((preserve: boolean) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    const cssWidth = canvas.clientWidth;
-    canvas.width = Math.floor(cssWidth * dpr);
-    canvas.height = Math.floor(PAD_HEIGHT * dpr);
+    const width = Math.floor(canvas.clientWidth * dpr);
+    const height = Math.floor(canvas.clientHeight * dpr);
+    if (!width || !height || (preserve && width === canvas.width && height === canvas.height)) return;
+
+    let snapshot: HTMLCanvasElement | null = null;
+    if (preserve && canvas.width && canvas.height) {
+      snapshot = document.createElement('canvas');
+      snapshot.width = canvas.width;
+      snapshot.height = canvas.height;
+      snapshot.getContext('2d')?.drawImage(canvas, 0, 0);
+    }
+
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
     if (ctx) {
+      if (snapshot) ctx.drawImage(snapshot, 0, 0);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.lineWidth = 2.5;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = '#111111'; // signatures are always dark ink, regardless of theme
     }
+  }, []);
+
+  // Fresh pad each time it opens; keep the backing store in sync on resize/rotation.
+  useEffect(() => {
+    if (!open || !mounted) return;
+    setupCanvas(false);
     setHasInk(false);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const observer = new ResizeObserver(() => setupCanvas(true));
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [open, mounted, setupCanvas]);
+
+  // Lock background scrolling while signing (prevents iOS rubber-banding behind the pad).
+  useEffect(() => {
+    if (!open) return;
+    const { overflow } = document.body.style;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = overflow;
+    };
   }, [open]);
 
   // Escape closes the pad.
@@ -201,7 +238,7 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, onC
           </p>
         </div>
 
-        <div className={`flex items-center justify-between gap-2 px-4 py-3 border-t ${isDarkMode ? 'border-[#383838]' : 'border-[#E5E4DE]'}`}>
+        <div className={`flex items-center justify-between gap-2 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3 border-t ${isDarkMode ? 'border-[#383838]' : 'border-[#E5E4DE]'}`}>
           <button
             type="button"
             onClick={clear}

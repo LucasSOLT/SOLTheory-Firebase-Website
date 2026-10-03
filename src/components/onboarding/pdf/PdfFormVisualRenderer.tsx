@@ -306,7 +306,7 @@ export default function PdfFormVisualRenderer({
           <button
             onClick={handleSubmit}
             disabled={locked}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white transition-all shadow-sm ${
+            className={`w-full sm:w-auto justify-center flex items-center gap-2 px-6 py-3 sm:py-2.5 rounded-xl font-bold text-white transition-all shadow-sm ${
               locked ? 'bg-indigo-400 opacity-50 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 active:scale-95'
             }`}
           >

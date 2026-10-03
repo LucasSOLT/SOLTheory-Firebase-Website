@@ -2,6 +2,9 @@
 export { default as PdfCanvasViewer } from './PdfCanvasViewer';
 export { default as PdfPageView } from './PdfPageView';
 export { usePdfDocument, loadPdfJs } from './usePdfDocument';
+// Phase 2, Step 2.5 — mobile: viewer controls for overlays (zoom/reveal), touch detection
+export { PdfViewerContext, usePdfViewer, useCoarsePointer, isCoarsePointerDevice } from './viewerContext';
+export type { PdfViewerControls } from './viewerContext';
 export type {
   PageViewportMetrics,
   PdfCanvasViewerProps,
