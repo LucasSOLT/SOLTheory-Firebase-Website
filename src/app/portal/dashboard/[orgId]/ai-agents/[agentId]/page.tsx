@@ -2609,6 +2609,72 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Agent Switcher — moved to header for mobile space conservation */}
+            <div className="relative" data-dropdown="agent-switcher">
+              <button
+                onClick={() => setIsAgentSwitcherOpen(!isAgentSwitcherOpen)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
+                  isAgentSwitcherOpen
+                    ? (isDarkMode ? 'bg-[#383838] text-[#ECECEC]' : 'bg-[#E0DDD4] text-[#1F1E1D]')
+                    : (isDarkMode ? 'bg-[#2F2F2F] text-[#B4B4B4] border border-[#383838]' : 'bg-white text-[#6B6860] border border-[#E5E4DE]')
+                }`}
+                title="Switch Agent"
+              >
+                {params.agentId === 'iris' ? <Palette className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+                <span className="max-w-[80px] truncate">{agent.name.split(' (')[0]}</span>
+                <ChevronDown className={`w-3 h-3 opacity-50 transition-transform ${isAgentSwitcherOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isAgentSwitcherOpen && (
+                <div className={`absolute top-full right-0 mt-1 rounded-xl shadow-2xl border overflow-hidden z-[60] min-w-[240px] animate-in fade-in slide-in-from-top-2 duration-200 ${isDarkMode ? 'bg-[#2F2F2F] border-[#383838]' : 'bg-white border-[#E5E4DE]'}`}>
+                  <div className={`px-4 py-2 border-b ${isDarkMode ? 'border-[#383838]' : 'border-[#E5E4DE]'}`}>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-[#737373]' : 'text-[#9C978D]'}`}>Switch Agent</span>
+                  </div>
+                  {Object.entries(agents).map(([id, ag]) => {
+                    const isCurrent = id === params.agentId;
+                    const isAvailable = id === 'jarvis' || id === 'iris';
+                    const subtitle = id === 'iris' ? 'Creative Studio' : id === 'bobby' ? 'Workflow Maestro' : id === 'monica' ? 'Compliance Controller' : 'Chief of Staff';
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => {
+                          if (!isAvailable) return;
+                          setIsAgentSwitcherOpen(false);
+                          if (!isCurrent) {
+                            router.push(`/portal/dashboard/${orgId}/ai-agents/${id}`);
+                          }
+                        }}
+                        disabled={isCurrent || !isAvailable}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all ${
+                          !isAvailable
+                            ? 'opacity-40 cursor-not-allowed'
+                            : isCurrent
+                              ? (isDarkMode ? 'bg-[#383838] cursor-default' : 'bg-[#F3F2EC] cursor-default')
+                              : (isDarkMode ? 'hover:bg-[#383838] cursor-pointer' : 'hover:bg-[#F3F2EC] cursor-pointer')
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                          isCurrent
+                            ? (isDarkMode ? 'bg-[#444] border border-[#383838]' : 'bg-[#EAE7DF] border border-[#E5E4DE]')
+                            : (isDarkMode ? 'bg-[#383838]' : 'bg-[#EAE7DF]')
+                        }`}>
+                          {id === 'iris' ? <Palette className={`w-4 h-4 ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`} /> : id === 'bobby' ? <Settings className={`w-4 h-4 ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`} /> : id === 'monica' ? <ShieldCheck className={`w-4 h-4 ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`} /> : <Bot className={`w-4 h-4 ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`} />}
+                        </div>
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className={`text-xs font-semibold truncate ${isCurrent ? (isDarkMode ? 'text-[#ECECEC]' : 'text-[#1F1E1D]') : (isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]')}`}>{ag.name.split(' (')[0]}</span>
+                          <span className={`text-[10px] ${isDarkMode ? 'text-[#737373]' : 'text-[#9C978D]'}`}>
+                            {isAvailable ? subtitle : 'Coming Soon'}
+                          </span>
+                        </div>
+                        {isCurrent && (
+                          <Check className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-[#ECECEC]' : 'text-[#1F1E1D]'}`} />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* Mobile-only model selector */}
             <div className="relative md:hidden" data-dropdown="model">
               <button
@@ -2779,7 +2845,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         {/* Message row — only show when there's actual content (text or image) to display */}
                         {(msg.isSelf || msg.text || msg.imageUrl || msg.isPendingImage) && (
                         <div className={`flex items-start gap-2 sm:gap-3 ${msg.isSelf ? 'justify-end pr-1 sm:pr-2 pl-4 sm:pl-20' : 'justify-start pl-1 sm:pl-2 pr-4 sm:pr-20'}`}>
-                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border mt-0.5 ${msg.isSelf ? (isDarkMode ? 'bg-[#2F2F2F] border-[#383838] order-last' : 'bg-[#1F1E1D] border-[#1F1E1D] order-last') : (isDarkMode ? 'bg-[#2F2F2F] border-[#383838]' : 'bg-[#EAE7DF] border-[#E5E4DE]')}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : (isImageAgent ? <Palette className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} /> : isBobbyAgent ? <span className="text-sm sm:text-base">🛠️</span> : isMonicaAgent ? <span className="text-sm sm:text-base">🐻</span> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />)}</div>
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 border mt-0.5 ${msg.isSelf ? (isDarkMode ? 'bg-[#2F2F2F] border-[#383838] order-last' : 'bg-[#1F1E1D] border-[#1F1E1D] order-last') : (isDarkMode ? 'bg-[#2F2F2F] border-[#383838]' : 'bg-[#EAE7DF] border-[#E5E4DE]')}`}>{msg.isSelf ? <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : (isImageAgent ? <Palette className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} /> : isBobbyAgent ? <Settings className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} /> : isMonicaAgent ? <ShieldCheck className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} /> : <Bot className={`w-4 h-4 sm:w-5 sm:h-5 ${agent.accent}`} />)}</div>
                         <div className={`min-w-0 max-w-[88%] sm:max-w-[75%] ${msg.isSelf ? 'text-right' : 'group/msg relative'}`}>
                           {/* Copy & Pin action buttons — bot messages only, absolutely positioned to not affect layout */}
                           {!msg.isSelf && msg.text && (
@@ -2949,13 +3015,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
                 {/* Chat input — ALWAYS visible at bottom */}
                 <div className="w-full shrink-0 px-3 sm:px-4 pb-1 sm:pb-2 pt-1 sm:pt-2 z-20">
-                  <div className="w-full max-w-4xl mx-auto flex flex-col gap-2 relative overflow-visible">
+                  <div className="w-full max-w-4xl mx-auto flex flex-col gap-2 relative">
                     {/* Interaction Buttons Overlay */}
                     <div className="flex justify-between items-center px-1 pointer-events-none mb-1">
                     </div>
 
                     <div className="w-full flex items-center">
-                    <div data-plus-menu className={`relative flex-1 border rounded-xl sm:rounded-2xl overflow-visible shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex flex-col ${isDarkMode ? 'bg-[#2F2F2F] border-[#383838]' : 'bg-white border-[#E5E4DE]'}`}>
+                    <div data-plus-menu className={`relative flex-1 min-w-0 border rounded-xl sm:rounded-2xl overflow-visible shadow-[0_4px_20px_-6px_rgba(0,0,0,0.15)] focus-within:ring-1 focus-within:ring-fuchsia-500 backdrop-blur-2xl flex flex-col ${isDarkMode ? 'bg-[#2F2F2F] border-[#383838]' : 'bg-white border-[#E5E4DE]'}`}>
                       {pendingAttachments.length > 0 && (
                         <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b border-[#ede8da]/60 bg-[#faf6ed]/50">
                           {pendingAttachments.map((att, idx) => (
@@ -3035,71 +3101,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                           <Plus className="w-5 h-5 transition-transform" />
                         </button>
 
-                        {/* Agent Switcher — executive pill dropdown */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setIsAgentSwitcherOpen(!isAgentSwitcherOpen)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all cursor-pointer border border-transparent text-sm font-medium ${
-                              isAgentSwitcherOpen
-                                ? (isDarkMode ? 'bg-[#444] text-[#ECECEC]' : 'bg-[#E0DDD4] text-[#1F1E1D]')
-                                : (isDarkMode ? 'bg-[#383838] text-[#B4B4B4] hover:bg-[#444]' : 'bg-[#EAE7DF] text-[#6B6860] hover:bg-[#E0DDD4]')
-                            }`}
-                            title="Switch Agent"
-                          >
-                            {params.agentId === 'iris' ? '🎨' : params.agentId === 'bobby' ? '🛠️' : params.agentId === 'monica' ? '🐻' : '🤖'}
-                            <span className="hidden sm:inline">{agent.name.split(' (')[0]}</span>
-                            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isAgentSwitcherOpen ? 'rotate-180' : ''}`} />
-                          </button>
-                          {isAgentSwitcherOpen && (
-                            <div className={`absolute bottom-full left-0 mb-2 rounded-2xl shadow-2xl border overflow-hidden z-50 min-w-[260px] animate-in fade-in slide-in-from-bottom-2 duration-200 ${isDarkMode ? 'bg-[#2F2F2F] border-[#383838]' : 'bg-white border-[#E5E4DE]'}`}>
-                              <div className={`px-4 py-2.5 border-b ${isDarkMode ? 'border-[#383838]' : 'border-[#E5E4DE]'}`}>
-                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-[#737373]' : 'text-[#9C978D]'}`}>Switch Agent</span>
-                              </div>
-                              {Object.entries(agents).map(([id, ag]) => {
-                                const agentIcon = id === 'iris' ? 'palette' : id === 'bobby' ? 'settings' : id === 'monica' ? 'shield' : 'bot';
-                                const subtitle = id === 'iris' ? 'Creative Studio' : id === 'bobby' ? 'Workflow Maestro' : id === 'monica' ? 'Compliance Controller' : 'Chief of Staff';
-                                const isCurrent = id === params.agentId;
-                                return (
-                                  <button
-                                    key={id}
-                                    onClick={() => {
-                                      setIsAgentSwitcherOpen(false);
-                                      if (!isCurrent) {
-                                        router.push(`/portal/dashboard/${orgId}/ai-agents/${id}`);
-                                      }
-                                    }}
-                                    disabled={isCurrent}
-                                    className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${
-                                      isCurrent
-                                        ? (isDarkMode ? 'bg-[#383838] cursor-default' : 'bg-[#F3F2EC] cursor-default')
-                                        : (isDarkMode ? 'hover:bg-[#383838] cursor-pointer' : 'hover:bg-[#F3F2EC] cursor-pointer')
-                                    }`}
-                                  >
-                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 ${
-                                      isCurrent
-                                        ? (isDarkMode ? 'bg-[#444] border border-[#383838]' : 'bg-[#EAE7DF] border border-[#E5E4DE]')
-                                        : (isDarkMode ? 'bg-[#383838] border border-[#383838]' : 'bg-[#EAE7DF] border border-[#E5E4DE]')
-                                    }`}>
-                                      {agentIcon === 'palette' ? <Palette className="w-5 h-5" /> : agentIcon === 'settings' ? <Settings className="w-5 h-5" /> : agentIcon === 'shield' ? <ShieldCheck className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
-                                    </div>
-                                    <div className="flex flex-col flex-1">
-                                      <span className={`text-sm font-semibold ${isCurrent ? (isDarkMode ? 'text-[#ECECEC]' : 'text-[#1F1E1D]') : (isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]')}`}>{ag.name.split(' (')[0]}</span>
-                                      <span className={`text-[10px] ${isDarkMode ? 'text-[#737373]' : 'text-[#9C978D]'}`}>{subtitle}</span>
-                                    </div>
-                                    {isCurrent && (
-                                      <Check className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-[#ECECEC]' : 'text-[#1F1E1D]'}`} />
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-
                         <textarea
                           ref={textareaRef}
                           placeholder="Ask anything..."
-                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 min-w-0 pl-2 sm:pl-3 pr-16 sm:pr-24 min-h-[44px] sm:min-h-[52px] text-base resize-none overflow-hidden leading-relaxed py-3 focus:outline-none ${isDarkMode ? 'bg-transparent text-[#ECECEC] placeholder:text-[#737373]' : 'bg-transparent text-[#1F1E1D] placeholder:text-[#9C978D]'}`}
+                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 min-w-0 pl-2 sm:pl-3 pr-14 sm:pr-24 min-h-[44px] sm:min-h-[52px] text-base resize-none overflow-hidden leading-relaxed py-3 focus:outline-none ${isDarkMode ? 'bg-transparent text-[#ECECEC] placeholder:text-[#737373]' : 'bg-transparent text-[#1F1E1D] placeholder:text-[#9C978D]'}`}
                           value={inputValue}
                           onChange={e => setInputValue(e.target.value)}
                           onKeyDown={e => {
