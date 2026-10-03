@@ -28,6 +28,9 @@ import {
   notifyNextSigner,
   type SigningSessionDoc,
 } from '@/lib/onboarding-signing';
+import { ARCHIVE_LEASE_MS } from '@/lib/onboarding-archive';
+import { emailNextSigner, emailReRequest } from '@/lib/onboarding-routing-emails';
+import { logOnboardingAudit } from '@/lib/onboarding-audit';
 
 const LOG_PREFIX = '[Onboarding:ReRequest]';
 
@@ -112,6 +115,20 @@ export async function POST(req: Request) {
         { status: 409 },
       );
     }
+    // Phase 4: a single-signer PDF that was sent & archived is final too.
+    if (!session && taskData.metadata?.archivedAt) {
+      return NextResponse.json(
+        { error: 'This document was already sent and archived, so it can no longer be re-requested.' },
+        { status: 409 },
+      );
+    }
+    // Phase 4: don't reset a document while its Send & Archive email run is in flight.
+    if (session?.archive?.state === 'sending' && Date.now() - session.archive.claimedAtMs < ARCHIVE_LEASE_MS) {
+      return NextResponse.json(
+        { error: 'This document is being sent right now. Please try again in a moment.' },
+        { status: 409 },
+      );
+    }
 
     // Reset the task back to 'todo' with re-request notes
     await taskRef.update({
@@ -140,6 +157,7 @@ export async function POST(req: Request) {
         workingPdfPath: null,
         openCountersignTaskId: null,
         finalDocument: null,
+        archive: null,
         history: [
           ...session.history,
           {
@@ -161,6 +179,7 @@ export async function POST(req: Request) {
         workingPdfPath: null,
         openCountersignTaskId: null,
         finalDocument: null,
+        archive: FieldValue.delete(),
         history: reset.history,
         updatedAt: FieldValue.serverTimestamp(),
       });
@@ -190,7 +209,28 @@ export async function POST(req: Request) {
       const first = currentSigner(reset);
       if (first && first.uid !== session.employeeUid) {
         await notifyNextSigner(reset, first, auth.uid);
+        await emailNextSigner(db, reset, first); // Phase 4.3
       }
+    }
+
+    // ── Phase 4.3: tell the person who must redo the work (never auto-sends documents) ──
+    {
+      const prev: any = taskData.metadata?.reRequestedAt;
+      const previousReRequestedMs =
+        typeof prev?.toMillis === 'function' ? prev.toMillis() : typeof prev?._seconds === 'number' ? prev._seconds * 1000 : 0;
+      await emailReRequest(db, {
+        orgId,
+        taskId,
+        title: String(taskData.title || 'a document'),
+        notes: notes.trim(),
+        requestedByEmail: auth.email,
+        requestedByName: auth.email.split('@')[0],
+        employeeUid: session?.employeeUid || taskData.assignedTo || undefined,
+        employeeEmail: session?.employeeEmail || taskData.assignedToEmail || '',
+        employeeName: session?.employeeName || taskData.assignedToName || '',
+        round: session ? session.round + 1 : undefined,
+        previousReRequestedMs,
+      });
     }
 
     // Update progress on the onboarding instance
@@ -215,22 +255,23 @@ export async function POST(req: Request) {
       });
     }
 
-    // Log to audit trail
-    const auditRef = db.collection('activity_log').doc();
-    await auditRef.set({
+    // Log to audit trail (actor uid + the hash of the document state that was sent back)
+    const lastHashedResponse = [...((taskData.metadata?.userResponse as any[]) || [])].reverse().find((r) => r?.sha256Hash);
+    const lastCompletion = session ? session.completions[session.completions.length - 1] : undefined;
+    await logOnboardingAudit(db, {
       type: 'item_updated',
-      userEmail: auth.email,
-      userName: auth.email.split('@')[0],
+      actor: { uid: auth.uid, email: auth.email },
       orgDomain: auth.email.split('@')[1] || orgId,
-      description: `${auth.email.split('@')[0]} re-requested "${taskData.title}" for ${taskData.assignedToEmail}: ${notes.trim()}`,
       category: 'general',
-      timestamp: FieldValue.serverTimestamp(),
+      taskId,
+      description: `${auth.email.split('@')[0]} re-requested "${taskData.title}" for ${taskData.assignedToEmail}: ${notes.trim()}`,
+      documentSha256: session?.finalDocument?.sha256Hash || lastCompletion?.partialPdfSha256 || lastHashedResponse?.sha256Hash || null,
       metadata: {
         action: 'onboarding_re_request',
-        taskId,
         onboardingInstanceId: instanceId,
         assignedToEmail: taskData.assignedToEmail,
         notes: notes.trim(),
+        ...(session ? { round: session.round, newRound: session.round + 1 } : {}),
       },
     });
 

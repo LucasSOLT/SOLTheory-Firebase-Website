@@ -643,7 +643,11 @@ export function PdfFormBuilder({ content, onChange, isDarkMode, orgId }: Builder
         pdfTitle: data.title || '',
       });
 
-      setDetectMsg(`✓ Detected ${data.fillableFields || 0} fillable AcroForm fields across ${data.pageCount || 1} page(s).`);
+      setDetectMsg(
+        data.fillableFields
+          ? `✓ Detected ${data.fillableFields} fillable AcroForm fields across ${data.pageCount || 1} page(s).`
+          : 'No fillable fields were found in this PDF (it looks scanned or flattened). Employees will be asked to download it, complete it by hand and upload the signed copy for an admin to verify. Multi-party signing and on-page filling need a fillable PDF.',
+      );
     } catch (err: any) {
       console.error('[PdfFormBuilder] Detect error:', err);
       setDetectMsg(err.message || 'Error detecting PDF fields.');

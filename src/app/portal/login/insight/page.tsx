@@ -13,6 +13,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { logActivity } from '@/lib/activity-logger';
 import { getDefaultAccessLevel } from '@/lib/rbac';
 import { getOrgByEmailDomain, isDeveloper, normalizeAllowedOrgs, resolveUserOrg } from "@/lib/org-config";
+import { resolveLoginDestination, readNextFromLocation } from "@/lib/safe-next-path";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -165,7 +166,9 @@ export default function InsightLoginPage() {
         } catch {}
       };
 
-      const navigateTo = (path: string) => {
+      const navigateTo = (basePath: string) => {
+        // Emailed deep links (?next=) return the user to the exact document, same org only.
+        const path = resolveLoginDestination(basePath, readNextFromLocation());
         prefetchDashboard(path);
 
         // Fade out progress bar smoothly
@@ -180,7 +183,7 @@ export default function InsightLoginPage() {
             router.push(path);
           } catch {}
           setTimeout(() => {
-            if (typeof window !== "undefined" && window.location.pathname !== path) {
+            if (typeof window !== "undefined" && window.location.pathname !== path.split(/[?#]/)[0]) {
               window.location.href = path;
             }
           }, 800);

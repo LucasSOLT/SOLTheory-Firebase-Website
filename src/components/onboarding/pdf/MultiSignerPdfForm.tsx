@@ -40,6 +40,8 @@ import PdfFieldOverlay from './PdfFieldOverlay';
 import SignaturePadModal from './SignaturePadModal';
 import { getMissingRequiredFields, type PdfFieldValues } from './overlayLayout';
 import { buildFillFields, buildSignatureStamps, isSignatureImage, loadImageSize, signableFields } from './pdfSubmission';
+import SendArchiveButton from '@/components/onboarding/SendArchiveButton';
+import ReassignSignerPanel from '@/components/onboarding/ReassignSignerPanel';
 
 interface SessionSigner {
   order: number;
@@ -52,6 +54,7 @@ interface SessionSigner {
   signatureBoxes: { fieldName: string; pageIndex: number; x: number; y: number; width: number; height: number }[];
   completed: boolean;
   signedAt: string | null;
+  inOrg: boolean;
 }
 
 interface SessionView {
@@ -67,6 +70,11 @@ interface SessionView {
   priorSignatures: { order: number; imageDataUrl: string | null }[];
   lastReRequest: { notes: string; resetAt: string } | null;
   finalDocument: { downloadUrl: string; sha256Hash: string; executedAt: string } | null;
+  orgId: string;
+  canReassign: boolean;
+  canSendArchive: boolean;
+  archivedAt: string | null;
+  deliveriesFailed: number;
 }
 
 interface MultiSignerPdfFormProps {
@@ -385,6 +393,21 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
         })}
       </ol>
 
+      {/* Phase 5: admins can hand an unsigned step to someone else (e.g. the signer left) */}
+      {session.canReassign && !finished && (
+        <ReassignSignerPanel
+          orgId={session.orgId}
+          taskId={taskId}
+          employeeUid={session.employee.uid}
+          signers={session.signers}
+          isDarkMode={isDarkMode}
+          onDone={(message) => {
+            setSuccessMsg(message);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
+
       {/* Sent-back notes (latest round) */}
       {session.lastReRequest && !finished && session.status === 'draft' && (
         <div className={`p-3 rounded-xl border text-xs ${isDarkMode ? 'bg-rose-950/30 border-rose-800/50 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-700'}`}>
@@ -409,12 +432,20 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {session.status === 'fully_executed' && (
+            {session.canSendArchive ? (
+              <SendArchiveButton
+                orgId={session.orgId}
+                taskId={taskId}
+                isDarkMode={isDarkMode}
+                archivedAt={session.status === 'archived' ? session.archivedAt || 'archived' : null}
+                failedCount={session.deliveriesFailed}
+                onDone={() => setReloadKey((k) => k + 1)}
+              />
+            ) : (
               <span
-                title="Sending and archiving arrives in the next update"
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg border cursor-not-allowed ${isDarkMode ? 'border-slate-600 text-slate-400' : 'border-slate-300 text-slate-500'}`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg border ${isDarkMode ? 'border-slate-600 text-slate-400' : 'border-slate-300 text-slate-500'}`}
               >
-                Ready to Send &amp; Archive
+                {session.status === 'archived' ? 'Sent & archived' : 'Waiting for an admin to send & archive'}
               </span>
             )}
             <a

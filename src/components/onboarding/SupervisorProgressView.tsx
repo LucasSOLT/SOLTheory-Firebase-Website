@@ -41,6 +41,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import type { TaskSigningMirror } from '@/types/onboarding-templates';
+import SendArchiveButton from '@/components/onboarding/SendArchiveButton';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -102,6 +103,9 @@ interface TaskDoc {
     orgId?: string;
     /** Phase 3: display-only multi-signer mirror. */
     signing?: TaskSigningMirror;
+    /** Phase 4: set on single-signer PDF tasks once sent & archived. */
+    archivedAt?: string;
+    archiveDeliveriesFailed?: number;
   };
   attachments?: { url: string; name: string; type: string }[];
 }
@@ -416,15 +420,17 @@ export default function SupervisorProgressView({
                                     {task.metadata?.signing && task.metadata.signing.totalSigners >= 2 && (() => {
                                       const s = task.metadata.signing;
                                       if (s.status === 'fully_executed' || s.status === 'archived') {
+                                        // Phase 4: live manual "Send & Archive"
                                         return (
-                                          <span
-                                            title="Fully executed. Send & Archive arrives in the next update."
-                                            className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                                              isDarkMode ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/50' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                            }`}
-                                          >
-                                            {s.status === 'archived' ? 'Archived' : 'Ready to Send & Archive'}
-                                          </span>
+                                          <SendArchiveButton
+                                            compact
+                                            orgId={orgId}
+                                            taskId={task.id}
+                                            isDarkMode={isDarkMode}
+                                            archivedAt={s.status === 'archived' ? s.archivedAt || 'archived' : null}
+                                            failedCount={s.deliveriesFailed || 0}
+                                            onDone={onRefresh}
+                                          />
                                         );
                                       }
                                       return (
@@ -439,6 +445,21 @@ export default function SupervisorProgressView({
                                         </span>
                                       );
                                     })()}
+
+                                    {/* Phase 4: single-signer PDF form that is complete — manual Send & Archive */}
+                                    {isDone &&
+                                      task.metadata?.interactiveContent?.type === 'pdf_form' &&
+                                      !(task.metadata?.signing && task.metadata.signing.totalSigners >= 2) && (
+                                        <SendArchiveButton
+                                          compact
+                                          orgId={orgId}
+                                          taskId={task.id}
+                                          isDarkMode={isDarkMode}
+                                          archivedAt={task.metadata?.archivedAt || null}
+                                          failedCount={task.metadata?.archiveDeliveriesFailed || 0}
+                                          onDone={onRefresh}
+                                        />
+                                      )}
 
                                     {/* Action Buttons */}
                                     <div className="flex items-center gap-1.5 shrink-0">

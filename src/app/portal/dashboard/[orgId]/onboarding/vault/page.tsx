@@ -34,6 +34,7 @@ import {
   type ComplianceDocumentCategory,
   type VerificationStatus,
 } from '@/types/onboarding-templates';
+import SendArchiveButton from '@/components/onboarding/SendArchiveButton';
 
 export default function ComplianceVaultPage() {
   const { orgId: routeOrgId } = useParams<{ orgId: string }>();
@@ -434,6 +435,13 @@ export default function ComplianceVaultPage() {
                           }`}>
                             {doc.status.replace('_', ' ')}
                           </span>
+                          {doc.archived && (
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                              isDarkMode ? 'bg-teal-950/50 text-teal-300 border-teal-800/60' : 'bg-teal-50 text-teal-700 border-teal-200/60'
+                            }`}>
+                              Archived
+                            </span>
+                          )}
                         </div>
                         <div className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                           <strong>{doc.userName}</strong> • {categoryLabel} • {(doc.fileSize / (1024 * 1024)).toFixed(2)} MB
@@ -463,6 +471,21 @@ export default function ComplianceVaultPage() {
                       >
                         <ExternalLink className="w-3.5 h-3.5" /> Preview
                       </a>
+
+                      {/* Phase 4: manual Send & Archive for fully signed PDFs (server re-checks permission) */}
+                      {isVerified && doc.taskId && (
+                        doc.signingStatus === 'fully_executed' ||
+                        doc.signingStatus === 'archived' ||
+                        String(doc.id).startsWith('pdf_')
+                      ) && (
+                        <SendArchiveButton
+                          orgId={orgId}
+                          taskId={doc.taskId}
+                          isDarkMode={isDarkMode}
+                          archivedAt={doc.archived ? 'archived' : null}
+                          onDone={fetchServerVault}
+                        />
+                      )}
 
                       {/* Verify / Reject buttons */}
                       {isPending && (

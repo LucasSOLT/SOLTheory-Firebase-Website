@@ -46,6 +46,7 @@ import ScheduleOrientationModal from '@/components/onboarding/ScheduleOrientatio
 import ManageUserBlueprintsModal from '@/components/onboarding/ManageUserBlueprintsModal';
 import SupervisorProgressView from '@/components/onboarding/SupervisorProgressView';
 import AwaitingSignaturePanel from '@/components/onboarding/AwaitingSignaturePanel';
+import ReadyToArchivePanel from '@/components/onboarding/ReadyToArchivePanel';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import type { ComplianceDocumentCategory } from '@/types/onboarding-templates';
 import { logActivity } from '@/lib/activity-logger';
@@ -897,6 +898,14 @@ export default function OnboardingPage() {
               </div>
             )}
 
+            {/* Phase 4: signed documents waiting for the manual Send & Archive click */}
+            <ReadyToArchivePanel
+              tasks={tasks as any}
+              orgId={orgId}
+              isDarkMode={isDarkMode}
+              onRefresh={fetchServerData}
+            />
+
             {/* Summary stats row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               {[
@@ -1222,6 +1231,15 @@ export default function OnboardingPage() {
                 </div>
               );
             })()}
+
+            {/* Phase 4: this employee's signed documents awaiting Send & Archive */}
+            <ReadyToArchivePanel
+              tasks={tasks as any}
+              orgId={orgId}
+              isDarkMode={isDarkMode}
+              onRefresh={fetchServerData}
+              employeeUid={selectedAdminInstance.userId}
+            />
 
             {/* Employee tasks by phase — across ALL instances for this user */}
             {(() => {

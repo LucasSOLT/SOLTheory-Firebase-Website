@@ -73,7 +73,7 @@ interface Reviewers {
 }
 
 /** Supervisor + initiating admin for an instance; org admins if none resolve. */
-async function resolveReviewers(orgId: string, instance: any, task?: any): Promise<Reviewers> {
+export async function resolveReviewers(orgId: string, instance: any, task?: any): Promise<Reviewers> {
   const uids = new Set<string>();
   const emails = new Set<string>();
   const addUid = (v: any) => { if (typeof v === "string" && v && !v.includes("@")) uids.add(v); };

@@ -54,6 +54,8 @@ import {
   type SigningSessionDoc,
 } from '@/lib/onboarding-signing';
 import { notifyOnboardingTaskCompleted } from '@/lib/onboarding-notifications';
+import { emailNextSigner, notifyReadyToArchive } from '@/lib/onboarding-routing-emails';
+import { logOnboardingAudit } from '@/lib/onboarding-audit';
 import type { PdfFormContent, SignerCompletion } from '@/types/onboarding-templates';
 
 export const runtime = 'nodejs';
@@ -333,6 +335,10 @@ export async function POST(req: Request) {
       ) {
         throw new StepConflict();
       }
+      // Phase 5: an admin may have reassigned a slot while we were preparing this step.
+      if (fresh.signers.some((s) => session.signers.find((o) => o.order === s.order)?.uid !== s.uid)) {
+        throw new StepConflict();
+      }
 
       const next: SigningSessionDoc = {
         ...fresh,
@@ -412,33 +418,35 @@ export async function POST(req: Request) {
       return next;
     });
 
-    // ── 7. After commit: notifications + audit (never block success) ──
+    // ── 7. After commit: audit FIRST (so slow mail can't delay it), then notifications (never block success) ──
+    await logOnboardingAudit(db, {
+      type: isLast ? 'pdf_form_fully_executed' : 'pdf_form_sign_step',
+      actor: { uid: auth.uid, email: completion.signerEmail || auth.email, name: signer.name },
+      orgDomain: session.orgId,
+      taskId,
+      description: isLast
+        ? `"${session.title}" fully executed (${allCompletions.length} signers) for ${session.employeeName}`
+        : `${signer.name} signed "${session.title}" (signer ${signer.order} of ${session.signers.length}) for ${session.employeeName}`,
+      documentSha256: finalDocument ? finalDocument.sha256Hash : partial.sha256Hash,
+      metadata: {
+        round: session.round,
+        signerOrder: signer.order,
+        partialPdfSha256: partial.sha256Hash,
+        ...(finalDocument ? { sha256Hash: finalDocument.sha256Hash, compositeSealHash: finalDocument.compositeSealHash, docId: finalDocument.vaultDocId } : {}),
+      },
+    });
     if (completesParent) {
       await notifyOnboardingTaskCompleted({ orgId: session.orgId, taskId, actorUid: auth.uid, actorEmail: auth.email });
     }
     if (nextSigner) {
       await notifyNextSigner(updated, nextSigner, auth.uid);
+      await emailNextSigner(db, updated, nextSigner); // Phase 4.2 — deep-link email (best effort)
     }
-    try {
-      await db.collection('activity_log').add({
-        type: isLast ? 'pdf_form_fully_executed' : 'pdf_form_sign_step',
-        userEmail: completion.signerEmail,
-        userName: signer.name,
-        orgDomain: session.orgId,
-        description: isLast
-          ? `"${session.title}" fully executed (${allCompletions.length} signers) for ${session.employeeName}`
-          : `${signer.name} signed "${session.title}" (signer ${signer.order} of ${session.signers.length}) for ${session.employeeName}`,
-        category: 'onboarding',
-        timestamp: FieldValue.serverTimestamp(),
-        metadata: {
-          taskId,
-          round: session.round,
-          signerOrder: signer.order,
-          partialPdfSha256: partial.sha256Hash,
-          ...(finalDocument ? { sha256Hash: finalDocument.sha256Hash, compositeSealHash: finalDocument.compositeSealHash, docId: finalDocument.vaultDocId } : {}),
-        },
-      });
-    } catch { /* audit log is best-effort */ }
+    if (isLast) {
+      // Phase 4.2 — tell reviewers it's ready for the manual "Send & Archive" click.
+      await notifyReadyToArchive(db, updated, { uid: auth.uid, email: auth.email });
+    }
+
 
     return NextResponse.json({
       status: 'ok',

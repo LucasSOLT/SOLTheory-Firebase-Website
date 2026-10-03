@@ -34,6 +34,7 @@ import { safeExternalUrl } from '@/lib/utils';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import PdfFormVisualRenderer from './pdf/PdfFormVisualRenderer';
 import { usePdfFormSource } from './pdf/usePdfFormSource';
+import PdfUploadFallback from './pdf/PdfUploadFallback';
 import MultiSignerPdfForm from './pdf/MultiSignerPdfForm';
 import { isMultiSignerWorkflow } from '@/lib/signing-workflow';
 
@@ -1249,6 +1250,15 @@ export function PdfFormRenderer({
   }
 
   const fields = content.detectedFields || [];
+
+  // Phase 5 Step 5.1 — a PDF with no AcroForm fields (scanned / flattened) has nothing to type into.
+  // Unless the admin set up an on-page signature, use the proven upload flow instead of an empty form.
+  const signsOnPage = !!content.requireSignature && !!content.signaturePosition;
+  if (fields.length === 0 && !signsOnPage && orgId && taskId && !processResult?.downloadUrl) {
+    return (
+      <PdfUploadFallback content={content} orgId={orgId} taskId={taskId} isDarkMode={isDarkMode} disabled={disabled} />
+    );
+  }
 
   return (
     <div className="space-y-6">

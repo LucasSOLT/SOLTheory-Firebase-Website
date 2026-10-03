@@ -340,6 +340,13 @@ export interface ComplianceDocument {
 
   /** Associated Action Board task ID if uploaded via an onboarding checklist item. */
   taskId?: string;
+
+  /** Phase 4: true once the sealed copy was sent and archived (status stays 'verified'). */
+  archived?: boolean;
+  /** Phase 4: when it was archived. */
+  archivedAt?: any;
+  /** Phase 3/4: multi-party document state ('fully_executed' | 'archived'). */
+  signingStatus?: string;
 }
 
 
@@ -597,6 +604,41 @@ export interface SignerCompletion {
 }
 
 /**
+ * Phase 4 — one email delivery attempt of the sealed PDF (Send & Archive).
+ * Recorded per recipient so a failed address can be retried on its own.
+ */
+export interface ArchiveDelivery {
+  email: string;
+  name: string;
+  role: 'employee' | 'signer' | 'supervisor';
+  status: 'sent' | 'failed';
+  /** SendGrid message id when available (absent in sandbox mode). */
+  messageId?: string;
+  /** Truncated provider error for failed deliveries. */
+  error?: string;
+  /** ISO time of the latest attempt. */
+  at: string;
+  attempts: number;
+}
+
+/**
+ * Phase 4 — server-side Send & Archive state. Lives on the signing session
+ * (multi-party) or on the vault document (single-signer). `sending` is a
+ * short lease that blocks double-clicks; `archived` is final.
+ */
+export interface ArchiveRecord {
+  state: 'sending' | 'archived';
+  claimedBy: string;
+  claimedAtMs: number;
+  archivedAt?: string;
+  archivedBy?: string;
+  archivedByEmail?: string;
+  deliveries: ArchiveDelivery[];
+  /** Cooldown marker for "Resend to failed recipients". */
+  lastResendAtMs?: number;
+}
+
+/**
  * Display-only mirror of the signing state on the parent task
  * (`metadata.signing`). The authoritative state lives server-side in
  * `onboarding_signing_sessions/{taskId}` and is never trusted from the client.
@@ -611,6 +653,10 @@ export interface TaskSigningMirror {
   completedOrders: number[];
   /** True once fully executed — Phase 4 "Send & Archive" becomes available. */
   readyToSendAndArchive?: boolean;
+  /** ISO time the document was sent and archived (Phase 4). */
+  archivedAt?: string | null;
+  /** Number of recipients whose email failed (Phase 4) — drives the "Resend" hint. */
+  deliveriesFailed?: number;
 }
 
 /** Metadata shape for a detected PDF AcroForm field (mirrored from pdf-form-engine). */

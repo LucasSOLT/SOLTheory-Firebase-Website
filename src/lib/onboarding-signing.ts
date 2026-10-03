@@ -16,6 +16,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Firestore } from 'firebase-admin/firestore';
 import type {
+  ArchiveRecord,
   DocumentSigningStatus,
   PdfFormContent,
   PdfFormField,
@@ -61,6 +62,21 @@ export interface SignatureRecord {
   stamps: { pageIndex: number; x: number; y: number; width: number; height: number }[];
 }
 
+/** One admin handover of a signer slot to someone else. */
+export interface SignerReassignment {
+  round: number;
+  order: number;
+  fromUid: string;
+  fromEmail: string;
+  fromName: string;
+  toUid: string;
+  toEmail: string;
+  toName: string;
+  byUid: string;
+  byEmail: string;
+  at: string;
+}
+
 export interface SigningSessionDoc {
   orgId: string;
   parentTaskId: string;
@@ -89,6 +105,10 @@ export interface SigningSessionDoc {
     executedAt: string;
   } | null;
   history: { round: number; completions: SignerCompletion[]; workingPdfPath: string | null; resetAt: string; resetBy: string; notes: string }[];
+  /** Phase 4 — Send & Archive state/delivery log (absent until first attempt). */
+  archive?: ArchiveRecord | null;
+  /** Phase 5 — admin handovers of a not-yet-signed slot (e.g. the signer left the org). */
+  reassignments?: SignerReassignment[];
   createdAt?: unknown;
   updatedAt?: unknown;
 }
@@ -250,6 +270,8 @@ export function mirrorFor(s: SigningSessionDoc): TaskSigningMirror {
     currentSignerName: cur?.name ?? null,
     completedOrders: s.completions.map((c) => c.order),
     readyToSendAndArchive: s.status === 'fully_executed',
+    archivedAt: s.status === 'archived' ? s.archive?.archivedAt ?? null : null,
+    deliveriesFailed: (s.archive?.deliveries || []).filter((d) => d.status === 'failed').length,
   };
 }
 
@@ -315,7 +337,7 @@ export async function notifyNextSigner(s: SigningSessionDoc, signer: ResolvedSig
       body: `${s.employeeName}'s "${s.title}" is ready for your signature.`,
       link: `${dashboardPath(s.orgId, 'onboarding')}?sign=${s.parentTaskId}`,
       refId: s.parentTaskId,
-      dedupeKey: `onb-sign-${s.parentTaskId}-r${s.round}-s${signer.order}`,
+      dedupeKey: `onb-sign-${s.parentTaskId}-r${s.round}-s${signer.order}-${signer.uid}`,
     });
   } catch (e) {
     console.warn('[onboarding-signing] notifyNextSigner failed:', e);

@@ -26,6 +26,7 @@ import { BetaDisclaimerModal } from "@/components/portal/BetaDisclaimerModal";
 import { PushNotificationPrompt } from "@/components/notifications/PushNotificationPrompt";
 import { DemoWatermark } from "@/components/portal/DemoWatermark";
 import { isDemoOrg } from "@/hooks/useDemoGating";
+import { loginUrlWithNext } from "@/lib/safe-next-path";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { t, lang } = useTranslation();
@@ -35,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!isUserLoading && !user) {
-      router.push("/portal/login");
+      router.push(loginUrlWithNext("/portal/login"));
     }
   }, [user, isUserLoading, router]);
 

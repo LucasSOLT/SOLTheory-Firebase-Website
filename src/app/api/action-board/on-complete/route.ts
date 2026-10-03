@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import sgMail from "@sendgrid/mail";
 import { verifyOrgMember } from "@/lib/api-auth";
 import { getOrgLabel, getOrgConfig } from "@/lib/org-config";
+import { escapeHtml } from "@/lib/onboarding-mailer";
 
 // Initialize SendGrid
 if (process.env.SENDGRID_API_KEY) {
@@ -124,8 +125,8 @@ export async function POST(req: Request) {
                   <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #fff; letter-spacing: -0.02em;">${config.emoji} ${config.label}</h1>
                 </div>
                 <div style="padding: 28px 32px;">
-                  <h2 style="margin: 0 0 20px 0; font-size: 22px; font-weight: 600; color: #f1f5f9;">${task.title}</h2>
-                  ${task.description ? `<p style="color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">${task.description}</p>` : ""}
+                  <h2 style="margin: 0 0 20px 0; font-size: 22px; font-weight: 600; color: #f1f5f9;">${escapeHtml(task.title)}</h2>
+                  ${task.description ? `<p style="color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">${escapeHtml(task.description)}</p>` : ""}
                   <table style="width: 100%; border-collapse: collapse;">
                     <tr>
                       <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #94a3b8; font-size: 13px;">Priority</td>
@@ -133,11 +134,11 @@ export async function POST(req: Request) {
                     </tr>
                     <tr>
                       <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #94a3b8; font-size: 13px;">Assigned to</td>
-                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #f1f5f9; font-size: 13px; text-align: right;">${task.assignedToName || task.assignedToEmail}</td>
+                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #f1f5f9; font-size: 13px; text-align: right;">${escapeHtml(task.assignedToName || task.assignedToEmail)}</td>
                     </tr>
                     <tr>
                       <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #94a3b8; font-size: 13px;">Created by</td>
-                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #f1f5f9; font-size: 13px; text-align: right;">${task.createdByName || task.createdByEmail}</td>
+                      <td style="padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); color: #f1f5f9; font-size: 13px; text-align: right;">${escapeHtml(task.createdByName || task.createdByEmail)}</td>
                     </tr>
                     ${triggerKey === "completed" ? `
                     <tr>
@@ -151,7 +152,7 @@ export async function POST(req: Request) {
                   </table>
                 </div>
                 <div style="padding: 16px 32px; border-top: 1px solid rgba(255,255,255,0.06); text-align: center;">
-                  <p style="margin: 0; color: #64748b; font-size: 11px;">${orgDisplayName} Action Board</p>
+                  <p style="margin: 0; color: #64748b; font-size: 11px;">${escapeHtml(orgDisplayName)} Action Board</p>
                 </div>
               </div>
             `;

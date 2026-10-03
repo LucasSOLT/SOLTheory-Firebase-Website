@@ -23,6 +23,8 @@ import {
   loadOrCreateSession,
   readSignatureDataUrl,
 } from '@/lib/onboarding-signing';
+import { canSendArchive } from '@/lib/onboarding-archive';
+import { canReassignSigners } from '@/lib/onboarding-reassign';
 import type { PdfFormContent } from '@/types/onboarding-templates';
 
 export const runtime = 'nodejs';
@@ -69,6 +71,21 @@ export async function GET(req: Request) {
       }),
     );
 
+    // Phase 5: flag unsigned signers who are no longer org members (so an admin can reassign them).
+    const stillMember = new Map<number, boolean>();
+    await Promise.all(
+      session.signers
+        .filter((s) => !session.completions.some((c) => c.order === s.order))
+        .map(async (s) => {
+          try {
+            stillMember.set(s.order, (await db.doc(`orgs/${session.orgId}/members/${s.uid}`).get()).exists);
+          } catch {
+            stillMember.set(s.order, true); // unknown → don't raise a false alarm
+          }
+        }),
+    );
+    const canReassign = !finished && (await canReassignSigners(db, session.orgId, auth.uid, auth.email));
+
     return NextResponse.json(
       {
         taskId,
@@ -95,6 +112,8 @@ export async function GET(req: Request) {
             signatureBoxes: s.signatureBoxes,
             completed: !!done,
             signedAt: done?.signedAt ?? null,
+            // false only when we positively know an unsigned signer left the org
+            inOrg: done ? true : stillMember.get(s.order) !== false,
           };
         }),
         me: { order: isMyTurn ? session.currentSignerOrder : mySigner?.order ?? null, isMyTurn },
@@ -103,6 +122,12 @@ export async function GET(req: Request) {
         finalDocument: session.finalDocument
           ? { downloadUrl: session.finalDocument.downloadUrl, sha256Hash: session.finalDocument.sha256Hash, executedAt: session.finalDocument.executedAt }
           : null,
+        // Phase 4: whether THIS viewer may Send & Archive (admin/oracle, track supervisor, developer)
+        orgId: session.orgId,
+        canReassign,
+        canSendArchive: await canSendArchive(db, { orgId: session.orgId, instanceId: session.instanceId }, auth.uid, auth.email),
+        archivedAt: session.status === 'archived' ? session.archive?.archivedAt ?? null : null,
+        deliveriesFailed: (session.archive?.deliveries || []).filter((d) => d.status === 'failed').length,
       },
       { headers: { 'Cache-Control': 'no-store' } },
     );

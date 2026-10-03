@@ -36,6 +36,7 @@ import {
   type PdfSignatureStamp,
 } from '@/lib/pdf-form-engine';
 import { notifyOnboardingTaskCompleted } from '@/lib/onboarding-notifications';
+import { logOnboardingAudit } from '@/lib/onboarding-audit';
 import { isMultiSignerWorkflow } from '@/lib/signing-workflow';
 
 export const runtime = 'nodejs';
@@ -229,24 +230,20 @@ export async function POST(req: Request) {
     });
 
     // ── 8. Audit log ──
-    try {
-      await db.collection('activity_log').add({
-        type: 'pdf_form_submitted',
-        userEmail: signerEmail,
-        userName: signerDisplayName,
-        orgDomain: orgId,
-        description: `PDF form filled and signed: ${taskTitle} (${result.fieldsFilled} fields, ${result.signaturesApplied} signatures)`,
-        category: 'onboarding',
-        timestamp: FieldValue.serverTimestamp(),
-        metadata: {
-          taskId,
-          docId,
-          storagePath,
-          sha256Hash: result.sha256Hash,
-          compositeSealHash,
-        },
-      });
-    } catch { /* audit log is best-effort */ }
+    await logOnboardingAudit(db, {
+      type: 'pdf_form_submitted',
+      actor: { uid: auth.uid, email: signerEmail, name: signerDisplayName },
+      orgDomain: orgId,
+      taskId,
+      description: `PDF form filled and signed: ${taskTitle} (${result.fieldsFilled} fields, ${result.signaturesApplied} signatures)`,
+      documentSha256: result.sha256Hash,
+      metadata: {
+        docId,
+        storagePath,
+        sha256Hash: result.sha256Hash,
+        compositeSealHash,
+      },
+    });
 
     // ── 9. Notify supervisor/admin (document / phase / blueprint completion) — never throws ──
     await notifyOnboardingTaskCompleted({ orgId, taskId, actorUid: auth.uid, actorEmail: auth.email });

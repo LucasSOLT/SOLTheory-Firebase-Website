@@ -9,6 +9,7 @@
 // ============================================================================
 
 import sgMail from '@sendgrid/mail';
+import { escapeHtml } from '@/lib/onboarding-mailer';
 
 export interface SendSignedCopyInput {
   /** Signer's email address */
@@ -80,7 +81,7 @@ export async function sendSignedCopy(input: SendSignedCopyInput): Promise<boolea
     <!-- Body -->
     <div style="background: #ffffff; padding: 32px 24px; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
       <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-        Hi ${input.recipientName},
+        Hi ${escapeHtml(input.recipientName)},
       </p>
       <p style="color: #334155; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
         This email confirms that you electronically signed the following document. A copy of the signed document is attached to this email as a PDF for your records.
@@ -91,7 +92,7 @@ export async function sendSignedCopy(input: SendSignedCopyInput): Promise<boolea
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
             <td style="padding: 4px 0; color: #64748b; font-size: 13px; font-weight: 600;">Document:</td>
-            <td style="padding: 4px 0; color: #1e293b; font-size: 13px; font-weight: 700;">${input.documentTitle}</td>
+            <td style="padding: 4px 0; color: #1e293b; font-size: 13px; font-weight: 700;">${escapeHtml(input.documentTitle)}</td>
           </tr>
           <tr>
             <td style="padding: 4px 0; color: #64748b; font-size: 13px; font-weight: 600;">Signed At:</td>
@@ -99,11 +100,11 @@ export async function sendSignedCopy(input: SendSignedCopyInput): Promise<boolea
           </tr>
           <tr>
             <td style="padding: 4px 0; color: #64748b; font-size: 13px; font-weight: 600;">Version ID:</td>
-            <td style="padding: 4px 0; color: #1e293b; font-size: 12px; font-family: monospace;">${input.documentVersionId}</td>
+            <td style="padding: 4px 0; color: #1e293b; font-size: 12px; font-family: monospace;">${escapeHtml(input.documentVersionId)}</td>
           </tr>
           <tr>
             <td style="padding: 4px 0; color: #64748b; font-size: 13px; font-weight: 600;">Organization:</td>
-            <td style="padding: 4px 0; color: #1e293b; font-size: 13px;">${input.orgName}</td>
+            <td style="padding: 4px 0; color: #1e293b; font-size: 13px;">${escapeHtml(input.orgName)}</td>
           </tr>
         </table>
       </div>
@@ -123,7 +124,7 @@ export async function sendSignedCopy(input: SendSignedCopyInput): Promise<boolea
         and carries the same legal weight as a handwritten signature.
       </p>
       <p style="color: #cbd5e1; font-size: 10px; margin: 8px 0 0 0;">
-        ${input.orgName} • Powered by SOLTheory
+        ${escapeHtml(input.orgName)} • Powered by SOLTheory
       </p>
     </div>
   </div>

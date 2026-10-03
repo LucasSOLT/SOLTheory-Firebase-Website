@@ -13,6 +13,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { logActivity } from '@/lib/activity-logger';
 import { getDefaultAccessLevel } from '@/lib/rbac';
 import { getOrgByEmailDomain, ORG_REGISTRY, resolveUserOrg } from "@/lib/org-config";
+import { resolveLoginDestination, readNextFromLocation } from "@/lib/safe-next-path";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -106,7 +107,7 @@ export default function LoginPage() {
       const emailLower = email.toLowerCase();
       const matchedOrg = getOrgByEmailDomain(emailLower);
       if (matchedOrg) {
-        router.push(`/portal/dashboard/${matchedOrg.id}`);
+        router.push(resolveLoginDestination(`/portal/dashboard/${matchedOrg.id}`, readNextFromLocation()));
       } else {
         // Check Firestore for org mapping (for Gmail and other external users)
         try {
@@ -117,7 +118,7 @@ export default function LoginPage() {
           const mappedOrg = resolveUserOrg(userData, emailLower);
 
           if (mappedOrg && ORG_REGISTRY[mappedOrg]) {
-            router.push(`/portal/dashboard/${mappedOrg}`);
+            router.push(resolveLoginDestination(`/portal/dashboard/${mappedOrg}`, readNextFromLocation()));
           } else {
             console.error("[Login] No org mapping found for user:", uid, "data:", userData);
             await signOut(auth);
