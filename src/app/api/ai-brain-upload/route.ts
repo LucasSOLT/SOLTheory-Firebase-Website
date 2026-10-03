@@ -4,6 +4,7 @@ import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { getStorage } from "firebase-admin/storage";
 import { FieldValue } from "firebase-admin/firestore";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { embedText, EMBED_MODEL } from "@/lib/gemini-embed";
 import { firebaseConfig } from "@/firebase/config";
 
 export const runtime = "nodejs";
@@ -171,7 +172,18 @@ function chunkDocument(content: string, chunkSize: number = CHUNK_SIZE, overlap:
     chunks.push(content.trim());
   }
 
-  return chunks;
+  // Split any oversize chunk (e.g. raw PDF text with no blank-line breaks would otherwise be ONE
+  // giant chunk, which dilutes retrieval and can exceed embedding input limits).
+  const MAX_CHUNK = chunkSize * 3;
+  const bounded: string[] = [];
+  for (const c of chunks) {
+    if (c.length <= MAX_CHUNK) { bounded.push(c); continue; }
+    for (let i = 0; i < c.length; i += chunkSize - overlap) {
+      const slice = c.substring(i, i + chunkSize).trim();
+      if (slice.length > 20) bounded.push(slice);
+    }
+  }
+  return bounded;
 }
 
 // ─── Format file size for display ────────────────────────────────────────
@@ -391,15 +403,12 @@ export async function POST(req: Request) {
             console.warn("[AI Brain Upload] GEMINI_API_KEY missing; skipping vector embedding generation");
           } else {
             console.log(`[AI Brain Upload] Generating embeddings for ${chunks.length} chunks...`);
-            const genAI = new GoogleGenerativeAI(apiKey);
-            const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
 
             for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
               const batchChunks = chunks.slice(i, i + BATCH_SIZE);
               const promises = batchChunks.map(async (chunkText, batchIndex) => {
                 const chunkIndex = i + batchIndex;
-                const result = await embeddingModel.embedContent(chunkText);
-                const embeddingArray = result.embedding.values;
+                const embeddingArray = await embedText(chunkText, "RETRIEVAL_DOCUMENT", apiKey);
 
                 await db.collection(vectorCollectionPath).add({
                   docId,
@@ -407,6 +416,7 @@ export async function POST(req: Request) {
                   chunkIndex,
                   text: chunkText,
                   embedding: FieldValue.vector(embeddingArray),
+                  embeddingModel: EMBED_MODEL,
                   tokenCount: chunkText.length,
                   createdAt: FieldValue.serverTimestamp(),
                   // Scope-specific metadata for cleanup/filtering

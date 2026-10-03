@@ -1,5 +1,5 @@
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { embedText } from "@/lib/gemini-embed";
 
 export interface VectorRetrievedChunk {
   text: string;
@@ -11,10 +11,8 @@ export interface VectorRetrievedChunk {
 }
 
 export async function embedQuery(text: string): Promise<number[]> {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-  const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
-  const result = await model.embedContent(text);
-  return result.embedding.values;
+  // text-embedding-004 was retired by Google; see src/lib/gemini-embed.ts
+  return embedText(text, "RETRIEVAL_QUERY");
 }
 
 /**

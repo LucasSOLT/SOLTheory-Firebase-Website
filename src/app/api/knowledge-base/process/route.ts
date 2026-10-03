@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyRequest } from "@/lib/api-auth";
 import { initAdmin, getFirestore as getAdminFirestore } from "@/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { embedText, EMBED_MODEL } from "@/lib/gemini-embed";
 
 const CHUNK_SIZE = 500;
 const OVERLAP = 100;
@@ -84,8 +84,6 @@ export async function POST(req: Request) {
 
     await initAdmin();
     const db = getAdminFirestore();
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
 
     let chunksCreated = 0;
 
@@ -93,8 +91,7 @@ export async function POST(req: Request) {
       const batchChunks = chunks.slice(i, i + BATCH_SIZE);
       const promises = batchChunks.map(async (chunkText, batchIndex) => {
         const chunkIndex = i + batchIndex;
-        const result = await model.embedContent(chunkText);
-        const embeddingArray = result.embedding.values;
+        const embeddingArray = await embedText(chunkText, "RETRIEVAL_DOCUMENT");
 
         await db.collection(targetCollection).add({
           docId,
@@ -102,6 +99,7 @@ export async function POST(req: Request) {
           chunkIndex,
           text: chunkText,
           embedding: FieldValue.vector(embeddingArray),
+          embeddingModel: EMBED_MODEL,
           tokenCount: chunkText.length, // Approximate
           createdAt: FieldValue.serverTimestamp(),
         });

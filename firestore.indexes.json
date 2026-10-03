@@ -57,6 +57,20 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "dateSuggested", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "ai_brain_vectors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "embedding", "vectorConfig": { "dimension": 768, "flat": {} } }
+      ]
+    },
+    {
+      "collectionGroup": "kb_vectors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "embedding", "vectorConfig": { "dimension": 768, "flat": {} } }
+      ]
     }
   ],
   "fieldOverrides": []
