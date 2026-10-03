@@ -15,6 +15,8 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { AlertCircle, ExternalLink, FileText, Loader2, PenTool, ShieldCheck } from 'lucide-react';
 import type { PdfFormContent, PdfFormField } from '@/types/onboarding-templates';
 import { getAuthHeaders } from '@/lib/api-auth-client';
+import { getAuth } from 'firebase/auth';
+import { resolveAutoFill } from '@/lib/pdf-autofill';
 import PdfCanvasViewer from './PdfCanvasViewer';
 import PdfFieldOverlay from './PdfFieldOverlay';
 import SignaturePadModal from './SignaturePadModal';
@@ -79,8 +81,24 @@ export default function PdfFormVisualRenderer({
     setErrorMsg(null);
   }, []);
 
+  // Phase 6.2 — fields the server fills automatically (date / name / email): previewed read-only.
+  // The server recomputes them authoritatively on submit.
+  const autoValues = useMemo<Record<string, string>>(() => {
+    if (!content.autoFill) return {};
+    let name = '';
+    let email = '';
+    try {
+      const u = getAuth().currentUser;
+      name = u?.displayName || '';
+      email = u?.email || '';
+    } catch { /* preview only */ }
+    return resolveAutoFill(content.autoFill, null, fields, { name, email });
+  }, [content.autoFill, fields]);
+  const effValues = useMemo<PdfFieldValues>(() => ({ ...values, ...autoValues }), [values, autoValues]);
+  const isFieldEditable = useCallback((f: PdfFormField) => !(f.name in autoValues), [autoValues]);
+
   // ── Validation ──
-  const missingFields = useMemo(() => getMissingRequiredFields(overlayFields, values), [overlayFields, values]);
+  const missingFields = useMemo(() => getMissingRequiredFields(overlayFields, effValues), [overlayFields, effValues]);
   const unsignedCount = useMemo(() => {
     if (!content.requireSignature) return 0;
     if (needsSeparateSignature) return isSignatureImage(values[VIRTUAL_SIGNATURE_FIELD]) ? 0 : 1;
@@ -127,7 +145,7 @@ export default function PdfFormVisualRenderer({
             taskId,
             pdfSourceStoragePath: content.pdfStoragePath,
             pdfSourceUrl: content.pdfDownloadUrl,
-            fields: buildFillFields(fields, values),
+            fields: buildFillFields(fields, effValues),
             signatures: signatures.length ? signatures : undefined,
             signerName: typedName || 'Signer',
             documentCategory: content.documentCategory || 'fillable_pdf',
@@ -140,7 +158,7 @@ export default function PdfFormVisualRenderer({
 
       onSubmit({
         type: 'pdf_form_fill',
-        fieldValues: values,
+        fieldValues: effValues,
         typedName,
         signatureData,
         esignConsent,
@@ -218,9 +236,10 @@ export default function PdfFormVisualRenderer({
           <PdfFieldOverlay
             metrics={metrics}
             fields={overlayFields}
-            values={values}
+            values={effValues}
             onChange={setValue}
             disabled={locked}
+            isFieldEditable={isFieldEditable}
             highlightMissing={showMissing}
             isDarkMode={isDarkMode}
           />

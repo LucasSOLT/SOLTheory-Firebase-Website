@@ -77,6 +77,25 @@ export interface SignerReassignment {
   at: string;
 }
 
+/**
+ * Phase 6.1 — reminder bookkeeping for the signer the session is currently
+ * waiting on. Keyed by (round, order, uid): when any of those change (someone
+ * signs, a re-request, a reassignment) the counters start over.
+ */
+export interface ReminderState {
+  round: number;
+  order: number;
+  uid: string;
+  /** Reminders delivered to this signer so far. */
+  count: number;
+  /** Millis of the last delivered reminder (0 = none yet). */
+  lastAt: number;
+  /** Millis when the supervisor/admin were told the document is stuck. */
+  escalatedAt?: number;
+  /** Phase 6.5: millis of the last admin "Nudge now" (separate from the automatic schedule). */
+  manualAt?: number;
+}
+
 export interface SigningSessionDoc {
   orgId: string;
   parentTaskId: string;
@@ -109,6 +128,8 @@ export interface SigningSessionDoc {
   archive?: ArchiveRecord | null;
   /** Phase 5 — admin handovers of a not-yet-signed slot (e.g. the signer left the org). */
   reassignments?: SignerReassignment[];
+  /** Phase 6.1 — stalled-signature reminder state (written only by the reminder cron). */
+  reminders?: ReminderState | null;
   createdAt?: unknown;
   updatedAt?: unknown;
 }

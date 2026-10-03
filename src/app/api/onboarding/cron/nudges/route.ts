@@ -345,7 +345,8 @@ async function handleNudges(req: NextRequest, isCron = false) {
 // GET: Cron runner
 export async function GET(req: NextRequest) {
   const isAuthorized = verifyCronAuth(req);
-  if (!isAuthorized && process.env.NODE_ENV === "production" && CRON_SECRET) {
+  // Phase 6.4: fail CLOSED in production — a missing CRON_SECRET must never open this route.
+  if (!isAuthorized && process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return handleNudges(req, true);

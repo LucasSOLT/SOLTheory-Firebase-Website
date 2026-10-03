@@ -21,8 +21,10 @@ import {
   SigningSetupError,
   canViewSession,
   loadOrCreateSession,
+  loadTemplateFields,
   readSignatureDataUrl,
 } from '@/lib/onboarding-signing';
+import { resolveAutoFill } from '@/lib/pdf-autofill';
 import { canSendArchive } from '@/lib/onboarding-archive';
 import { canReassignSigners } from '@/lib/onboarding-reassign';
 import type { PdfFormContent } from '@/types/onboarding-templates';
@@ -86,6 +88,19 @@ export async function GET(req: Request) {
     );
     const canReassign = !finished && (await canReassignSigners(db, session.orgId, auth.uid, auth.email));
 
+    // Phase 6.2: read-only preview of the values the server will auto-fill for the signer
+    // whose turn it is (the server recomputes them authoritatively on submit).
+    let myAutoFill: Record<string, string> = {};
+    const turnSigner = session.signers.find((s) => s.order === session.currentSignerOrder);
+    if (isMyTurn && turnSigner && content?.autoFill) {
+      try {
+        const templateFields = await loadTemplateFields(bucket, content);
+        myAutoFill = resolveAutoFill(content.autoFill, turnSigner.fieldNames, templateFields, { name: turnSigner.name, email: turnSigner.email });
+      } catch {
+        myAutoFill = {};
+      }
+    }
+
     return NextResponse.json(
       {
         taskId,
@@ -116,7 +131,7 @@ export async function GET(req: Request) {
             inOrg: done ? true : stillMember.get(s.order) !== false,
           };
         }),
-        me: { order: isMyTurn ? session.currentSignerOrder : mySigner?.order ?? null, isMyTurn },
+        me: { order: isMyTurn ? session.currentSignerOrder : mySigner?.order ?? null, isMyTurn, autoFill: myAutoFill },
         priorSignatures,
         lastReRequest: session.history.length ? session.history[session.history.length - 1] : null,
         finalDocument: session.finalDocument

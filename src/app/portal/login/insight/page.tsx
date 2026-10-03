@@ -13,7 +13,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { logActivity } from '@/lib/activity-logger';
 import { getDefaultAccessLevel } from '@/lib/rbac';
 import { getOrgByEmailDomain, isDeveloper, normalizeAllowedOrgs, resolveUserOrg } from "@/lib/org-config";
-import { resolveLoginDestination, readNextFromLocation } from "@/lib/safe-next-path";
+import { resolveLoginDestinationForOrgs, readNextFromLocation } from "@/lib/safe-next-path";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -167,8 +167,8 @@ export default function InsightLoginPage() {
       };
 
       const navigateTo = (basePath: string) => {
-        // Emailed deep links (?next=) return the user to the exact document, same org only.
-        const path = resolveLoginDestination(basePath, readNextFromLocation());
+        // Emailed deep links (?next=) return the user to the exact document, in any org they belong to.
+        const path = resolveLoginDestinationForOrgs(basePath, readNextFromLocation(), isDeveloper(emailLower) ? ["soltheory", "nxtchapter", ...normalizeAllowedOrgs(userData?.allowedOrgs)] : normalizeAllowedOrgs(userData?.allowedOrgs));
         prefetchDashboard(path);
 
         // Fade out progress bar smoothly

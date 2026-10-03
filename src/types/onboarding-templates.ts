@@ -542,6 +542,12 @@ export interface PdfFormContent {
    * above) is used unchanged.
    */
   signingWorkflow?: SigningWorkflow;
+  /**
+   * Phase 6.2 - text fields the SERVER fills automatically at submit time
+   * (`{ fieldName: 'today_date' | 'signer_name' | 'signer_email' }`). Shown
+   * read-only to the signer and overwrites anything the browser sends.
+   */
+  autoFill?: Record<string, 'today_date' | 'signer_name' | 'signer_email'>;
 }
 
 // ── Phase 3: Multi-Party Signing ────────────────────────────────────────────

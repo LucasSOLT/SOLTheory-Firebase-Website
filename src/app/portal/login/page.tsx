@@ -12,8 +12,8 @@ import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "fir
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { logActivity } from '@/lib/activity-logger';
 import { getDefaultAccessLevel } from '@/lib/rbac';
-import { getOrgByEmailDomain, ORG_REGISTRY, resolveUserOrg } from "@/lib/org-config";
-import { resolveLoginDestination, readNextFromLocation } from "@/lib/safe-next-path";
+import { getOrgByEmailDomain, isDeveloper, normalizeAllowedOrgs, ORG_REGISTRY, resolveUserOrg } from "@/lib/org-config";
+import { resolveLoginDestinationForOrgs, readNextFromLocation } from "@/lib/safe-next-path";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -105,9 +105,17 @@ export default function LoginPage() {
       }
       
       const emailLower = email.toLowerCase();
+      // Phase 6.4: an emailed deep link may point at ANY org this user belongs to.
+      let linkOrgs: string[] = isDeveloper(emailLower) ? ["soltheory", "nxtchapter"] : [];
+      try {
+        const memberSnap = await getDoc(doc(firestore, 'users', cred.user.uid));
+        linkOrgs = [...linkOrgs, ...normalizeAllowedOrgs(memberSnap.data()?.allowedOrgs)];
+      } catch {}
+      const withNext = (defaultPath: string) =>
+        resolveLoginDestinationForOrgs(defaultPath, readNextFromLocation(), linkOrgs);
       const matchedOrg = getOrgByEmailDomain(emailLower);
       if (matchedOrg) {
-        router.push(resolveLoginDestination(`/portal/dashboard/${matchedOrg.id}`, readNextFromLocation()));
+        router.push(withNext(`/portal/dashboard/${matchedOrg.id}`));
       } else {
         // Check Firestore for org mapping (for Gmail and other external users)
         try {
@@ -118,7 +126,7 @@ export default function LoginPage() {
           const mappedOrg = resolveUserOrg(userData, emailLower);
 
           if (mappedOrg && ORG_REGISTRY[mappedOrg]) {
-            router.push(resolveLoginDestination(`/portal/dashboard/${mappedOrg}`, readNextFromLocation()));
+            router.push(withNext(`/portal/dashboard/${mappedOrg}`));
           } else {
             console.error("[Login] No org mapping found for user:", uid, "data:", userData);
             await signOut(auth);

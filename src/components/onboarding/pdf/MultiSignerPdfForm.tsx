@@ -66,7 +66,7 @@ interface SessionView {
   round: number;
   currentSignerOrder: number;
   signers: SessionSigner[];
-  me: { order: number | null; isMyTurn: boolean };
+  me: { order: number | null; isMyTurn: boolean; /** Phase 6.2 — server-computed read-only previews. */ autoFill?: Record<string, string> };
   priorSignatures: { order: number; imageDataUrl: string | null }[];
   lastReRequest: { notes: string; resetAt: string } | null;
   finalDocument: { downloadUrl: string; sha256Hash: string; executedAt: string } | null;
@@ -178,7 +178,16 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
     return set;
   }, [isMyTurn, mySigner]);
 
-  const isFieldEditable = useCallback((f: PdfFormField) => myFieldNames.has(f.name), [myFieldNames]);
+  // Phase 6.2 — fields the server fills automatically (date / name / email): shown, not editable.
+  const autoValues = useMemo<Record<string, string>>(
+    () => (isMyTurn ? session?.me.autoFill || {} : {}),
+    [isMyTurn, session],
+  );
+
+  const isFieldEditable = useCallback(
+    (f: PdfFormField) => myFieldNames.has(f.name) && !(f.name in autoValues),
+    [myFieldNames, autoValues],
+  );
 
   // Earlier signers' signature images, shown in their boxes.
   const priorValues = useMemo<PdfFieldValues>(() => {
@@ -192,7 +201,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
     return out;
   }, [session]);
 
-  const displayValues = useMemo(() => ({ ...priorValues, ...values }), [priorValues, values]);
+  const displayValues = useMemo(() => ({ ...priorValues, ...values, ...autoValues }), [priorValues, values, autoValues]);
 
   const mySignatureFields = useMemo(
     () => signableFields(overlayFields).filter((f) => myFieldNames.has(f.name)),

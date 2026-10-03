@@ -40,6 +40,7 @@ import {
   type PdfSignatureStamp,
 } from '@/lib/pdf-form-engine';
 import { isStampInsideBoxes } from '@/lib/signing-workflow';
+import { resolveAutoFill } from '@/lib/pdf-autofill';
 import {
   SIGNING_SESSIONS,
   SigningSetupError,
@@ -130,6 +131,12 @@ export async function POST(req: Request) {
     }
 
     const templateFields = await loadTemplateFields(bucket, content);
+    // Phase 6.2 — auto-filled fields (date / name / email) are set HERE, server-side, and
+    // overwrite anything the browser sent, so a signer can't back-date or impersonate.
+    Object.assign(
+      cleanFields,
+      resolveAutoFill(content.autoFill, owned, templateFields, { name: signer.name, email: signer.email }),
+    );
     const missing = templateFields
       .filter((f) => f.required && owned.has(f.name) && f.type !== 'signature')
       .filter((f) => {

@@ -102,8 +102,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const sidebarLeaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const sidebarEnterTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Effective collapsed state: collapsed unless hovered or pinned open
-  const isEffectiveCollapsed = !isSidebarPinned && !isHoverExpanded;
+  // Where the sidebar WANTS to be: collapsed unless hovered or pinned open.
+  // The shell (width) follows this immediately; the inner layout swaps on a short,
+  // choreographed delay (below) so expand/collapse reads as ONE continuous slide.
+  const isSidebarTargetCollapsed = !isSidebarPinned && !isHoverExpanded;
+  const [isSidebarContentCollapsed, setIsSidebarContentCollapsed] = useState(true);
+  const [sidebarContentFade, setSidebarContentFade] = useState<{ o: number; t: string }>({ o: 1, t: 'none' });
+  const isSidebarContentCollapsedRef = useRef(true);
+  isSidebarContentCollapsedRef.current = isSidebarContentCollapsed;
+
+  // Layout mode used by all the sidebar markup below.
+  const isEffectiveCollapsed = isSidebarContentCollapsed;
+
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const raf2 = (fn: () => void) => requestAnimationFrame(() => requestAnimationFrame(fn));
+    let cancelled = false;
+
+    if (!isSidebarTargetCollapsed) {
+      // EXPAND: swap to the expanded layout while invisible, then fade it in as the shell grows.
+      if (isSidebarContentCollapsedRef.current) {
+        setSidebarContentFade({ o: 0, t: 'none' });
+        setIsSidebarContentCollapsed(false);
+        raf2(() => { if (!cancelled) setSidebarContentFade({ o: 1, t: 'opacity 200ms ease-out' }); });
+      } else {
+        setSidebarContentFade({ o: 1, t: 'opacity 120ms ease-out' }); // re-entered mid-collapse
+      }
+    } else if (!isSidebarContentCollapsedRef.current) {
+      // COLLAPSE: keep the expanded layout (clipped by the shrinking shell), fade it out near the
+      // end, and only then swap to the icon rail — so nothing jumps while the panel is moving.
+      timers.push(setTimeout(() => setSidebarContentFade({ o: 0, t: 'opacity 130ms ease-in' }), 120));
+      timers.push(setTimeout(() => {
+        setSidebarContentFade({ o: 0, t: 'none' });
+        setIsSidebarContentCollapsed(true);
+        raf2(() => { if (!cancelled) setSidebarContentFade({ o: 1, t: 'opacity 160ms ease-out' }); });
+      }, 280));
+    }
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+  }, [isSidebarTargetCollapsed]);
 
   const handleSidebarMouseEnter = () => {
     // Cancel any pending collapse timer
@@ -1680,25 +1719,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* ========== DESKTOP SIDEBAR (hidden on mobile) ========== */}
-      {/* When hovering (unpinned): outer stays 64px, aside overlays as GPU flyout.
-          When pinned: outer width animates normally (250ms). */}
+      {/* Outer box only RESERVES space: 64px rail, or the full width when pinned (instantly, no animation —
+          animating it re-flowed the whole page on every frame and caused the jerk).
+          The aside inside is an absolutely-positioned panel; its width is the only thing that animates. */}
       <div
         className={`relative flex-col h-full flex-shrink-0 z-40 overflow-visible hidden md:flex`}
         style={{
-          width: isSidebarPinned ? sidebarWidth : 64,
+          width: isSidebarPinned ? Math.min(500, Math.max(230, sidebarWidth)) : 64,
           minWidth: isSidebarPinned ? 230 : 64,
           maxWidth: isSidebarPinned ? 500 : 64,
-          transition: sidebarResizeRef.current
-            ? 'none'
-            : 'width 250ms cubic-bezier(0.16, 1, 0.3, 1), min-width 250ms cubic-bezier(0.16, 1, 0.3, 1), max-width 250ms cubic-bezier(0.16, 1, 0.3, 1)',
-          willChange: isSidebarPinned ? 'width' : undefined,
         }}
         onMouseEnter={handleSidebarMouseEnter}
         onMouseLeave={handleSidebarMouseLeave}
       >
 
-        {/* Drag-to-resize right edge */}
-        {!isEffectiveCollapsed && (
+        {/* Drag-to-resize right edge (pinned only — when floating, the panel covers this edge) */}
+        {isSidebarPinned && !isEffectiveCollapsed && (
           <div
             className="absolute top-0 right-0 w-1 h-full z-50 cursor-col-resize group hover:bg-indigo-400/40 transition-colors"
             onPointerDown={(e) => {
@@ -1733,17 +1769,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           />
         )}
 
-        <aside className={`flex flex-col h-full relative overflow-x-hidden overflow-hidden transition-colors duration-500 ${
-          isHoverExpanded && !isSidebarPinned
-            ? 'absolute left-0 top-0 z-50 shadow-2xl shadow-black/20'
-            : 'w-full'
-        } ${isDarkMode ? 'bg-slate-900 shadow-[4px_0_24px_rgba(0,0,0,0.15)]' : 'bg-[#f0e8d0] shadow-[4px_0_24px_rgba(0,0,0,0.02)]'}`}
-          style={isHoverExpanded && !isSidebarPinned ? { width: sidebarWidth, minWidth: 230, maxWidth: 500 } : undefined}
+        <aside className={`absolute left-0 top-0 h-full flex flex-col overflow-hidden ${
+          isSidebarPinned ? '' : 'z-50'
+        } ${isDarkMode ? 'bg-slate-900' : 'bg-[#f0e8d0]'}`}
+          style={{
+            // The ONE moving part: a single width transition on a self-contained panel.
+            // Pinned / resizing => no animation at all (it just sits there).
+            width: isSidebarTargetCollapsed ? 64 : Math.min(500, Math.max(230, sidebarWidth)),
+            boxShadow: !isSidebarPinned && !isSidebarTargetCollapsed
+              ? '0 25px 50px -12px rgba(0,0,0,0.25)'
+              : isDarkMode ? '4px 0 24px rgba(0,0,0,0.15)' : '4px 0 24px rgba(0,0,0,0.02)',
+            transition: isSidebarPinned || sidebarResizeRef.current
+              ? 'none'
+              : 'width 340ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 340ms ease',
+            willChange: isSidebarPinned ? undefined : 'width',
+            contain: 'layout style',
+            backfaceVisibility: 'hidden',
+          }}
         >
           <div style={{
-            width: isEffectiveCollapsed ? 64 : sidebarWidth,
-            minWidth: isEffectiveCollapsed ? 64 : sidebarWidth,
-            transition: sidebarResizeRef.current ? 'none' : 'width 250ms cubic-bezier(0.16, 1, 0.3, 1), min-width 250ms cubic-bezier(0.16, 1, 0.3, 1)',
+            // Fixed width: the text never reflows while the panel slides; it is simply revealed/clipped.
+            width: isEffectiveCollapsed ? 64 : Math.min(500, Math.max(230, sidebarWidth)),
+            minWidth: isEffectiveCollapsed ? 64 : Math.min(500, Math.max(230, sidebarWidth)),
+            opacity: sidebarContentFade.o,
+            transition: sidebarContentFade.t,
           }} className="flex flex-col h-full overflow-hidden">
             {isDualOrgUser ? (
               /* ── Dual-org: org switcher with pin/collapse button ── */

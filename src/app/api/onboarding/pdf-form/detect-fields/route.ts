@@ -21,10 +21,12 @@
 
 import { NextResponse } from 'next/server';
 import { verifyRequest } from '@/lib/api-auth';
-import { initAdmin } from '@/firebase/admin';
+import { initAdmin, getFirestore as getAdminFirestore } from '@/firebase/admin';
 import { getStorage } from 'firebase-admin/storage';
 import { firebaseConfig } from '@/firebase/config';
 import { detectPdfFields } from '@/lib/pdf-form-engine';
+import { canReassignSigners } from '@/lib/onboarding-reassign';
+import { isAllowedTemplatePath, isSafeOrgId } from '@/lib/document-library';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -34,13 +36,27 @@ export async function POST(req: Request) {
     const auth = await verifyRequest(req);
     if (!auth.ok) return auth.response;
 
-    const { storagePath } = await req.json();
+    const { storagePath, orgId } = await req.json();
 
     if (!storagePath || typeof storagePath !== 'string') {
       return NextResponse.json({ error: 'Missing storagePath' }, { status: 400 });
     }
-
+    // Phase 6.3 hardening: only org admins, and only their org's template folder
+    // (or the legacy shared base templates) — never arbitrary Storage paths.
+    if (!isSafeOrgId(orgId)) {
+      return NextResponse.json({ error: 'Missing orgId' }, { status: 400 });
+    }
     await initAdmin();
+    if (!(await canReassignSigners(getAdminFirestore(), orgId, auth.uid, auth.email))) {
+      return NextResponse.json({ error: 'Only admins can analyze template PDFs.' }, { status: 403 });
+    }
+    if (!isAllowedTemplatePath(orgId, storagePath)) {
+      return NextResponse.json(
+        { error: 'That path is not a template location. Upload the PDF to the Document Library instead.' },
+        { status: 400 },
+      );
+    }
+
     const bucket = getStorage().bucket(firebaseConfig.storageBucket);
 
     // Download the PDF

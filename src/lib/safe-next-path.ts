@@ -42,6 +42,24 @@ export function resolveLoginDestination(defaultPath: string, raw: string | null 
   return orgOf(next) === orgOf(defaultPath) ? next : defaultPath;
 }
 
+/**
+ * Phase 6.4: like `resolveLoginDestination`, but a deep link into ANY org the
+ * user is a member of is honored (not just the org they would land on by
+ * default). Membership is still enforced by the dashboard itself — this only
+ * decides where to send them first, and still requires a safe same-site path.
+ */
+export function resolveLoginDestinationForOrgs(
+  defaultPath: string,
+  raw: string | null | undefined,
+  allowedOrgs: readonly string[],
+): string {
+  const next = sanitizeNextPath(raw);
+  if (!next) return defaultPath;
+  const orgOf = (p: string) => p.split(/[?#]/)[0].slice(PREFIX.length).split('/')[0];
+  const nextOrg = orgOf(next);
+  return nextOrg === orgOf(defaultPath) || allowedOrgs.includes(nextOrg) ? next : defaultPath;
+}
+
 /** Client-only: read `?next=` from the current URL. */
 export function readNextFromLocation(): string | null {
   if (typeof window === 'undefined') return null;

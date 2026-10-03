@@ -38,6 +38,8 @@ import {
 import { notifyOnboardingTaskCompleted } from '@/lib/onboarding-notifications';
 import { logOnboardingAudit } from '@/lib/onboarding-audit';
 import { isMultiSignerWorkflow } from '@/lib/signing-workflow';
+import { resolveAutoFill } from '@/lib/pdf-autofill';
+import { loadTemplateFields } from '@/lib/onboarding-signing';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -129,9 +131,23 @@ export async function POST(req: Request) {
       }
     } catch { /* use defaults */ }
 
+    // Phase 6.2 — server-authoritative auto-fill (date / name / email) overrides browser values.
+    let filledFields = fields;
+    if (taskContent.autoFill && typeof taskContent.autoFill === 'object') {
+      try {
+        const templateFields = await loadTemplateFields(bucket, taskContent);
+        filledFields = {
+          ...fields,
+          ...resolveAutoFill(taskContent.autoFill, null, templateFields, { name: signerDisplayName, email: signerEmail }),
+        };
+      } catch (e) {
+        console.warn('[PDF Form] auto-fill skipped:', e);
+      }
+    }
+
     // ── 4. Fill, stamp, flatten, and seal ──
     const result = await fillAndFlattenPdf(pdfBytes, {
-      fields,
+      fields: filledFields,
       signatures,
     });
 

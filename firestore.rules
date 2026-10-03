@@ -810,6 +810,28 @@ service cloud.firestore {
     }
 
     /**
+     * @description Exactly-once email claims (Admin SDK only). Explicit deny so
+     * the guarantee never depends on the default-deny fallback.
+     * @path /email_dispatch_log/{key}
+     */
+    match /email_dispatch_log/{key} {
+      allow read, write: if false;
+    }
+
+    /**
+     * @description Phase 6.3 Org Document Library. Members may read; writes
+     * go only through /api/onboarding/document-library (Admin SDK, admin-checked).
+     * @path /orgs/{orgId}/document_templates/{templateId}
+     */
+    match /orgs/{orgId}/document_templates/{templateId} {
+      allow read: if isSignedIn() && (
+        request.auth.token.email == 'lucas@soltheory.com' ||
+        isOrgMember(orgId)
+      );
+      allow write: if false;
+    }
+
+    /**
      * @description Compliance documents uploaded to the secure vault.
      * @path /orgs/{orgId}/compliance_documents/{docId}
      */

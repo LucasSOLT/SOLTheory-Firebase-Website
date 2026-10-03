@@ -16,6 +16,8 @@ import {
 } from '@/types/onboarding-templates';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import SigningOrderConfigurator from './SigningOrderConfigurator';
+import AutoFillConfigurator from './AutoFillConfigurator';
+import DocumentLibraryPicker from './DocumentLibraryPicker';
 
 const inputClass = (isDarkMode: boolean) =>
   `w-full p-2 flex-1 rounded border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -620,6 +622,10 @@ export function PdfFormBuilder({ content, onChange, isDarkMode, orgId }: Builder
       setDetectMsg('Please enter a PDF Storage Path first.');
       return;
     }
+    if (!orgId) {
+      setDetectMsg('Open this blueprint from an organization to analyze a PDF.');
+      return;
+    }
     setIsDetecting(true);
     setDetectMsg(null);
 
@@ -628,7 +634,7 @@ export function PdfFormBuilder({ content, onChange, isDarkMode, orgId }: Builder
       const res = await fetch('/api/onboarding/pdf-form/detect-fields', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify({ storagePath: content.pdfStoragePath }),
+        body: JSON.stringify({ storagePath: content.pdfStoragePath, orgId }),
       });
 
       const data = await res.json();
@@ -666,12 +672,14 @@ export function PdfFormBuilder({ content, onChange, isDarkMode, orgId }: Builder
           Fillable PDF Template Configuration
         </h4>
         <p className={`text-xs mb-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-          Specify a Firebase Storage path to an AcroForm fillable PDF template (e.g. W-4, I-9, state tax forms).
+          Pick an AcroForm fillable PDF (e.g. W-4, I-9, state tax forms) from your Document Library, or upload a new one.
         </p>
 
         <div className="space-y-3">
+          {orgId && <DocumentLibraryPicker orgId={orgId} content={content} onChange={onChange} isDarkMode={isDarkMode} />}
+
           <div>
-            <label className="block text-xs font-semibold mb-1">PDF Storage Path</label>
+            <label className="block text-xs font-semibold mb-1">PDF Storage Path {orgId ? '(advanced)' : ''}</label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -720,6 +728,9 @@ export function PdfFormBuilder({ content, onChange, isDarkMode, orgId }: Builder
               </div>
             </div>
           )}
+
+          {/* Phase 6.2: fields the server fills in automatically (date / name / email) */}
+          <AutoFillConfigurator content={content} onChange={onChange} isDarkMode={isDarkMode} />
 
           <div>
             <label className="block text-xs font-semibold mb-1">Compliance Vault Category</label>

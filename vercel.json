@@ -11,6 +11,10 @@
     {
       "path": "/api/onboarding/cron/nudges",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/onboarding/cron/signature-reminders",
+      "schedule": "0 15 * * *"
     }
   ]
 }

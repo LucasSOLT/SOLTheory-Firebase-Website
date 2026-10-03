@@ -197,3 +197,25 @@ The following is the APPROVED implementation plan for the Onboarding Document Sy
 3. **Never** flatten a multi-signer PDF until ALL signers have completed their portions.
 4. **Always** use `supervisorUid`/`supervisorEmail` (not `mentorUid`/`mentorEmail`) for new supervisor assignment code.
 5. **Always** ask for deployment approval before pushing to main.
+
+
+---
+
+## ⚠️ ACTIVE BUILD PLAN — Onboarding Phase 6: Signing Reliability & Reuse (DO NOT DEVIATE) ⚠️
+
+**Effective: October 3, 2026 — Until all steps are complete.** Approved by Lucas ("go with your recommendations"). Full plan: `whats-next-phase-6-plan.md` in the conversation artifacts. Phases 1–5 of the Onboarding Document System remain locked as written above (Step 5.4 live verification is pending the owner).
+
+### Step order (FOLLOW EXACTLY):
+- **6.1** Stalled-signature reminders + escalation (reminder after 2 days, then every 3 days, max 4; escalate to supervisor/admin at 5 days; signer who left the org → escalate, never remind)
+- **6.2** Smart auto-fill (today's date / signer name / signer email, filled server-side)
+- **6.3** Org Document Library (upload + detect fields once; copy-on-use into blueprints)
+- **6.4** Carry-over hardening (login `?next=` across orgs; explicit Firestore deny rule for `email_dispatch_log`)
+- **6.5** Admin "Stuck documents" panel
+- **6.6** Verify (local E2E + tsc + build) → ask deployment approval → one combined live checklist (Phases 4 + 5 + 6)
+- *Optional parallel track:* Jarvis recall-evaluation script
+
+### Rules:
+1. **Never** skip or reorder steps; finish and locally verify each before the next.
+2. **Never** auto-send a document. Reminders and escalations carry links only, never the PDF.
+3. Cron routes **must fail closed** (no `CRON_SECRET` configured ⇒ no access).
+4. **Always** ask for deployment approval before pushing to main.

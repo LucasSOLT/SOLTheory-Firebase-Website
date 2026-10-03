@@ -45,6 +45,7 @@ import AdminSubmissionViewer from '@/components/onboarding/AdminSubmissionViewer
 import ScheduleOrientationModal from '@/components/onboarding/ScheduleOrientationModal';
 import ManageUserBlueprintsModal from '@/components/onboarding/ManageUserBlueprintsModal';
 import SupervisorProgressView from '@/components/onboarding/SupervisorProgressView';
+import StuckDocumentsPanel from '@/components/onboarding/StuckDocumentsPanel';
 import AwaitingSignaturePanel from '@/components/onboarding/AwaitingSignaturePanel';
 import ReadyToArchivePanel from '@/components/onboarding/ReadyToArchivePanel';
 import { getAuthHeaders } from '@/lib/api-auth-client';
@@ -885,6 +886,9 @@ export default function OnboardingPage() {
         {/* ════════════════════════════════════════════════════════════════ */}
         {isAdmin && activeTab === 'roadmaps' && !selectedAdminInstance && (
           <div className="space-y-6">
+
+            {/* Phase 6.5: documents waiting on a signer (nudge / change who signs) */}
+            <StuckDocumentsPanel orgId={orgId} isDarkMode={isDarkMode} />
 
             {/* Overdue documents alert — only shown when documents are actually past due */}
             {overdueDocsCount > 0 && (
