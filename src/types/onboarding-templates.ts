@@ -539,6 +539,42 @@ export interface PdfFormField {
   pageIndex?: number;
   tooltip?: string;
   required?: boolean;
+  /**
+   * Phase 2 Step 2.2 — on-page placements of this field. One field can have
+   * several widgets (each radio option, or the same text field repeated on
+   * multiple pages). Absent on blueprints detected before Step 2.2.
+   */
+  widgets?: PdfFieldWidget[];
+  /** Text fields: allows line breaks (render as <textarea>). */
+  multiline?: boolean;
+  /** Text fields: maximum character count from the PDF. */
+  maxLength?: number;
+  /** Font size in PDF points from the field's /DA string. Absent = auto-size. */
+  fontSize?: number;
+}
+
+/**
+ * Phase 2 Step 2.2 — one on-page placement (widget annotation) of a form field.
+ *
+ * Coordinates are raw PDF user space: points (1/72"), origin at the BOTTOM-LEFT
+ * of the page's coordinate system. Do not hand-convert to CSS — pass `rect` to
+ * pdf.js `viewport.convertToViewportRectangle(rect)`, which applies scale,
+ * rotation, and CropBox offset (see PageViewportMetrics in components/onboarding/pdf).
+ */
+export interface PdfFieldWidget {
+  /** 0-based page the widget is drawn on. -1 if it couldn't be resolved. */
+  pageIndex: number;
+  /** Normalized [x1, y1, x2, y2] with x1 < x2 and y1 < y2. */
+  rect: number[];
+  /** Same box as `rect`, as lower-left corner + size. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Checkbox/radio: the value this widget represents when selected. */
+  exportValue?: string;
+  /** True when the PDF hides this widget on screen (Hidden/NoView flags or zero size). */
+  hidden?: boolean;
 }
 
 // ── Human-readable labels for interactive item types ────────────────────────

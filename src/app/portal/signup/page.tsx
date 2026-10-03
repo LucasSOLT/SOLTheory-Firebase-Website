@@ -773,7 +773,7 @@ function SignupWizardContent() {
                             {agreedToTerms && <CheckCircle2 className="absolute inset-0 w-5 h-5 text-white pointer-events-none scale-75" />}
                           </div>
                           <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
-                            I agree to the <Link href="/terms" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">Terms of Service</Link> and <Link href="/privacy" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">Privacy Policy</Link>.
+                            I agree to the <Link href="/terms" target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">Terms of Service</Link> and <Link href="/privacy" target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2">Privacy Policy</Link>.
                           </span>
                         </label>
                       </>

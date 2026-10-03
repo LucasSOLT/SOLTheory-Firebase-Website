@@ -32,6 +32,8 @@ import {
 } from '@/types/onboarding-templates';
 import { safeExternalUrl } from '@/lib/utils';
 import { getAuthHeaders } from '@/lib/api-auth-client';
+import PdfFormVisualRenderer from './pdf/PdfFormVisualRenderer';
+import { usePdfFormSource } from './pdf/usePdfFormSource';
 
 // ----------------------------------------------------------------------
 // 1. QuizRenderer
@@ -1216,6 +1218,33 @@ export function PdfFormRenderer({
       setIsSubmitting(false);
     }
   };
+
+  // Phase 2 Step 2.4 — fill directly on the PDF when field geometry is available;
+  // otherwise (or if loading fails) keep the standard form grid below.
+  const visualSource = usePdfFormSource({ content, taskId });
+  if (visualSource.status === 'loading') {
+    return (
+      <div className={`flex items-center justify-center gap-2 py-16 text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+        <Loader2 className="w-5 h-5 animate-spin" /> Loading document…
+      </div>
+    );
+  }
+  if (visualSource.status === 'ready') {
+    return (
+      <PdfFormVisualRenderer
+        content={content}
+        fields={visualSource.fields}
+        pdfBytes={visualSource.pdfBytes}
+        fileUrl={visualSource.fileUrl}
+        onSubmit={onSubmit}
+        isDarkMode={isDarkMode}
+        disabled={disabled}
+        existingResponse={existingResponse}
+        orgId={orgId}
+        taskId={taskId}
+      />
+    );
+  }
 
   const fields = content.detectedFields || [];
 

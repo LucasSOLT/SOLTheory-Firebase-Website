@@ -22,9 +22,9 @@ export function Footer() {
                     <span className="text-sm text-slate-500 font-medium">&copy; {new Date().getFullYear()} MyTaj LLC d/b/a SOLTheory. {t.pubAllRightsReserved}.</span>
                 </div>
                 <div className="flex items-center gap-4">
-                    <Link href="/privacy" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">{t.pubPrivacyPolicy}</Link>
+                    <Link href="/privacy" target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">{t.pubPrivacyPolicy}</Link>
                     <span className="text-slate-700">·</span>
-                    <Link href="/terms" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">{t.pubTermsOfService}</Link>
+                    <Link href="/terms" target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">{t.pubTermsOfService}</Link>
                 </div>
                 <div className="flex items-center gap-1">
                     {socialLinks.map(link => (
