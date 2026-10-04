@@ -10,6 +10,7 @@
 
 import type { PdfFieldWidget, PdfFormContent, PdfFormField } from '@/types/onboarding-templates';
 import type { PdfFieldValues } from './overlayLayout';
+import { signatureSpotsOf, spotToWidget } from '@/lib/signature-spots';
 
 /**
  * Key for the on-page signature box built from the admin's `signaturePosition`
@@ -34,26 +35,38 @@ const visibleWidgets = (f: PdfFormField) => (f.widgets || []).filter((w) => !w.h
 /** Fields for the overlay: detected fields + a virtual signature box when the PDF has none. */
 export function buildOverlayFields(content: PdfFormContent, detected: PdfFormField[]): PdfFormField[] {
   const hasOnPageSignature = detected.some((f) => f.type === 'signature' && !f.readOnly && visibleWidgets(f).length > 0);
-  const pos = content.signaturePosition;
-  if (!content.requireSignature || hasOnPageSignature || !pos || !(pos.width > 0 && pos.height > 0)) return detected;
+  // Signature Suite Phase B: every admin-set spot is a widget of ONE virtual field (one signature fills all).
+  const spots = signatureSpotsOf(content);
+  if (!content.requireSignature || hasOnPageSignature || spots.length === 0) return detected;
 
-  const widget: PdfFieldWidget = {
-    pageIndex: pos.pageIndex,
-    rect: [pos.x, pos.y, pos.x + pos.width, pos.y + pos.height],
-    x: pos.x,
-    y: pos.y,
-    width: pos.width,
-    height: pos.height,
-  };
   return [
     ...detected,
-    { name: VIRTUAL_SIGNATURE_FIELD, type: 'signature', readOnly: false, required: true, tooltip: 'Your signature', widgets: [widget] },
+    {
+      name: VIRTUAL_SIGNATURE_FIELD,
+      type: 'signature',
+      readOnly: false,
+      required: true,
+      tooltip: 'Your signature',
+      widgets: spots.map(spotToWidget),
+    },
   ];
 }
 
 /** Signature fields the signer can sign that are actually on a page. */
 export const signableFields = (fields: PdfFormField[]) =>
   fields.filter((f) => f.type === 'signature' && !f.readOnly && visibleWidgets(f).length > 0);
+
+/** Signature Suite Phase B — how many on-page signature spots these fields have, and how many are signed. */
+export function signatureSpotCounts(fields: PdfFormField[], values: PdfFieldValues): { total: number; signed: number } {
+  let total = 0;
+  let signed = 0;
+  for (const f of signableFields(fields)) {
+    const n = visibleWidgets(f).length;
+    total += n;
+    if (isSignatureImage(values[f.name])) signed += n;
+  }
+  return { total, signed };
+}
 
 /** AcroForm values to fill: everything except signatures, read-only and unsupported fields. */
 export function buildFillFields(fields: PdfFormField[], values: PdfFieldValues): Record<string, string | boolean> {

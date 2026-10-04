@@ -34,6 +34,8 @@ import { collection, onSnapshot, query } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import type { PdfFormContent, PdfFormField, SignerDefinition, SignerKind, SigningWorkflow } from '@/types/onboarding-templates';
 import { fillableFieldNames, validateSigningWorkflow } from '@/lib/signing-workflow';
+import { DEFAULT_SIGNATURE_SPOT, signatureSpotsOf, withSignatureSpots } from '@/lib/signature-spots';
+import SignatureSpotsEditor from './SignatureSpotsEditor';
 
 interface OrgMember {
   uid: string;
@@ -56,8 +58,6 @@ const KIND_LABELS: Record<SignerKind, string> = {
   supervisor: "Employee's assigned supervisor",
   member: 'A specific person',
 };
-
-const DEFAULT_SIG_POS = { pageIndex: 0, x: 50, y: 50, width: 200, height: 60 };
 
 function renumber(signers: SignerDefinition[]): SignerDefinition[] {
   return signers.map((s, i) => ({ ...s, order: i + 1 }));
@@ -115,15 +115,17 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
       // Signer 1 = Employee (inherits the single-signer settings), signer 2 = supervisor.
       commit(
         [
-          {
-            id: newId(),
-            order: 1,
-            kind: 'employee',
-            label: 'Employee',
-            fieldNames: [],
-            requireSignature: content.requireSignature !== false,
-            ...(content.signaturePosition ? { signaturePosition: content.signaturePosition } : {}),
-          },
+          withSignatureSpots(
+            {
+              id: newId(),
+              order: 1,
+              kind: 'employee',
+              label: 'Employee',
+              fieldNames: [],
+              requireSignature: content.requireSignature !== false,
+            } as SignerDefinition,
+            signatureSpotsOf(content),
+          ),
           { id: newId(), order: 2, kind: 'supervisor', label: 'Supervisor', fieldNames: [], requireSignature: true },
         ],
         true,
@@ -163,8 +165,8 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
   if (workflow.enabled) {
     for (const s of signers) {
       const ownsSigField = s.fieldNames.some((n) => signatureFieldNames.has(n));
-      if (s.requireSignature && !ownsSigField && !s.signaturePosition) {
-        warnings.push(`Signer ${s.order} must sign but has no signature box — add a stamp position or give them a signature field.`);
+      if (s.requireSignature && !ownsSigField && signatureSpotsOf(s).length === 0) {
+        warnings.push(`Signer ${s.order} must sign but has no signature box — add a signature spot or give them a signature field.`);
       }
     }
     if (detected.length === 0) warnings.push('Detect the PDF fields first so you can assign them to signers.');
@@ -204,7 +206,12 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
                 const q = pickerSearch.trim().toLowerCase();
                 return !q || m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
               });
-              const sigPos = s.signaturePosition || DEFAULT_SIG_POS;
+              const spots = signatureSpotsOf(s);
+              // Writes both signaturePositions and the legacy signaturePosition (undefined keys are dropped by updateSigner).
+              const setSpots = (next: typeof spots) => {
+                const w = withSignatureSpots(s, next);
+                updateSigner(s.id, { signaturePositions: w.signaturePositions, signaturePosition: w.signaturePosition });
+              };
               return (
                 <li key={s.id}>
                   <div
@@ -384,27 +391,15 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
                         <label className="flex items-center gap-2 text-[11px] font-medium cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={!!s.signaturePosition}
-                            onChange={(e) => updateSigner(s.id, { signaturePosition: e.target.checked ? DEFAULT_SIG_POS : undefined })}
+                            checked={spots.length > 0}
+                            onChange={(e) => setSpots(e.target.checked ? [{ ...DEFAULT_SIGNATURE_SPOT }] : [])}
                             className="w-3.5 h-3.5 rounded text-indigo-600"
                           />
-                          Stamp the signature at a fixed spot (for PDFs without a signature field)
+                          Stamp the signature at fixed spots (for PDFs without a signature field)
                         </label>
                       )}
-                      {s.requireSignature && s.signaturePosition && (
-                        <div className="grid grid-cols-5 gap-1.5">
-                          {(['pageIndex', 'x', 'y', 'width', 'height'] as const).map((key) => (
-                            <div key={key}>
-                              <label className="block text-[9px] opacity-70">{key === 'pageIndex' ? 'Page (0-based)' : key === 'x' || key === 'y' ? `${key.toUpperCase()} (pt)` : key === 'width' ? 'Width' : 'Height'}</label>
-                              <input
-                                type="number"
-                                value={sigPos[key]}
-                                onChange={(e) => updateSigner(s.id, { signaturePosition: { ...sigPos, [key]: parseInt(e.target.value) || 0 } })}
-                                className={input}
-                              />
-                            </div>
-                          ))}
-                        </div>
+                      {s.requireSignature && spots.length > 0 && (
+                        <SignatureSpotsEditor spots={spots} onChange={setSpots} isDarkMode={isDarkMode} pageCount={content.pageCount} />
                       )}
                     </div>
                   </div>

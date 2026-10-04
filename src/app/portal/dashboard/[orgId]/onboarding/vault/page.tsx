@@ -35,6 +35,7 @@ import {
   type VerificationStatus,
 } from '@/types/onboarding-templates';
 import SendArchiveButton from '@/components/onboarding/SendArchiveButton';
+import BodyPortal, { MODAL_OVERLAY_CLASS, MODAL_OVERLAY_STYLE } from '@/components/onboarding/BodyPortal';
 
 export default function ComplianceVaultPage() {
   const { orgId: routeOrgId } = useParams<{ orgId: string }>();
@@ -537,8 +538,9 @@ export default function ComplianceVaultPage() {
 
       {/* ── Review & Verification Confirmation Modal ───────────────────────── */}
       {selectedDoc && actionType && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className={`w-full max-w-md rounded-2xl shadow-2xl border p-6 space-y-4 ${
+        <BodyPortal>
+        <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
+          <div className={`my-auto w-full max-w-md rounded-2xl shadow-2xl border p-6 space-y-4 ${
             isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
             <h3 className="text-base font-bold">
@@ -593,6 +595,7 @@ export default function ComplianceVaultPage() {
             </div>
           </div>
         </div>
+        </BodyPortal>
       )}
     </div>
   );

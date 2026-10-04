@@ -1,5 +1,6 @@
 'use client';
 
+import BodyPortal, { MODAL_OVERLAY_CLASS, MODAL_OVERLAY_STYLE } from './BodyPortal';
 import React, { useState } from 'react';
 import {
   X,
@@ -575,9 +576,10 @@ export default function AdminSubmissionViewer({
   // ── Render ──
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+    <BodyPortal>
+    <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
       <div
-        className={`w-full max-w-3xl rounded-2xl shadow-2xl border overflow-hidden relative flex flex-col max-h-full animate-in zoom-in-95 duration-200 ${
+        className={`my-auto w-full max-w-3xl rounded-2xl shadow-2xl border overflow-hidden relative flex flex-col max-h-full animate-in zoom-in-95 duration-200 ${
           isDarkMode ? 'bg-slate-900 border-slate-700/80 text-white' : 'bg-white border-slate-200 text-slate-900'
         }`}
       >
@@ -842,5 +844,6 @@ export default function AdminSubmissionViewer({
         )}
       </div>
     </div>
+    </BodyPortal>
   );
 }

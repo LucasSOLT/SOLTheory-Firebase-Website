@@ -530,6 +530,13 @@ export interface PdfFormContent {
     width: number;
     height: number;
   };
+  /**
+   * Signature Suite Phase B — every place the signer's signature goes (one
+   * signature fills them all). When present and non-empty it wins over
+   * `signaturePosition`, which is still written as the first spot so older
+   * readers keep working. Read through `signatureSpotsOf()`.
+   */
+  signaturePositions?: SignatureSpot[];
   /** Compliance document category for vault cataloging. */
   documentCategory?: string;
   /** Whether to require ESIGN Act consent checkbox. */
@@ -582,6 +589,17 @@ export interface SignerDefinition {
   requireSignature: boolean;
   /** Where to stamp this signer's signature when the PDF has no signature field for them. */
   signaturePosition?: { pageIndex: number; x: number; y: number; width: number; height: number };
+  /** Signature Suite Phase B — all of this signer's signature spots (wins over `signaturePosition`). */
+  signaturePositions?: SignatureSpot[];
+}
+
+/** One on-page signature placement, in PDF points (origin bottom-left). */
+export interface SignatureSpot {
+  pageIndex: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface SigningWorkflow {

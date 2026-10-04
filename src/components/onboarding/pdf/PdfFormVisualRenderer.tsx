@@ -11,7 +11,7 @@
 // (fill → stamp signatures → flatten → SHA-256 seal → vault) unchanged.
 // ============================================================================
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { AlertCircle, ExternalLink, FileText, Loader2, PenTool, ShieldCheck } from 'lucide-react';
 import type { PdfFormContent, PdfFormField } from '@/types/onboarding-templates';
 import { getAuthHeaders } from '@/lib/api-auth-client';
@@ -29,7 +29,10 @@ import {
   isSignatureImage,
   loadImageSize,
   signableFields,
+  signatureSpotCounts,
 } from './pdfSubmission';
+import SignAllSpotsBar from './SignAllSpotsBar';
+import MissingItemsPanel, { buildMissingItems } from './MissingItemsPanel';
 
 interface PdfFormVisualRendererProps {
   content: PdfFormContent;
@@ -81,6 +84,20 @@ export default function PdfFormVisualRenderer({
     setErrorMsg(null);
   }, []);
 
+  // Signature Suite Phase B — the same signature in every on-page signature spot.
+  const spotCounts = useMemo(() => signatureSpotCounts(overlayFields, values), [overlayFields, values]);
+  const applySignatureEverywhere = useCallback(
+    (dataUrl: string) => {
+      setValues((prev) => {
+        const next = { ...prev };
+        for (const f of signatureFields) next[f.name] = dataUrl;
+        return next;
+      });
+      setErrorMsg(null);
+    },
+    [signatureFields],
+  );
+
   // Phase 6.2 — fields the server fills automatically (date / name / email): previewed read-only.
   // The server recomputes them authoritatively on submit.
   const autoValues = useMemo<Record<string, string>>(() => {
@@ -112,12 +129,25 @@ export default function PdfFormVisualRenderer({
   if (content.requireSignature && !typedName.trim()) problems.push('your typed legal name');
   if (content.requireEsignConsent && !esignConsent) problems.push('the electronic signature consent');
 
+  // Signature Suite D2 — itemised "what's left" with Go-to links.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const missingItems = buildMissingItems({
+    missingFields,
+    signatureFields,
+    values: effValues,
+    requireSignature: !!content.requireSignature,
+    separateSignatureValue: values[VIRTUAL_SIGNATURE_FIELD],
+    useSeparateSignature: needsSeparateSignature,
+    typedNameMissing: !!content.requireSignature && !typedName.trim(),
+    consentMissing: !!content.requireEsignConsent && !esignConsent,
+  });
+
   // ── Submit ──
   const handleSubmit = async () => {
     if (locked) return;
     if (problems.length) {
       setShowMissing(true);
-      setErrorMsg(`Please complete ${problems.join(', ')}.`);
+      setErrorMsg(missingItems.length ? null : `Please complete ${problems.join(', ')}.`);
       return;
     }
     setIsSubmitting(true);
@@ -183,7 +213,7 @@ export default function PdfFormVisualRenderer({
   const separateSignature = values[VIRTUAL_SIGNATURE_FIELD];
 
   return (
-    <div className="space-y-5">
+    <div ref={rootRef} className="space-y-5">
       {/* Header */}
       <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 ${isDarkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
         <div className="flex items-center gap-3 min-w-0">
@@ -223,6 +253,18 @@ export default function PdfFormVisualRenderer({
         </div>
       )}
 
+      {/* Signature Suite Phase B: one tap fills every signature spot */}
+      {content.requireSignature && (
+        <SignAllSpotsBar
+          total={spotCounts.total}
+          signed={spotCounts.signed}
+          onApplyAll={applySignatureEverywhere}
+          isDarkMode={isDarkMode}
+          disabled={locked}
+          defaultName={typedName}
+        />
+      )}
+
       {/* The document */}
       <PdfCanvasViewer
         pdfBytes={pdfBytes}
@@ -248,7 +290,7 @@ export default function PdfFormVisualRenderer({
 
       {/* Fallback signature (only when the PDF has no on-page place to sign) */}
       {needsSeparateSignature && (
-        <div className="space-y-2">
+        <div className="space-y-2" data-goto="separate-signature">
           <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400">Electronic Signature</h5>
           <button
             type="button"
@@ -262,7 +304,7 @@ export default function PdfFormVisualRenderer({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={separateSignature} alt="Your signature" className="max-h-20 max-w-full object-contain" />
             ) : (
-              <span className="flex items-center gap-2 text-sm font-semibold text-blue-700"><PenTool className="w-4 h-4" /> Tap to sign</span>
+              <span className="flex items-center gap-2 text-sm font-bold text-white bg-blue-600 px-4 py-2 rounded-lg"><PenTool className="w-4 h-4" /> Tap to sign</span>
             )}
           </button>
           <SignaturePadModal
@@ -280,7 +322,7 @@ export default function PdfFormVisualRenderer({
 
       {/* Typed legal name */}
       {content.requireSignature && (
-        <div className="space-y-1">
+        <div className="space-y-1" data-goto="typed-name">
           <label className="block text-xs font-semibold">
             Type Full Legal Name <span className="text-rose-500">*</span>
           </label>
@@ -297,7 +339,7 @@ export default function PdfFormVisualRenderer({
 
       {/* ESIGN Act consent */}
       {content.requireEsignConsent && (
-        <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-indigo-950/30 border-indigo-800/40' : 'bg-indigo-50/70 border-indigo-200/80'} ${showMissing && !esignConsent ? '!border-red-500' : ''}`}>
+        <div data-goto="esign-consent" className={`p-4 rounded-xl border ${isDarkMode ? 'bg-indigo-950/30 border-indigo-800/40' : 'bg-indigo-50/70 border-indigo-200/80'} ${showMissing && !esignConsent ? '!border-red-500' : ''}`}>
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -313,11 +355,16 @@ export default function PdfFormVisualRenderer({
         </div>
       )}
 
-      {errorMsg && (
-        <div className="flex items-center gap-2 p-3 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          {errorMsg}
-        </div>
+      {/* D2: after a submit attempt, list exactly what's missing with Go-to links (updates live). */}
+      {showMissing && !locked && missingItems.length > 0 ? (
+        <MissingItemsPanel items={missingItems} rootRef={rootRef} isDarkMode={isDarkMode} />
+      ) : (
+        errorMsg && (
+          <div className="flex items-center gap-2 p-3 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {errorMsg}
+          </div>
+        )
       )}
 
       {/* Action bar */}

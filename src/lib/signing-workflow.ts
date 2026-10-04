@@ -14,6 +14,7 @@ import type {
   SignerDefinition,
   SigningWorkflow,
 } from '@/types/onboarding-templates';
+import { signatureSpotsOf, spotToWidget } from '@/lib/signature-spots';
 
 /** Prefix for per-signer virtual signature boxes (built from `signaturePosition`). */
 export const SIGNER_SIGNATURE_FIELD_PREFIX = '__soltheory_signature__:';
@@ -83,7 +84,8 @@ const visibleWidgets = (f: PdfFormField): PdfFieldWidget[] =>
 
 /**
  * Where a signer is allowed to sign: the widgets of every signature-type field
- * they own, plus their `signaturePosition` box if set.
+ * they own, plus each of their signature spots (`signaturePositions`, or the
+ * legacy single `signaturePosition`).
  */
 export function signatureBoxesForSigner(
   signer: SignerDefinition,
@@ -98,8 +100,8 @@ export function signatureBoxesForSigner(
       boxes.push({ fieldName: f.name, pageIndex: w.pageIndex, x: w.x, y: w.y, width: w.width, height: w.height });
     }
   }
-  const pos = signer.signaturePosition;
-  if (pos && pos.width > 0 && pos.height > 0) {
+  // Signature Suite Phase B: every spot shares ONE virtual field, so one signature fills them all.
+  for (const pos of signatureSpotsOf(signer)) {
     boxes.push({ fieldName: signerSignatureFieldName(signer.order), ...pos });
   }
   return boxes;
@@ -124,28 +126,19 @@ export function isStampInsideBoxes(
   );
 }
 
-/** Virtual signature fields (one per signer with a `signaturePosition`) for the overlay. */
+/** Virtual signature fields (one per signer with signature spots; one widget per spot) for the overlay. */
 export function buildSignerSignatureFields(workflow: SigningWorkflow): PdfFormField[] {
   const out: PdfFormField[] = [];
   for (const s of orderedSigners(workflow)) {
-    const pos = s.signaturePosition;
-    if (!s.requireSignature || !pos || !(pos.width > 0 && pos.height > 0)) continue;
+    const spots = signatureSpotsOf(s);
+    if (!s.requireSignature || spots.length === 0) continue;
     out.push({
       name: signerSignatureFieldName(s.order),
       type: 'signature',
       readOnly: false,
       required: true,
       tooltip: `Signature — ${s.label || `Signer ${s.order}`}`,
-      widgets: [
-        {
-          pageIndex: pos.pageIndex,
-          rect: [pos.x, pos.y, pos.x + pos.width, pos.y + pos.height],
-          x: pos.x,
-          y: pos.y,
-          width: pos.width,
-          height: pos.height,
-        },
-      ],
+      widgets: spots.map(spotToWidget),
     });
   }
   return out;

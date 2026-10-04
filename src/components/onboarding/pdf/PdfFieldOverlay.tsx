@@ -21,10 +21,19 @@
 // enlarged tap area (painted UNDER all real controls, so tapping a control
 // directly always hits that control), and focusing a text/dropdown field whose
 // text would be unreadably small asks the viewer to zoom in and center it.
+//
+// Signature Suite D1/D2:
+//   • Editable boxes are clearly visible (tinted fill + solid border), ink is
+//     always dark, and required-but-empty boxes carry a red dot. The global
+//     phone "inputs are 16px" rule skips these controls (globals.css), which
+//     previously pushed the text out of small boxes so it looked invisible.
+//   • On touch devices text/dropdown boxes are tappable previews that open the
+//     large bottom input sheet (PdfFieldInputSheet) with Prev / Next / Done.
+//   • Unsigned signature spots render as a solid blue "Sign" button.
 // ============================================================================
 
-import React, { useMemo, useState } from 'react';
-import { Check, PenTool } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, PenTool } from 'lucide-react';
 import type { PdfFormField } from '@/types/onboarding-templates';
 import type { PageViewportMetrics } from './types';
 import {
@@ -35,6 +44,7 @@ import {
   type PdfFieldValues,
 } from './overlayLayout';
 import SignaturePadModal from './SignaturePadModal';
+import PdfFieldInputSheet from './PdfFieldInputSheet';
 import { usePdfViewer } from './viewerContext';
 
 export interface PdfFieldOverlayProps {
@@ -59,6 +69,7 @@ const READABLE_FONT_PX = 14; // focusing a field with smaller text zooms the vie
 const FOCUS_ZOOM_MAX = 2.5; // never auto-zoom past this scale
 const TOUCH_TARGET_PX = 32; // desired minimum tap area for small controls
 const MAX_TOUCH_SLOP_PX = 10; // max expansion per side (keeps dense forms usable)
+const SHEET_REVEAL_DELAY_MS = 320; // let the phone keyboard finish opening before scrolling the field into view
 
 const prettyName = (name: string) =>
   name
@@ -70,11 +81,18 @@ const prettyName = (name: string) =>
 
 const fieldLabel = (field: PdfFormField) => field.tooltip || prettyName(field.name) || 'Form field';
 
-/** Box styles: editable fields get the familiar light-blue fill so users can spot them. */
+/** Box styles: editable fields get a clearly visible tinted fill + border so users can spot them (D1). */
 function boxClasses(editable: boolean, missing: boolean, filled: boolean): string {
   if (!editable) return 'bg-transparent border border-transparent';
-  if (missing) return 'bg-red-500/10 border border-red-500/70 focus:bg-white focus:border-red-600';
-  return `${filled ? 'bg-blue-500/[0.06]' : 'bg-blue-500/10'} border border-blue-500/35 hover:border-blue-500/70 focus:bg-white focus:border-blue-600`;
+  if (missing) return 'bg-red-500/20 border-2 border-red-600 focus:bg-white focus:border-red-700';
+  return filled
+    ? 'bg-sky-100/40 border border-sky-600/50 hover:border-sky-700 focus:bg-white focus:border-blue-600'
+    : 'bg-sky-200/50 border border-sky-600/80 hover:border-sky-700 focus:bg-white focus:border-blue-600';
+}
+
+/** First visible widget of a field, used for page + reading order of the phone sheet. */
+function firstWidget(field: PdfFormField) {
+  return field.widgets?.find((w) => !w.hidden && w.rect?.length === 4);
 }
 
 export default function PdfFieldOverlay({
@@ -88,6 +106,7 @@ export default function PdfFieldOverlay({
   isDarkMode = false,
 }: PdfFieldOverlayProps) {
   const [signingField, setSigningField] = useState<PdfFormField | null>(null);
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const items = useMemo(
     () => layoutPageFields(fields, metrics.pageIndex, metrics.viewport),
@@ -140,6 +159,47 @@ export default function PdfFieldOverlay({
     return { left: item.left - sx, top: item.top - sy, width: item.width + sx * 2, height: item.height + sy * 2 };
   };
 
+  // ── D1: phone input sheet ──
+  /** Every editable text/dropdown field in reading order (all pages), for Prev / Next. */
+  const sheetOrder = useMemo(() => {
+    if (!isTouch) return [] as { name: string; pageIndex: number }[];
+    const list: { name: string; pageIndex: number; top: number; left: number }[] = [];
+    for (const f of fields) {
+      if (f.type !== 'text' && f.type !== 'dropdown') continue;
+      if (disabled || f.readOnly || (isFieldEditable && !isFieldEditable(f))) continue;
+      const w = firstWidget(f);
+      if (!w) continue;
+      list.push({ name: f.name, pageIndex: w.pageIndex, top: Math.max(w.rect[1], w.rect[3]), left: Math.min(w.rect[0], w.rect[2]) });
+    }
+    // PDF y grows upward: higher `top` = nearer the top of the page. Same line (±3pt) → left to right.
+    return list.sort(
+      (a, b) => a.pageIndex - b.pageIndex || (Math.abs(a.top - b.top) > 3 ? b.top - a.top : a.left - b.left),
+    );
+  }, [isTouch, fields, disabled, isFieldEditable]);
+
+  const active = viewer?.activeSheetField ?? null;
+  const sheetField =
+    isTouch && active && active.pageIndex === metrics.pageIndex
+      ? fields.find((f) => f.name === active.fieldName && canEdit(f)) ?? null
+      : null;
+  const sheetIndex = sheetField ? sheetOrder.findIndex((s) => s.name === sheetField.name) : -1;
+
+  const openSheet = (field: PdfFormField) => viewer?.openFieldSheet({ fieldName: field.name, pageIndex: metrics.pageIndex });
+  const moveSheet = (delta: number) => {
+    const target = sheetOrder[sheetIndex + delta];
+    if (target) viewer?.openFieldSheet({ fieldName: target.name, pageIndex: target.pageIndex });
+  };
+
+  // Scroll the field being edited into view above the keyboard + sheet.
+  useEffect(() => {
+    if (!sheetField) return;
+    const key = items.find((i) => i.field.name === sheetField.name)?.key;
+    const el = key ? itemRefs.current[key] : null;
+    if (!el) return;
+    const t = window.setTimeout(() => el.scrollIntoView({ block: 'start', behavior: 'smooth' }), SHEET_REVEAL_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [sheetField, items]);
+
   const renderControl = (item: OverlayItem) => {
     const { field, innerWidth: w, innerHeight: h, fontSize } = item;
     const editable = canEdit(field);
@@ -147,6 +207,7 @@ export default function PdfFieldOverlay({
     const missing = highlightMissing && editable && !!field.required && isFieldValueEmpty(field, value);
     const label = fieldLabel(field);
     const padX = Math.max(1, Math.min(4, 2 * metrics.scale));
+    const isSheetTarget = sheetField?.name === field.name;
 
     const textStyle: React.CSSProperties = {
       width: w,
@@ -155,8 +216,12 @@ export default function PdfFieldOverlay({
       lineHeight: field.multiline ? 1.2 : 1,
       fontFamily: FONT_STACK,
       color: INK,
+      // iOS can paint input text with its own fill colour; force dark ink everywhere (D1).
+      WebkitTextFillColor: INK,
+      opacity: 1,
       padding: field.multiline ? `${padX}px` : `0 ${padX}px`,
     };
+    const activeRing = isSheetTarget ? ' ring-2 ring-blue-600 !bg-yellow-100/80' : '';
 
     switch (field.type) {
       case 'text': {
@@ -172,6 +237,21 @@ export default function PdfFieldOverlay({
             </div>
           );
         }
+        // D1: phones tap a preview box → large input sheet.
+        if (isTouch) {
+          return (
+            <button
+              type="button"
+              data-pdf-control={item.key}
+              onClick={() => openSheet(field)}
+              aria-label={`${label}${text ? `: ${text}` : ''} (tap to type)`}
+              style={{ ...textStyle, whiteSpace: field.multiline ? 'pre-wrap' : 'nowrap', textAlign: 'left' }}
+              className={`block overflow-hidden rounded-[2px] outline-none ${field.multiline ? '' : 'flex items-center'} ${boxClasses(true, missing, !!text)}${activeRing}`}
+            >
+              {text}
+            </button>
+          );
+        }
         const common = {
           value: text,
           maxLength: field.maxLength,
@@ -179,7 +259,7 @@ export default function PdfFieldOverlay({
           'aria-required': field.required || undefined,
           'aria-invalid': missing || undefined,
           title: label,
-          style: textStyle,
+          style: { ...textStyle, WebkitAppearance: 'none' as const, appearance: 'none' as const },
           'data-pdf-control': item.key,
           onFocus: revealOnFocus(item),
           className: `block rounded-[2px] outline-none transition-colors ${boxClasses(true, missing, !!text)}`,
@@ -198,6 +278,21 @@ export default function PdfFieldOverlay({
             <div style={textStyle} className="flex items-center overflow-hidden whitespace-nowrap" aria-label={label}>
               {selected}
             </div>
+          );
+        }
+        if (isTouch) {
+          return (
+            <button
+              type="button"
+              data-pdf-control={item.key}
+              onClick={() => openSheet(field)}
+              aria-label={`${label}${selected ? `: ${selected}` : ''} (tap to choose)`}
+              style={{ ...textStyle, whiteSpace: 'nowrap', textAlign: 'left' }}
+              className={`flex items-center justify-between overflow-hidden rounded-[2px] outline-none ${boxClasses(true, missing, !!selected)}${activeRing}`}
+            >
+              <span className="truncate">{selected}</span>
+              <ChevronDown style={{ width: Math.max(6, fontSize), height: Math.max(6, fontSize), flexShrink: 0 }} />
+            </button>
           );
         }
         return (
@@ -272,23 +367,37 @@ export default function PdfFieldOverlay({
             </div>
           );
         }
+        if (signature) {
+          return (
+            <button
+              type="button"
+              onClick={() => setSigningField(field)}
+              data-pdf-control={item.key}
+              aria-label={`${label} (signed — tap to re-sign)`}
+              title="Tap to re-sign"
+              style={{ width: w, height: h }}
+              className="flex items-center justify-start overflow-hidden rounded-[2px] outline-none bg-transparent border border-dashed border-blue-500/50 focus-visible:ring-2 focus-visible:ring-blue-600"
+            >
+              {image}
+            </button>
+          );
+        }
+        // D2: an unmistakable solid blue "Sign" button fills every unsigned spot.
+        const signFont = Math.max(8, Math.min(15, h * 0.45));
         return (
           <button
             type="button"
             onClick={() => setSigningField(field)}
             data-pdf-control={item.key}
-            aria-label={signature ? `${label} (signed — click to re-sign)` : `${label} (click to sign)`}
-            title={signature ? 'Click to re-sign' : 'Click to sign'}
-            style={{ width: w, height: h, fontSize: Math.max(8, Math.min(fontSize, 13)), fontFamily: FONT_STACK }}
-            className={`flex items-center justify-start gap-1 overflow-hidden rounded-[2px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-600 ${
-              signature ? 'bg-transparent border border-transparent hover:border-blue-500/50' : boxClasses(true, missing, false)
+            aria-label={`${label} (tap to sign)`}
+            title="Tap to sign"
+            style={{ width: w, height: h, fontSize: signFont, fontFamily: FONT_STACK }}
+            className={`flex items-center justify-center gap-1 overflow-hidden rounded-[3px] outline-none font-bold text-white shadow-md active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-300 ${
+              missing ? 'bg-red-600 ring-2 ring-red-300 animate-pulse' : 'bg-blue-600 hover:bg-blue-500'
             }`}
           >
-            {image || (
-              <span className="flex items-center gap-1 px-1 font-semibold text-blue-700 whitespace-nowrap">
-                <PenTool style={{ width: '1em', height: '1em' }} /> Sign here
-              </span>
-            )}
+            <PenTool style={{ width: '1em', height: '1em', flexShrink: 0 }} />
+            {w >= signFont * 3.2 && <span className="whitespace-nowrap">Sign</span>}
           </button>
         );
       }
@@ -316,22 +425,51 @@ export default function PdfFieldOverlay({
           );
         })}
 
-      {items.map((item) => (
-        <div
-          key={item.key}
-          data-pdf-field={item.field.name}
-          className="absolute flex items-center justify-center"
-          style={{ left: item.left, top: item.top, width: item.width, height: item.height }}
-        >
-          {/* On 90°/270° pages the inner control is laid out unrotated, then rotated to match the page. */}
+      {items.map((item) => {
+        const editable = canEdit(item.field);
+        const needsValue = editable && !!item.field.required && item.field.type !== 'signature'
+          && isFieldValueEmpty(item.field, valueOf(item.field));
+        return (
           <div
-            className="shrink-0"
-            style={item.rotation ? { transform: `rotate(${item.rotation}deg)` } : undefined}
+            key={item.key}
+            ref={(el) => {
+              itemRefs.current[item.key] = el;
+            }}
+            data-pdf-field={item.field.name}
+            className="absolute flex items-center justify-center"
+            style={{ left: item.left, top: item.top, width: item.width, height: item.height, scrollMarginTop: 72 }}
           >
-            {renderControl(item)}
+            {/* On 90°/270° pages the inner control is laid out unrotated, then rotated to match the page. */}
+            <div
+              className="shrink-0"
+              style={item.rotation ? { transform: `rotate(${item.rotation}deg)` } : undefined}
+            >
+              {renderControl(item)}
+            </div>
+            {/* D1: required-but-empty marker */}
+            {needsValue && (
+              <span
+                aria-hidden
+                className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-600 ring-1 ring-white pointer-events-none"
+              />
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
+
+      {sheetField && (
+        <PdfFieldInputSheet
+          field={sheetField}
+          label={fieldLabel(sheetField)}
+          value={typeof valueOf(sheetField) === 'string' ? (valueOf(sheetField) as string) : ''}
+          onChange={(v) => onChange(sheetField.name, v)}
+          onClose={() => viewer?.openFieldSheet(null)}
+          onPrev={sheetIndex > 0 ? () => moveSheet(-1) : undefined}
+          onNext={sheetIndex >= 0 && sheetIndex < sheetOrder.length - 1 ? () => moveSheet(1) : undefined}
+          positionLabel={sheetIndex >= 0 ? `${sheetIndex + 1} of ${sheetOrder.length}` : undefined}
+          isDarkMode={isDarkMode}
+        />
+      )}
 
       <SignaturePadModal
         open={!!signingField}

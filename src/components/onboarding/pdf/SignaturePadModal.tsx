@@ -30,6 +30,7 @@ import {
   type SignatureMethod,
 } from '@/lib/signature-image';
 import { useSavedSignature } from './useSavedSignature';
+import { Z_SIGNATURE_PAD } from './viewerContext';
 
 // Script fonts for typed signatures. preload:false — only fetched when the Type tab shows them.
 const dancing = Dancing_Script({ subsets: ['latin'], weight: '600', display: 'swap', preload: false });
@@ -275,9 +276,13 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, def
     : 'bg-white border-[#E5E4DE] text-[#1F1E1D] placeholder-[#9C978D]';
 
   // Portal to <body> so the fixed overlay escapes the PDF scroll container.
+  // Signature Suite D2: layered above the onboarding popups (z-[9999]) and the fullscreen viewer —
+  // at the old z-[300] the pad opened *behind* the item popup, so "Sign" seemed to do nothing.
   return createPortal(
     <div
-      className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
+      data-pdf-modal
+      className="fixed inset-0 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
+      style={{ zIndex: Z_SIGNATURE_PAD }}
       onPointerDown={(e) => e.target === e.currentTarget && onCancel()}
     >
       <div

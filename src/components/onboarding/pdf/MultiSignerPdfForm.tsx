@@ -20,7 +20,7 @@
 // aren't the task's assignee.
 // ============================================================================
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -29,6 +29,7 @@ import {
   FileText,
   Loader2,
   PenTool,
+  RefreshCw,
   RotateCcw,
   ShieldCheck,
 } from 'lucide-react';
@@ -39,7 +40,9 @@ import PdfCanvasViewer from './PdfCanvasViewer';
 import PdfFieldOverlay from './PdfFieldOverlay';
 import SignaturePadModal from './SignaturePadModal';
 import { getMissingRequiredFields, type PdfFieldValues } from './overlayLayout';
-import { buildFillFields, buildSignatureStamps, isSignatureImage, loadImageSize, signableFields } from './pdfSubmission';
+import { buildFillFields, buildSignatureStamps, isSignatureImage, loadImageSize, signableFields, signatureSpotCounts } from './pdfSubmission';
+import SignAllSpotsBar from './SignAllSpotsBar';
+import MissingItemsPanel, { buildMissingItems } from './MissingItemsPanel';
 import SendArchiveButton from '@/components/onboarding/SendArchiveButton';
 import ReassignSignerPanel from '@/components/onboarding/ReassignSignerPanel';
 
@@ -147,10 +150,12 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
   const currentSigner = session?.signers.find((s) => s.order === session.currentSignerOrder) || null;
   const total = session?.signers.length || 0;
 
-  // Virtual per-signer signature boxes (from each signer's signaturePosition).
+  // Virtual per-signer signature boxes (from each signer's signature spots).
+  // Signature Suite Phase B: a signer may have several spots — they become the
+  // widgets of ONE field, so a single signature shows in all of them.
   const virtualFields = useMemo<PdfFormField[]>(() => {
     if (!session) return [];
-    const out: PdfFormField[] = [];
+    const byName = new Map<string, PdfFormField>();
     for (const s of session.signers) {
       for (const b of s.signatureBoxes) {
         if (!isSignerSignatureField(b.fieldName)) continue;
@@ -162,10 +167,12 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
           width: b.width,
           height: b.height,
         };
-        out.push({ name: b.fieldName, type: 'signature', readOnly: false, required: true, tooltip: `Signature — ${s.label}`, widgets: [widget] });
+        const existing = byName.get(b.fieldName);
+        if (existing) existing.widgets = [...(existing.widgets || []), widget];
+        else byName.set(b.fieldName, { name: b.fieldName, type: 'signature', readOnly: false, required: true, tooltip: `Signature — ${s.label}`, widgets: [widget] });
       }
     }
-    return out;
+    return [...byName.values()];
   }, [session]);
 
   const overlayFields = useMemo(() => [...detected, ...virtualFields], [detected, virtualFields]);
@@ -208,6 +215,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
     [overlayFields, myFieldNames],
   );
   const needsSeparateSignature = isMyTurn && !!mySigner?.requireSignature && mySignatureFields.length === 0;
+  const mySpotCounts = useMemo(() => signatureSpotCounts(mySignatureFields, values), [mySignatureFields, values]);
 
   const setValue = useCallback(
     (name: string, value: string | boolean) => {
@@ -244,12 +252,28 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
     if (session?.content.requireEsignConsent && !esignConsent) problems.push('the electronic signature consent');
   }
 
+  // Signature Suite D2 — itemised "what's left" with Go-to links (current signer only).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const missingItems =
+    isMyTurn && mySigner
+      ? buildMissingItems({
+          missingFields: missing,
+          signatureFields: mySignatureFields,
+          values,
+          requireSignature: mySigner.requireSignature,
+          separateSignatureValue: values[SEPARATE_SIGNATURE_KEY],
+          useSeparateSignature: needsSeparateSignature,
+          typedNameMissing: mySigner.requireSignature && !typedName.trim(),
+          consentMissing: !!session?.content.requireEsignConsent && !esignConsent,
+        })
+      : [];
+
   // ── Submit my portion ──
   const handleSubmit = async () => {
     if (!session || !mySigner || !isMyTurn || isSubmitting) return;
     if (problems.length) {
       setShowMissing(true);
-      setErrorMsg(`Please complete ${problems.join(', ')}.`);
+      setErrorMsg(missingItems.length ? null : `Please complete ${problems.join(', ')}.`);
       return;
     }
     setIsSubmitting(true);
@@ -340,9 +364,30 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
   }`;
 
   if (loadError) {
+    // Signature Suite D6 — explain instead of showing the raw server message.
+    const notMultiSigner = /does not use multiple signers/i.test(loadError);
+    const noAccess = /do not have access/i.test(loadError);
+    const friendly = notMultiSigner
+      ? "This copy of the document isn't set up for multiple signers. If the signing order was changed after this was assigned, an admin can re-assign the blueprint to apply it."
+      : noAccess
+        ? "You don't have access to this document's signing. Ask your admin if you think that's wrong."
+        : `The signing details couldn't be loaded right now. ${loadError}`;
     return (
-      <div className="flex items-center gap-2 p-3 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-        <AlertCircle className="w-4 h-4 shrink-0" /> {loadError}
+      <div className={`p-4 rounded-xl border space-y-3 ${isDarkMode ? 'bg-amber-950/30 border-amber-800/50 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+        <div className="flex items-start gap-2 text-sm font-semibold">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /> {friendly}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setLoadError(null);
+            setSession(null);
+            setReloadKey((k) => k + 1);
+          }}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-amber-600 text-white active:scale-95"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Try again
+        </button>
       </div>
     );
   }
@@ -363,7 +408,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
   const separateSignature = values[SEPARATE_SIGNATURE_KEY];
 
   return (
-    <div className="space-y-5">
+    <div ref={rootRef} className="space-y-5">
       {/* Header */}
       <div className={`p-4 rounded-xl border flex items-center gap-3 ${card}`}>
         <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
@@ -469,6 +514,18 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
         </div>
       )}
 
+      {/* Signature Suite Phase B: one tap fills every one of MY signature spots */}
+      {isMyTurn && mySigner?.requireSignature && mySignatureFields.length > 0 && (
+        <SignAllSpotsBar
+          total={mySpotCounts.total}
+          signed={mySpotCounts.signed}
+          onApplyAll={(dataUrl) => setValue(mySignatureFields[0].name, dataUrl)}
+          isDarkMode={isDarkMode}
+          disabled={isSubmitting}
+          defaultName={typedName}
+        />
+      )}
+
       {/* The document */}
       <PdfCanvasViewer
         pdfBytes={pdfBytes}
@@ -494,7 +551,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
       {isMyTurn && mySigner && (
         <>
           {needsSeparateSignature && (
-            <div className="space-y-2">
+            <div className="space-y-2" data-goto="separate-signature">
               <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400">Electronic Signature</h5>
               <button
                 type="button"
@@ -508,7 +565,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={separateSignature} alt="Your signature" className="max-h-20 max-w-full object-contain" />
                 ) : (
-                  <span className="flex items-center gap-2 text-sm font-semibold text-blue-700"><PenTool className="w-4 h-4" /> Tap to sign</span>
+                  <span className="flex items-center gap-2 text-sm font-bold text-white bg-blue-600 px-4 py-2 rounded-lg"><PenTool className="w-4 h-4" /> Tap to sign</span>
                 )}
               </button>
               <SignaturePadModal
@@ -525,7 +582,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
           )}
 
           {mySigner.requireSignature && (
-            <div className="space-y-1">
+            <div className="space-y-1" data-goto="typed-name">
               <label className="block text-xs font-semibold">
                 Type Full Legal Name <span className="text-rose-500">*</span>
               </label>
@@ -541,7 +598,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
           )}
 
           {session.content.requireEsignConsent && (
-            <div className={`p-4 rounded-xl border ${isDarkMode ? 'bg-indigo-950/30 border-indigo-800/40' : 'bg-indigo-50/70 border-indigo-200/80'} ${showMissing && !esignConsent ? '!border-red-500' : ''}`}>
+            <div data-goto="esign-consent" className={`p-4 rounded-xl border ${isDarkMode ? 'bg-indigo-950/30 border-indigo-800/40' : 'bg-indigo-50/70 border-indigo-200/80'} ${showMissing && !esignConsent ? '!border-red-500' : ''}`}>
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -559,11 +616,16 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
         </>
       )}
 
-      {errorMsg && (
-        <div className="flex items-center gap-2 p-3 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          {errorMsg}
-        </div>
+      {/* D2: after a submit attempt, list exactly what's missing with Go-to links (updates live). */}
+      {showMissing && isMyTurn && !isSubmitting && missingItems.length > 0 ? (
+        <MissingItemsPanel items={missingItems} rootRef={rootRef} isDarkMode={isDarkMode} />
+      ) : (
+        errorMsg && (
+          <div className="flex items-center gap-2 p-3 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {errorMsg}
+          </div>
+        )
       )}
 
       {/* Send back (countersigners only) */}

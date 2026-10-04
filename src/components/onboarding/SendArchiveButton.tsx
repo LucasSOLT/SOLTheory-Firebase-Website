@@ -12,6 +12,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, Mail, RefreshCw, X, XCircle } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/api-auth-client';
+import BodyPortal, { MODAL_OVERLAY_STYLE } from './BodyPortal';
 
 interface Recipient { email: string; name: string; role: string }
 interface Delivery { email: string; name: string; role: string; status: 'sent' | 'failed'; error?: string; attempts?: number }
@@ -127,11 +128,13 @@ export default function SendArchiveButton({ orgId, taskId, isDarkMode, archivedA
       </button>
 
       {open && (
+        <BodyPortal>
         <div
-          className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60"
+          className="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto overscroll-contain p-2 sm:p-4 bg-black/60"
+          style={MODAL_OVERLAY_STYLE}
           onClick={(e) => { e.stopPropagation(); if (!busy) setOpen(false); }}
         >
-          <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-5 ${panel}`} onClick={(e) => e.stopPropagation()}>
+          <div className={`my-auto w-full max-w-md rounded-2xl border shadow-2xl p-5 ${panel}`} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <h3 className="text-base font-bold">{isArchived ? 'Archived document' : 'Send & Archive'}</h3>
@@ -235,6 +238,7 @@ export default function SendArchiveButton({ orgId, taskId, isDarkMode, archivedA
             </div>
           </div>
         </div>
+        </BodyPortal>
       )}
     </>
   );

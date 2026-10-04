@@ -19,22 +19,38 @@
 //   • Narrow containers use a smaller gutter so phones get a larger page.
 //   • Exposes `revealElement` via PdfViewerContext so field overlays can zoom
 //     tiny fields to a readable size when tapped on a phone.
+//
+// Signature Suite D1/D3:
+//   • Hosts the phone field-input sheet state (`activeSheetField`) in context.
+//   • Real in-app fullscreen: the viewer is portaled to <body> as a fixed,
+//     full-screen layer with a floating ✕ (top-left). The phone back gesture,
+//     Escape, or ✕ closes it. (iOS Safari can't element-fullscreen natively.)
 // ============================================================================
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
   Download,
   Loader2,
-  Maximize2,
+  Maximize,
+  Minimize2,
+  MoveHorizontal,
+  X,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
 import PdfPageView from './PdfPageView';
 import { usePdfDocument } from './usePdfDocument';
-import { PdfViewerContext, useCoarsePointer, type PdfViewerControls } from './viewerContext';
+import {
+  PdfViewerContext,
+  Z_FULLSCREEN_VIEWER,
+  useCoarsePointer,
+  type ActiveSheetField,
+  type PdfViewerControls,
+} from './viewerContext';
 import type { PdfCanvasViewerProps } from './types';
 
 const MIN_SCALE = 0.5;
@@ -94,7 +110,7 @@ export default function PdfCanvasViewer({
   const { status, doc, numPages, error } = usePdfDocument({ fileUrl, pdfBytes });
   const isCoarsePointer = useCoarsePointer();
 
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(0); // 0-based
   const [fitWidth, setFitWidth] = useState(initialScale === 'fit-width');
@@ -103,6 +119,63 @@ export default function PdfCanvasViewer({
   const [basePageWidth, setBasePageWidth] = useState<number | null>(null); // page 1 width at scale 1
   const [gutter, setGutter] = useState(PAGE_GUTTER_PX);
   const [showPinchHint, setShowPinchHint] = useState(false);
+
+  // Signature Suite D1/D3. Entering/leaving fullscreen portals the viewer, which remounts
+  // the scroll area — so the scroll element is tracked in state and observers re-bind to it.
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  const setScrollNode = useCallback((node: HTMLDivElement | null) => {
+    scrollRef.current = node;
+    setScrollEl(node);
+  }, []);
+  const [activeSheetField, setActiveSheetField] = useState<ActiveSheetField | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [canPortal, setCanPortal] = useState(false);
+  const pushedHistoryRef = useRef(false);
+  useEffect(() => setCanPortal(true), []);
+
+  const exitFullscreen = useCallback(() => {
+    setIsFullscreen(false);
+    // Drop the history entry we added so "back" isn't needed twice later.
+    if (pushedHistoryRef.current) {
+      pushedHistoryRef.current = false;
+      try {
+        window.history.back();
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
+
+  // While fullscreen: phone back gesture / browser back closes it, Escape closes it, page behind can't scroll.
+  useEffect(() => {
+    if (!isFullscreen) return;
+    try {
+      // Next.js 15 supports native pushState (it copies its router state onto the entry).
+      window.history.pushState({ pdfFullscreen: true }, '');
+      pushedHistoryRef.current = true;
+    } catch {
+      pushedHistoryRef.current = false;
+    }
+    const onPop = () => {
+      pushedHistoryRef.current = false;
+      setIsFullscreen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (document.querySelector('[data-pdf-modal]')) return; // a signature pad / field sheet is on top: let it close first
+      e.stopPropagation(); // don't also close the popup behind the fullscreen viewer
+      exitFullscreen();
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('popstate', onPop);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('keydown', onKey, true);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isFullscreen, exitFullscreen]);
 
   // Stable refs so parent callbacks don't retrigger effects
   const onDocumentLoadRef = useRef(onDocumentLoad);
@@ -151,7 +224,7 @@ export default function PdfCanvasViewer({
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [basePageWidth, status]);
+  }, [basePageWidth, status, scrollEl]);
 
   const scale = fitWidth ? fitScale ?? 1 : manualScale;
   const scaleReady = !fitWidth || fitScale !== null;
@@ -251,7 +324,7 @@ export default function PdfCanvasViewer({
     const observer = new ResizeObserver(() => applyPendingScroll());
     observer.observe(content);
     return () => observer.disconnect();
-  }, [status, scaleReady, doc, applyPendingScroll]);
+  }, [status, scaleReady, doc, applyPendingScroll, scrollEl]);
 
   // Gesture listeners (native, non-passive so we can stop the browser's own zoom).
   useEffect(() => {
@@ -372,7 +445,7 @@ export default function PdfCanvasViewer({
       el.removeEventListener('gesturechange', onGestureChange);
       el.removeEventListener('gestureend', onGestureEnd);
     };
-  }, [applyPreview, commitZoom]);
+  }, [applyPreview, commitZoom, scrollEl]);
 
   // One-time "Pinch to zoom" hint on touch devices.
   useEffect(() => {
@@ -443,11 +516,6 @@ export default function PdfCanvasViewer({
     [],
   );
 
-  const viewerControls = useMemo<PdfViewerControls>(
-    () => ({ scale, isCoarsePointer, revealElement }),
-    [scale, isCoarsePointer, revealElement],
-  );
-
   // ── Page navigation ──
   const goToPage = useCallback(
     (index: number) => {
@@ -463,6 +531,27 @@ export default function PdfCanvasViewer({
     },
     [mode, numPages],
   );
+
+  // D1 — phone input sheet. In single-page mode the target page must be the rendered one.
+  const openFieldSheet = useCallback<PdfViewerControls['openFieldSheet']>(
+    (target) => {
+      if (target && mode === 'single' && target.pageIndex !== currentPage) {
+        setCurrentPage(Math.min(Math.max(target.pageIndex, 0), Math.max(numPages - 1, 0)));
+      }
+      setActiveSheetField(target);
+    },
+    [mode, currentPage, numPages],
+  );
+
+  const viewerControls = useMemo<PdfViewerControls>(
+    () => ({ scale, isCoarsePointer, revealElement, activeSheetField, openFieldSheet, isFullscreen }),
+    [scale, isCoarsePointer, revealElement, activeSheetField, openFieldSheet, isFullscreen],
+  );
+
+  const enterFullscreen = useCallback(() => {
+    setIsFullscreen(true);
+    setFitWidth(true); // start the fullscreen view fitted to the whole screen width
+  }, []);
 
   const pagesToRender = useMemo(() => {
     if (!numPages) return [];
@@ -480,9 +569,22 @@ export default function PdfCanvasViewer({
   const pageArea = isDarkMode ? 'bg-[#171717]' : 'bg-[#EAE7DF]/60';
   const pad = gutter / 2;
 
-  return (
-    <PdfViewerContext.Provider value={viewerControls}>
-      <div className={`relative w-full rounded-xl border overflow-hidden flex flex-col ${surface} ${className}`}>
+  const fullscreenActive = isFullscreen && canPortal;
+
+  const viewerBody = (
+      <div
+        className={`flex flex-col overflow-hidden ${surface} ${
+          fullscreenActive ? 'fixed inset-0 w-full' : `relative w-full rounded-xl border ${className}`
+        }`}
+        style={
+          fullscreenActive
+            ? { zIndex: Z_FULLSCREEN_VIEWER, paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }
+            : undefined
+        }
+        role={fullscreenActive ? 'dialog' : undefined}
+        aria-modal={fullscreenActive || undefined}
+        aria-label={fullscreenActive ? 'Document (fullscreen)' : undefined}
+      >
         {/* ── Toolbar ── */}
         <div className={`flex items-center justify-between gap-1 sm:gap-2 px-1.5 sm:px-3 py-1 sm:py-1.5 border-b ${toolbar}`}>
           {/* Page navigation */}
@@ -549,7 +651,17 @@ export default function PdfCanvasViewer({
               aria-label="Fit to width"
               title="Fit to width"
             >
-              <Maximize2 className="w-4 h-4" />
+              <MoveHorizontal className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={fullscreenActive ? exitFullscreen : enterFullscreen}
+              disabled={status === 'error'}
+              className={iconBtn}
+              aria-label={fullscreenActive ? 'Exit fullscreen' : 'Fullscreen'}
+              title={fullscreenActive ? 'Exit fullscreen' : 'Fullscreen'}
+            >
+              {fullscreenActive ? <Minimize2 className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
             </button>
             {showDownload && fileUrl && (
               <a
@@ -569,10 +681,11 @@ export default function PdfCanvasViewer({
 
         {/* ── Page area ── */}
         {/* touch-action: native one-finger scrolling stays; two-finger pinch is handled above. */}
+        <div className={`relative flex flex-col ${fullscreenActive ? 'flex-1 min-h-0' : ''}`}>
         <div
-          ref={scrollRef}
-          className={`relative overflow-auto ${pageArea}`}
-          style={{ maxHeight, touchAction: 'pan-x pan-y', WebkitOverflowScrolling: 'touch' }}
+          ref={setScrollNode}
+          className={`relative overflow-auto ${pageArea} ${fullscreenActive ? 'flex-1 min-h-0' : ''}`}
+          style={{ maxHeight: fullscreenActive ? 'none' : maxHeight, touchAction: 'pan-x pan-y', WebkitOverflowScrolling: 'touch' }}
         >
           {(status === 'loading' || (status === 'ready' && !scaleReady)) && (
             <div className="flex flex-col items-center justify-center gap-3 py-20">
@@ -601,7 +714,7 @@ export default function PdfCanvasViewer({
             <div
               ref={contentRef}
               className={`flex flex-col items-center w-max min-w-full ${gutter < PAGE_GUTTER_PX ? 'gap-2 py-2' : 'gap-4 py-4'}`}
-              style={{ paddingLeft: pad, paddingRight: pad }}
+              style={{ paddingLeft: pad, paddingRight: pad, paddingTop: fullscreenActive ? 56 : undefined }}
             >
               {pagesToRender.map((pageIndex) => (
                 <PdfPageView
@@ -611,13 +724,27 @@ export default function PdfCanvasViewer({
                   scale={scale}
                   hideFormWidgets={hideFormWidgets}
                   isDarkMode={isDarkMode}
-                  scrollRoot={scrollRef.current}
+                  scrollRoot={scrollEl}
                   renderOverlay={renderPageOverlay}
                   onMetrics={onPageMetricsChange}
                 />
               ))}
             </div>
           )}
+        </div>
+
+        {/* D3 — floating close button (top-left of the document) */}
+        {fullscreenActive && (
+          <button
+            type="button"
+            onClick={exitFullscreen}
+            aria-label="Close fullscreen"
+            title="Close fullscreen"
+            className="absolute top-2 left-2 z-30 w-11 h-11 rounded-full flex items-center justify-center shadow-lg bg-[#1F1E1D]/85 text-white active:scale-95 backdrop-blur-sm"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        )}
         </div>
 
         {/* Touch hint (non-interactive) */}
@@ -630,6 +757,25 @@ export default function PdfCanvasViewer({
           Pinch to zoom
         </div>
       </div>
+  );
+
+  return (
+    <PdfViewerContext.Provider value={viewerControls}>
+      {fullscreenActive ? (
+        <>
+          {/* Keeps the page layout in place while the document is open fullscreen */}
+          <button
+            type="button"
+            onClick={exitFullscreen}
+            className={`w-full rounded-xl border flex items-center justify-center gap-2 py-10 text-xs font-medium ${surface} ${label} ${className}`}
+          >
+            <Minimize2 className="w-4 h-4" /> Document is open in fullscreen. Tap to return.
+          </button>
+          {createPortal(viewerBody, document.body)}
+        </>
+      ) : (
+        viewerBody
+      )}
     </PdfViewerContext.Provider>
   );
 }

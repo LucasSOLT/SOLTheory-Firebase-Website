@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   FileText,
@@ -23,6 +24,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { InteractiveContentRenderer } from './InteractiveRenderers';
+import BodyPortal from './BodyPortal';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import { safeExternalUrl } from '@/lib/utils';
 
@@ -97,6 +99,8 @@ export default function OnboardingItemPopup({
   onUploadClick,
 }: OnboardingItemPopupProps) {
   const [videoStarted, setVideoStarted] = useState(false);
+  // Signature Suite D5 — tap an image to see it full-screen.
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -234,6 +238,11 @@ export default function OnboardingItemPopup({
   /** Submit an interactive response (quiz, form, checklist, etc.) to the API. */
   const handleInteractiveSubmit = async (responseData: any) => {
     if (isSubmitting) return;
+    // Signature Suite D6 — Blueprint Preview items aren't real tasks: nothing is saved.
+    if (task.id.startsWith('preview_')) {
+      setSubmitResult({ passed: true, message: 'Preview only: this is what employees will see. Nothing was saved.' });
+      return;
+    }
     setIsSubmitting(true);
     setSubmitResult(null);
 
@@ -273,53 +282,81 @@ export default function OnboardingItemPopup({
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+    <BodyPortal>
+    {/* Signature Suite D4: portaled above the site header, and the overlay itself is the ONLY
+        scroll container with content starting at the top on phones. (Previously a vertically-
+        centred flex box with max-h-full pushed the top of tall items off-screen where it could
+        not be scrolled to, and the mobile header covered it.) */}
+    <div
+      className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto overscroll-contain"
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
       <div
-        className={`w-full max-w-2xl rounded-2xl shadow-2xl border overflow-hidden relative flex flex-col max-h-full animate-in zoom-in-95 duration-200 ${
+        className="min-h-full flex items-start sm:items-center justify-center px-2 sm:p-6"
+        style={{
+          paddingTop: 'max(0.5rem, env(safe-area-inset-top))',
+          paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+        }}
+      >
+      <div
+        className={`w-full max-w-2xl rounded-2xl shadow-2xl border relative flex flex-col animate-in zoom-in-95 duration-200 ${
           isDarkMode ? 'bg-slate-900 border-slate-700/80 text-white' : 'bg-white border-slate-200 text-slate-900'
         }`}
       >
-        {/* Header area (Background color + Image) */}
+        {/* D4: sticky action bar — Close and Complete stay reachable while scrolling a long item */}
         <div
-          className="relative shrink-0 w-full"
-          style={{
-            backgroundColor: meta.backgroundColor || undefined,
-            minHeight: meta.headerImageUrl || meta.backgroundColor ? '140px' : '0px',
-          }}
+          className={`sticky top-0 z-20 flex items-center justify-end gap-2 px-3 py-2 rounded-t-2xl border-b backdrop-blur-md ${
+            isDarkMode ? 'bg-slate-900/90 border-slate-700/60' : 'bg-white/90 border-slate-200/80'
+          }`}
         >
-          {meta.headerImageUrl && (
-            <div className="w-full h-40">
-              <img
-                src={meta.headerImageUrl}
-                alt="Header"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Action Buttons Top Right (Absolute or sticky depending on design, we'll put it in a flex container below or absolute if needed) */}
-        <div className="absolute top-4 right-4 flex items-center gap-3 z-10">
           <button
             onClick={handleComplete}
             disabled={buttonState.disabled}
             title={buttonState.tooltip}
-            className={`px-4 py-2 rounded-xl text-sm font-bold border-transparent ${buttonState.classes}`}
+            className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold border-transparent ${buttonState.classes}`}
           >
             {buttonState.text}
           </button>
           <button
             onClick={onClose}
-            className={`p-2 rounded-xl transition-colors backdrop-blur-md ${
-              isDarkMode ? 'bg-slate-800/80 hover:bg-slate-700 text-white' : 'bg-white/80 hover:bg-slate-100 text-slate-900 shadow-sm'
+            aria-label="Close"
+            className={`p-2 rounded-xl transition-colors ${
+              isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
             }`}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Header area (Background color + Image). D5: the whole image is shown (no cropping); tap to enlarge. */}
+        {(meta.headerImageUrl || meta.backgroundColor) && (
+          <div
+            className="relative shrink-0 w-full overflow-hidden"
+            style={{
+              backgroundColor: meta.backgroundColor || (isDarkMode ? '#0f172a' : '#f1f5f9'),
+              minHeight: !meta.headerImageUrl && meta.backgroundColor ? '96px' : undefined,
+            }}
+          >
+            {meta.headerImageUrl && (
+              <button
+                type="button"
+                onClick={() => setLightboxUrl(meta.headerImageUrl || null)}
+                className="block w-full"
+                aria-label="Enlarge header image"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={meta.headerImageUrl}
+                  alt="Header"
+                  className="block w-full h-auto max-h-56 sm:max-h-72 object-contain mx-auto"
+                />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8">
+        <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
           
           {/* Title Section */}
           <div>
@@ -406,9 +443,16 @@ export default function OnboardingItemPopup({
                     )}
                   </div>
                 ) : meta.mediaType === 'image' ? (
-                  <div className="w-full bg-slate-100 dark:bg-slate-800 flex justify-center">
-                    <img src={meta.mediaUrl} alt="Media" className="max-h-96 object-contain" />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLightboxUrl(meta.mediaUrl || null)}
+                    className={`block w-full p-2 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`}
+                    aria-label="Enlarge image"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={meta.mediaUrl} alt="Media" className="block mx-auto w-auto max-w-full h-auto max-h-[55vh] object-contain rounded-lg" />
+                    <span className={`block mt-1.5 text-[11px] font-medium ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Tap to enlarge</span>
+                  </button>
                 ) : meta.mediaType === 'pdf' ? (
                   <div className={`p-8 flex flex-col items-center justify-center text-center ${
                     isDarkMode ? 'bg-slate-800' : 'bg-slate-50'
@@ -560,6 +604,32 @@ export default function OnboardingItemPopup({
 
         </div>
       </div>
+      </div>
+
+      {/* D5 — image lightbox (portaled: the overlay's backdrop-blur would otherwise trap a fixed child) */}
+      {lightboxUrl && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[10000] bg-black/95 flex items-center justify-center p-2"
+          onClick={() => setLightboxUrl(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Image"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={lightboxUrl} alt="Enlarged" className="max-w-full max-h-full object-contain" />
+          <button
+            type="button"
+            onClick={() => setLightboxUrl(null)}
+            aria-label="Close image"
+            className="absolute left-3 w-11 h-11 rounded-full flex items-center justify-center bg-white/15 text-white"
+            style={{ top: 'max(0.75rem, env(safe-area-inset-top))' }}
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>,
+        document.body,
+      )}
     </div>
+    </BodyPortal>
   );
 }

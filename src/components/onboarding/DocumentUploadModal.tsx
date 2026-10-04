@@ -10,6 +10,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/api-auth-client';
+import BodyPortal, { MODAL_OVERLAY_CLASS, MODAL_OVERLAY_STYLE } from './BodyPortal';
 import {
   COMPLIANCE_CATEGORY_LABELS,
   type ComplianceDocumentCategory,
@@ -105,9 +106,10 @@ export default function DocumentUploadModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <BodyPortal>
+    <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
       <div
-        className={`w-full max-w-lg rounded-2xl shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-200 ${
+        className={`my-auto w-full max-w-lg rounded-2xl shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-200 ${
           isDarkMode ? 'bg-slate-900 border-slate-700/80 text-white' : 'bg-white border-slate-200 text-slate-900'
         }`}
       >
@@ -229,5 +231,6 @@ export default function DocumentUploadModal({
         </div>
       </div>
     </div>
+    </BodyPortal>
   );
 }

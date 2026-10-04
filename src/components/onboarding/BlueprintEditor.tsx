@@ -23,6 +23,7 @@ import { ITEM_TYPE_DEFAULT_GATING } from '@/types/onboarding-templates';
 import { useStorage } from '@/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { safeExternalUrl } from '@/lib/utils';
+import BodyPortal, { MODAL_OVERLAY_CLASS, MODAL_OVERLAY_STYLE } from './BodyPortal';
 
 interface BlueprintItem {
   id: string;
@@ -369,10 +370,10 @@ export default function BlueprintEditor({
   }`;
 
   return (
-    <>
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <BodyPortal>
+    <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
       <div
-        className={`w-full max-w-5xl h-[90vh] rounded-2xl shadow-2xl border flex flex-col animate-in zoom-in-95 duration-200 ${
+        className={`my-auto w-full max-w-5xl h-[calc(100dvh-1rem)] sm:h-[90vh] rounded-2xl shadow-2xl border flex flex-col animate-in zoom-in-95 duration-200 ${
           isDarkMode ? 'bg-slate-900 border-slate-700/80 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
         }`}
       >
@@ -1064,6 +1065,6 @@ export default function BlueprintEditor({
           }))}
         />
       )}
-    </>
+    </BodyPortal>
   );
 }

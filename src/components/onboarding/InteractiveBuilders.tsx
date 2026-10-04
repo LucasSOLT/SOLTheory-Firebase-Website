@@ -18,6 +18,8 @@ import { getAuthHeaders } from '@/lib/api-auth-client';
 import SigningOrderConfigurator from './SigningOrderConfigurator';
 import AutoFillConfigurator from './AutoFillConfigurator';
 import DocumentLibraryPicker from './DocumentLibraryPicker';
+import SignatureSpotsEditor from './SignatureSpotsEditor';
+import { signatureSpotsOf, withSignatureSpots } from '@/lib/signature-spots';
 
 const inputClass = (isDarkMode: boolean) =>
   `w-full p-2 flex-1 rounded border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -662,8 +664,6 @@ export function PdfFormBuilder({ content, onChange, isDarkMode, orgId }: Builder
     }
   };
 
-  const sigPos = content.signaturePosition || { pageIndex: 0, x: 50, y: 50, width: 200, height: 60 };
-
   return (
     <div className="space-y-4">
       <div className={cardClass(isDarkMode)}>
@@ -774,70 +774,14 @@ export function PdfFormBuilder({ content, onChange, isDarkMode, orgId }: Builder
 
           {content.requireSignature && !multiSigner && (
             <div className={`p-3 rounded-lg border text-xs space-y-2 mt-2 ${isDarkMode ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
-              <div className="font-bold">Signature Stamp Coordinates (PDF Points):</div>
-              <div className="grid grid-cols-5 gap-2">
-                <div>
-                  <label className="block text-[10px] opacity-70">Page (0-based)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={sigPos.pageIndex}
-                    onChange={(e) => onChange({
-                      ...content,
-                      signaturePosition: { ...sigPos, pageIndex: parseInt(e.target.value) || 0 },
-                    })}
-                    className={inputClass(isDarkMode)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] opacity-70">X (Points)</label>
-                  <input
-                    type="number"
-                    value={sigPos.x}
-                    onChange={(e) => onChange({
-                      ...content,
-                      signaturePosition: { ...sigPos, x: parseInt(e.target.value) || 0 },
-                    })}
-                    className={inputClass(isDarkMode)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] opacity-70">Y (Points)</label>
-                  <input
-                    type="number"
-                    value={sigPos.y}
-                    onChange={(e) => onChange({
-                      ...content,
-                      signaturePosition: { ...sigPos, y: parseInt(e.target.value) || 0 },
-                    })}
-                    className={inputClass(isDarkMode)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] opacity-70">Width</label>
-                  <input
-                    type="number"
-                    value={sigPos.width}
-                    onChange={(e) => onChange({
-                      ...content,
-                      signaturePosition: { ...sigPos, width: parseInt(e.target.value) || 200 },
-                    })}
-                    className={inputClass(isDarkMode)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] opacity-70">Height</label>
-                  <input
-                    type="number"
-                    value={sigPos.height}
-                    onChange={(e) => onChange({
-                      ...content,
-                      signaturePosition: { ...sigPos, height: parseInt(e.target.value) || 60 },
-                    })}
-                    className={inputClass(isDarkMode)}
-                  />
-                </div>
-              </div>
+              <div className="font-bold">Where the signature goes (PDF points)</div>
+              <SignatureSpotsEditor
+                spots={signatureSpotsOf(content)}
+                onChange={(spots) => onChange(withSignatureSpots(content, spots))}
+                isDarkMode={isDarkMode}
+                pageCount={content.pageCount}
+                emptyHint="No spot set. If the PDF has its own signature field, the signer signs there; otherwise a signature pad appears below the document."
+              />
             </div>
           )}
         </div>

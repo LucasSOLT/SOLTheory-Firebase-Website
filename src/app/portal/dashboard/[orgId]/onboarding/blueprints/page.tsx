@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import BlueprintEditor from '@/components/onboarding/BlueprintEditor';
 import BlueprintPreview from '@/components/onboarding/BlueprintPreview';
+import BodyPortal, { MODAL_OVERLAY_CLASS, MODAL_OVERLAY_STYLE } from '@/components/onboarding/BodyPortal';
 
 export default function BlueprintsLibraryPage() {
   const { orgId: routeOrgId } = useParams<{ orgId: string }>();
@@ -401,9 +402,10 @@ export default function BlueprintsLibraryPage() {
 
       {/* Push Blueprint to Org Modal */}
       {pushModalState.isOpen && pushModalState.blueprint && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+        <BodyPortal>
+        <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
           <div
-            className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl ${
+            className={`my-auto w-full max-w-md rounded-2xl border p-6 shadow-2xl ${
               isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
             }`}
           >
@@ -527,6 +529,7 @@ export default function BlueprintsLibraryPage() {
             )}
           </div>
         </div>
+        </BodyPortal>
       )}
 
       {/* Blueprint Preview Modal */}

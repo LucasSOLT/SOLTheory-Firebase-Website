@@ -38,6 +38,7 @@ import PdfUploadFallback from './pdf/PdfUploadFallback';
 import MultiSignerPdfForm from './pdf/MultiSignerPdfForm';
 import SignaturePadModal from './pdf/SignaturePadModal';
 import { isMultiSignerWorkflow } from '@/lib/signing-workflow';
+import { signatureSpotsOf } from '@/lib/signature-spots';
 
 // ----------------------------------------------------------------------
 // 1. QuizRenderer
@@ -1177,16 +1178,11 @@ export function PdfFormRenderer({
       // If orgId and taskId are provided, call process API directly
       if (orgId && taskId) {
         const headers = await getAuthHeaders();
-        const signatures = signatureData && content.signaturePosition ? [
-          {
-            imageData: signatureData,
-            pageIndex: content.signaturePosition.pageIndex,
-            x: content.signaturePosition.x,
-            y: content.signaturePosition.y,
-            width: content.signaturePosition.width,
-            height: content.signaturePosition.height,
-          }
-        ] : undefined;
+        // Signature Suite Phase B: one signature, stamped at every configured spot.
+        const spots = signatureSpotsOf(content);
+        const signatures = signatureData && spots.length
+          ? spots.map((s) => ({ imageData: signatureData, ...s }))
+          : undefined;
 
         const res = await fetch('/api/onboarding/pdf-form/process', {
           method: 'POST',
@@ -1260,7 +1256,7 @@ export function PdfFormRenderer({
 
   // Phase 5 Step 5.1 — a PDF with no AcroForm fields (scanned / flattened) has nothing to type into.
   // Unless the admin set up an on-page signature, use the proven upload flow instead of an empty form.
-  const signsOnPage = !!content.requireSignature && !!content.signaturePosition;
+  const signsOnPage = !!content.requireSignature && signatureSpotsOf(content).length > 0;
   if (fields.length === 0 && !signsOnPage && orgId && taskId && !processResult?.downloadUrl) {
     return (
       <PdfUploadFallback content={content} orgId={orgId} taskId={taskId} isDarkMode={isDarkMode} disabled={disabled} />
@@ -1565,12 +1561,34 @@ export function InteractiveContentRenderer({
       return <ExternalVerificationRenderer content={content} onSubmit={onSubmit} isDarkMode={isDarkMode} disabled={disabled} existingResponse={existingResponse} />;
     case 'recorded_response':
       return <RecordedResponseRenderer content={content} onSubmit={onSubmit} isDarkMode={isDarkMode} disabled={disabled} existingResponse={existingResponse} />;
-    case 'pdf_form':
+    case 'pdf_form': {
+      // Signature Suite D6: Blueprint Preview uses fake `preview_…` task ids. There is no real
+      // task or signing session behind them, so render the document in preview mode instead of
+      // asking the server for a session (which failed with "does not use multiple signers").
+      const isPreview = !!taskId && taskId.startsWith('preview_');
+      const realTaskId = isPreview ? undefined : taskId;
       // Phase 3: multi-signer documents (inside a real task) use the signing workflow UI.
-      if (taskId && isMultiSignerWorkflow(content)) {
-        return <MultiSignerPdfForm content={content} taskId={taskId} orgId={orgId} isDarkMode={isDarkMode} />;
+      if (realTaskId && isMultiSignerWorkflow(content)) {
+        return <MultiSignerPdfForm content={content} taskId={realTaskId} orgId={orgId} isDarkMode={isDarkMode} />;
       }
-      return <PdfFormRenderer content={content} onSubmit={onSubmit} isDarkMode={isDarkMode} disabled={disabled} existingResponse={existingResponse} orgId={orgId} taskId={taskId} />;
+      return (
+        <div className="space-y-3">
+          {isPreview && isMultiSignerWorkflow(content) && (
+            <div className={`p-3 rounded-xl border text-xs ${isDarkMode ? 'bg-sky-950/30 border-sky-800/50 text-sky-200' : 'bg-sky-50 border-sky-200 text-sky-900'}`}>
+              <div className="font-bold mb-1">Preview: signing order</div>
+              <div>
+                {[...((content as PdfFormContent).signingWorkflow?.signers || [])]
+                  .sort((a, b) => a.order - b.order)
+                  .map((s, i) => `${i + 1}. ${s.label || (s.kind === 'employee' ? 'Employee' : s.kind === 'supervisor' ? 'Supervisor' : s.memberName || 'Signer')}`)
+                  .join('  →  ')}
+              </div>
+              <div className="mt-1 opacity-80">Signing starts for real once this blueprint is assigned to someone.</div>
+            </div>
+          )}
+          <PdfFormRenderer content={content} onSubmit={onSubmit} isDarkMode={isDarkMode} disabled={disabled} existingResponse={existingResponse} orgId={orgId} taskId={realTaskId} />
+        </div>
+      );
+    }
     default:
       return (
         <div className={`p-4 border rounded-md text-center ${isDarkMode ? 'border-red-800 bg-red-900/20 text-red-400' : 'border-red-200 bg-red-50 text-red-600'}`}>

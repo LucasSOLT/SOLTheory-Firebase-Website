@@ -223,6 +223,33 @@ The following is the APPROVED implementation plan for the Onboarding Document Sy
 
 ---
 
+## ⚠️ ACTIVE BUILD PLAN — Signature Suite & Mobile Onboarding (DO NOT DEVIATE) ⚠️
+
+**Effective: October 4, 2026 — Until Phases D–G are complete.** Approved by Lucas. Full plan: `signature-suite-plan.md` in the conversation artifacts. Phase A is live (`14d6287`). Phase B (multi-spot signatures + Sign-all bar) is built and ships together with Phase D.
+
+### Approved Decisions (LOCKED):
+1. Phone field entry = tap a field → large bottom input sheet (text shows on the document).
+2. Flat/scanned PDFs = manual boxes now; AI-suggested boxes later (not in scope).
+3. Tap-to-fill boxes = solid fill; presets Black, Blue, Green, Yellow highlight, Red.
+4. "My Signature & Initials" = card near the top of the onboarding home screen, above the task list.
+5. Saved signature/initials live ONLY at `users/{uid}/private/*` via server API (never on the list-readable `users/{uid}` doc).
+6. Manual/visual field layouts are written into a NEW PDF copy with real AcroForm fields (original never modified); signature/initials remain stamp spots.
+
+### Phase Order (FOLLOW EXACTLY):
+- **D** Mobile-blocking bugs: D1 readable fields + phone input sheet → D2 in-spot "Sign" buttons + "Go to" missing links → D3 real in-app fullscreen viewer (floating ✕ top-left, back closes) → D4 nothing cut off / everything scrolls (audit all onboarding modals at 390px) → D5 media spacing + tap to enlarge → D6 friendly multi-signer missing-session handling
+- **E** Mobile-first Blueprint Editor (E1), touch-usable multiple-signers editor (E2), keep "Form Inputs" list (E3)
+- **F** "My Signature & Initials" home card (F1), saved initials (F2), in-document Sign/Initial buttons + quick popup (F3), sign-step accepts initials (F4)
+- **G** Visual Field Designer: auto-detect + review (G1), manual draw/drag/resize (G2), saved on library template (G3), server writes AcroForm copy (G4), touch handles (G5)
+
+### Rules:
+1. **Never** skip or reorder phases/steps; verify locally (tsc + guard + build) before the next.
+2. Functionality and phone usability first, style later.
+3. All existing onboarding rules still apply: never auto-send, never flatten before all signers finish, cron fails closed.
+4. **Always** ask for deployment approval before pushing to main.
+
+
+---
+
 ## ⚠️ FROZEN CODE — Org / Personal AI-Brain Document Pipeline (DO NOT MODIFY) ⚠️
 
 **Effective: October 3, 2026 — INDEFINITELY**

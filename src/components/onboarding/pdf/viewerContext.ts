@@ -22,7 +22,27 @@ export interface PdfViewerControls {
    * scale the viewer zooms IN first (it never zooms out).
    */
   revealElement: (element: HTMLElement, options?: { minScale?: number }) => void;
+  /**
+   * Signature Suite D1 — the field currently being edited in the phone input
+   * sheet (null = closed). Lives in the viewer (always mounted) so "Next field"
+   * can jump to another page; the overlay of `pageIndex` renders the sheet.
+   */
+  activeSheetField: ActiveSheetField | null;
+  /** Open (or close with null) the phone input sheet; switches page in single-page mode. */
+  openFieldSheet: (target: ActiveSheetField | null) => void;
+  /** Signature Suite D3 — true while the viewer covers the whole screen. */
+  isFullscreen: boolean;
 }
+
+export interface ActiveSheetField {
+  fieldName: string;
+  pageIndex: number;
+}
+
+/** Layering (all onboarding modals use z-[9999]): fullscreen viewer → field sheet → signature pad. */
+export const Z_FULLSCREEN_VIEWER = 10000;
+export const Z_FIELD_SHEET = 10050;
+export const Z_SIGNATURE_PAD = 10100;
 
 export const PdfViewerContext = createContext<PdfViewerControls | null>(null);
 

@@ -146,9 +146,23 @@
   .touch-pan-x {
     touch-action: pan-x;
   }
-  input, textarea, select {
+  /* PDF form overlay controls ([data-pdf-control]) are sized to the PDF's own boxes and must keep
+     their computed font size — forcing 16px pushed the text out of small boxes so it looked invisible.
+     Phones type into those fields through a full-size input sheet instead (Signature Suite D1). */
+  input:not([data-pdf-control]), textarea:not([data-pdf-control]), select:not([data-pdf-control]) {
     font-size: 16px !important; /* Prevent iOS zoom on input focus */
   }
+}
+
+/* Signature Suite D2 — "Go to" a missing PDF field: brief attention pulse */
+@keyframes pdf-field-flash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+  30%, 70% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.55); }
+}
+.pdf-field-flash {
+  animation: pdf-field-flash 0.6s ease-in-out 3;
+  border-radius: 3px;
+  z-index: 5;
 }
 
 /* Email body sandboxing — prevents HTML email content from breaking Agent Eye layout */
