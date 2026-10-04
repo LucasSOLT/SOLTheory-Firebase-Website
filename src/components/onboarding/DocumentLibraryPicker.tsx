@@ -80,7 +80,9 @@ export default function DocumentLibraryPicker({ orgId, content, onChange, isDark
     setBusy(true);
     setMsg(null);
     try {
-      const headers = await getAuthHeaders();
+      // FormData must NOT carry the JSON Content-Type from getAuthHeaders() — the browser
+      // has to set multipart/form-data itself (with its boundary) or the server can't parse it.
+      const { 'Content-Type': _ct, ...headers } = await getAuthHeaders();
       const fd = new FormData();
       fd.append('orgId', orgId);
       fd.append('file', file);
