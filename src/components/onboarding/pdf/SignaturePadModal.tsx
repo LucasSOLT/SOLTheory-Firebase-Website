@@ -8,17 +8,48 @@
 // Signature boxes on real forms are tiny (often ~180×20pt), so drawing inside
 // them is impractical on phones. Tapping a signature field opens this pad; the
 // result (a PNG cropped to the ink) is shown inside the field's box.
+//
+// Signature Suite, Phase A: the pad now offers three ways to sign —
+//   • Draw   — finger / mouse / stylus (original behaviour)
+//   • Type   — the signer's name rendered in a choice of script fonts
+//   • Upload — a photo or scan of a signature; the paper is made transparent
+// …plus a reusable saved signature ("Use my saved signature" = one tap).
+// Every mode produces the same transparent, ink-cropped PNG data URL, so all
+// callers (onApply) and the signing APIs are unchanged.
 // ============================================================================
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Eraser, PenTool, X } from 'lucide-react';
+import { Dancing_Script, Great_Vibes, Caveat, Allura } from 'next/font/google';
+import { getAuth } from 'firebase/auth';
+import { Eraser, Image as ImageIcon, Keyboard, Loader2, PenTool, Upload, X } from 'lucide-react';
+import {
+  cropCanvasToInk,
+  processUploadedSignature,
+  renderTypedSignature,
+  type SignatureMethod,
+} from '@/lib/signature-image';
+import { useSavedSignature } from './useSavedSignature';
+
+// Script fonts for typed signatures. preload:false — only fetched when the Type tab shows them.
+const dancing = Dancing_Script({ subsets: ['latin'], weight: '600', display: 'swap', preload: false });
+const greatVibes = Great_Vibes({ subsets: ['latin'], weight: '400', display: 'swap', preload: false });
+const caveat = Caveat({ subsets: ['latin'], weight: '600', display: 'swap', preload: false });
+const allura = Allura({ subsets: ['latin'], weight: '400', display: 'swap', preload: false });
+const SCRIPT_FONTS = [
+  { id: 'dancing', label: 'Classic', family: dancing.style.fontFamily },
+  { id: 'vibes', label: 'Elegant', family: greatVibes.style.fontFamily },
+  { id: 'allura', label: 'Formal', family: allura.style.fontFamily },
+  { id: 'caveat', label: 'Casual', family: caveat.style.fontFamily },
+];
 
 interface SignaturePadModalProps {
   open: boolean;
   /** Shown in the header, e.g. the field's tooltip. */
   title?: string;
   isDarkMode?: boolean;
+  /** Pre-fills the "Type" tab (e.g. the typed legal name). Falls back to the account's display name. */
+  defaultName?: string;
   onCancel: () => void;
   /** Receives a transparent PNG data URL cropped to the signature strokes. */
   onApply: (dataUrl: string) => void;
@@ -27,42 +58,32 @@ interface SignaturePadModalProps {
 // 200px normally; shrinks on short (landscape phone) screens so header + pad + buttons all fit.
 const PAD_HEIGHT = 'min(200px, 42vh)';
 
-/** Crops a canvas to the bounding box of its non-transparent pixels (+ padding). */
-function cropToInk(canvas: HTMLCanvasElement): string | null {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-  const { width, height } = canvas;
-  const data = ctx.getImageData(0, 0, width, height).data;
-  let minX = width, minY = height, maxX = -1, maxY = -1;
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (data[(y * width + x) * 4 + 3] > 0) {
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-      }
-    }
-  }
-  if (maxX < 0) return null; // nothing drawn
-  const pad = Math.round(4 * (window.devicePixelRatio || 1));
-  minX = Math.max(0, minX - pad);
-  minY = Math.max(0, minY - pad);
-  maxX = Math.min(width - 1, maxX + pad);
-  maxY = Math.min(height - 1, maxY + pad);
-  const out = document.createElement('canvas');
-  out.width = maxX - minX + 1;
-  out.height = maxY - minY + 1;
-  out.getContext('2d')?.drawImage(canvas, minX, minY, out.width, out.height, 0, 0, out.width, out.height);
-  return out.toDataURL('image/png');
-}
+const TABS: { id: SignatureMethod; label: string; Icon: typeof PenTool }[] = [
+  { id: 'draw', label: 'Draw', Icon: PenTool },
+  { id: 'type', label: 'Type', Icon: Keyboard },
+  { id: 'upload', label: 'Upload', Icon: Upload },
+];
 
-export default function SignaturePadModal({ open, title, isDarkMode = false, onCancel, onApply }: SignaturePadModalProps) {
+export default function SignaturePadModal({ open, title, isDarkMode = false, defaultName, onCancel, onApply }: SignaturePadModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const [hasInk, setHasInk] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const [tab, setTab] = useState<SignatureMethod>('draw');
+  const [typedName, setTypedName] = useState('');
+  const [fontIdx, setFontIdx] = useState(0);
+  const [uploaded, setUploaded] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  /** null = use the default (save when there's no saved signature yet). */
+  const [saveChoice, setSaveChoice] = useState<boolean | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const { saved, loading: savedLoading, save, remove } = useSavedSignature(open);
+  const saveForLater = saveChoice ?? !saved;
 
   useEffect(() => setMounted(true), []);
 
@@ -111,6 +132,18 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, onC
     observer.observe(canvas);
     return () => observer.disconnect();
   }, [open, mounted, setupCanvas]);
+
+  // Reset the other modes each time the pad opens.
+  useEffect(() => {
+    if (!open) return;
+    setTab('draw');
+    setTypedName((defaultName || getAuth().currentUser?.displayName || '').trim());
+    setUploaded(null);
+    setUploadError(null);
+    setApplyError(null);
+    setBusy(false);
+    setSaveChoice(null);
+  }, [open, defaultName]);
 
   // Lock background scrolling while signing (prevents iOS rubber-banding behind the pad).
   useEffect(() => {
@@ -171,25 +204,75 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, onC
   };
 
   const clear = useCallback(() => {
-    const canvas = canvasRef.current;
-    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
-    setHasInk(false);
-  }, []);
+    if (tab === 'draw') {
+      const canvas = canvasRef.current;
+      canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+      setHasInk(false);
+    } else if (tab === 'type') {
+      setTypedName('');
+    } else {
+      setUploaded(null);
+      setUploadError(null);
+    }
+  }, [tab]);
 
-  const apply = () => {
-    const canvas = canvasRef.current;
-    if (!canvas || !hasInk) return;
-    const dataUrl = cropToInk(canvas);
-    if (dataUrl) onApply(dataUrl);
+  const handleFile = async (file: File | undefined | null) => {
+    if (!file) return;
+    setUploadError(null);
+    setBusy(true);
+    try {
+      setUploaded(await processUploadedSignature(file));
+    } catch (err: any) {
+      setUploaded(null);
+      setUploadError(err?.message || 'That image could not be used.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const canApply = !busy && (tab === 'draw' ? hasInk : tab === 'type' ? typedName.trim().length > 0 : !!uploaded);
+  const canClear = tab === 'draw' ? hasInk : tab === 'type' ? typedName.length > 0 : !!uploaded || !!uploadError;
+
+  const apply = async () => {
+    if (!canApply) return;
+    setApplyError(null);
+    setBusy(true);
+    try {
+      let dataUrl: string | null = null;
+      if (tab === 'draw') {
+        const canvas = canvasRef.current;
+        if (canvas) dataUrl = cropCanvasToInk(canvas, Math.round(4 * (window.devicePixelRatio || 1)));
+      } else if (tab === 'type') {
+        dataUrl = await renderTypedSignature(typedName, SCRIPT_FONTS[fontIdx].family);
+      } else {
+        dataUrl = uploaded;
+      }
+      if (!dataUrl) {
+        setApplyError('Nothing to apply yet.');
+        return;
+      }
+      // Saving is best-effort and never blocks signing.
+      if (saveForLater) void save(dataUrl, tab);
+      onApply(dataUrl);
+    } catch (err: any) {
+      setApplyError(err?.message || 'Could not create the signature.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!open || !mounted) return null;
 
   const card = isDarkMode ? 'bg-[#212121] border-[#383838] text-[#ECECEC]' : 'bg-[#FAF9F5] border-[#E5E4DE] text-[#1F1E1D]';
   const muted = isDarkMode ? 'text-[#737373]' : 'text-[#9C978D]';
+  const divider = isDarkMode ? 'border-[#383838]' : 'border-[#E5E4DE]';
   const ghostBtn = isDarkMode
     ? 'text-[#B4B4B4] hover:bg-[#2F2F2F] hover:text-[#ECECEC]'
     : 'text-[#6B6860] hover:bg-[#EAE7DF] hover:text-[#1F1E1D]';
+  const primaryBtn = isDarkMode ? 'bg-[#ECECEC] text-[#171717] hover:bg-white' : 'bg-[#1F1E1D] text-white hover:bg-[#383734]';
+  const inputCls = isDarkMode
+    ? 'bg-[#2F2F2F] border-[#383838] text-[#ECECEC] placeholder-[#737373]'
+    : 'bg-white border-[#E5E4DE] text-[#1F1E1D] placeholder-[#9C978D]';
 
   // Portal to <body> so the fixed overlay escapes the PDF scroll container.
   return createPortal(
@@ -200,49 +283,194 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, onC
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Draw your signature"
-        className={`w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl border shadow-2xl overflow-hidden ${card}`}
+        aria-label="Add your signature"
+        className={`w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[92vh] ${card}`}
       >
-        <div className={`flex items-center justify-between px-4 py-3 border-b ${isDarkMode ? 'border-[#383838]' : 'border-[#E5E4DE]'}`}>
+        <div className={`flex items-center justify-between px-4 py-3 border-b ${divider}`}>
           <div className="flex items-center gap-2 min-w-0">
             <PenTool className="w-4 h-4 shrink-0" />
-            <span className="text-sm font-semibold truncate">{title || 'Draw your signature'}</span>
+            <span className="text-sm font-semibold truncate">{title || 'Add your signature'}</span>
           </div>
           <button type="button" onClick={onCancel} className={`p-1.5 rounded-lg ${ghostBtn}`} aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-4">
-          <div className="relative rounded-xl border border-dashed border-[#9C978D]/60 bg-white overflow-hidden">
-            <canvas
-              ref={canvasRef}
-              className="block w-full cursor-crosshair"
-              style={{ height: PAD_HEIGHT, touchAction: 'none' }}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={endStroke}
-              onPointerCancel={endStroke}
-              onPointerLeave={endStroke}
-            />
-            {/* Signing baseline */}
-            <div className="pointer-events-none absolute left-6 right-6 bottom-10 border-b border-[#9C978D]/50" />
-            {!hasInk && (
-              <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-[#9C978D]">
-                Sign here with your finger or mouse
-              </span>
-            )}
+        <div className="p-4 overflow-y-auto">
+          {/* Saved signature — one tap */}
+          {savedLoading && !saved && (
+            <div className={`mb-3 flex items-center gap-2 text-xs ${muted}`}>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking for a saved signature…
+            </div>
+          )}
+          {saved && (
+            <div className={`mb-3 flex items-center gap-3 rounded-xl border p-2 ${divider}`}>
+              <div className="h-12 w-28 shrink-0 rounded-lg bg-white flex items-center justify-center overflow-hidden">
+                <img src={saved.imageData} alt="Your saved signature" className="max-h-10 max-w-[6.5rem] object-contain" draggable={false} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => onApply(saved.imageData)}
+                  className={`w-full px-3 py-2 rounded-lg text-sm font-semibold ${primaryBtn}`}
+                >
+                  Use my saved signature
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void remove()}
+                  className={`mt-1 text-[11px] underline-offset-2 hover:underline ${muted}`}
+                >
+                  Forget saved signature
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Mode tabs */}
+          <div className={`mb-3 grid grid-cols-3 gap-1 rounded-xl p-1 ${isDarkMode ? 'bg-[#2F2F2F]' : 'bg-[#EAE7DF]'}`} role="tablist">
+            {TABS.map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tab === id}
+                onClick={() => {
+                  setTab(id);
+                  setApplyError(null);
+                }}
+                className={`flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-medium transition-colors ${
+                  tab === id
+                    ? isDarkMode ? 'bg-[#212121] text-[#ECECEC] shadow-sm' : 'bg-white text-[#1F1E1D] shadow-sm'
+                    : muted
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" /> {label}
+              </button>
+            ))}
           </div>
+
+          {/* Draw — kept mounted (hidden) so ink survives switching tabs */}
+          <div className={tab === 'draw' ? '' : 'hidden'}>
+            <div className="relative rounded-xl border border-dashed border-[#9C978D]/60 bg-white overflow-hidden">
+              <canvas
+                ref={canvasRef}
+                className="block w-full cursor-crosshair"
+                style={{ height: PAD_HEIGHT, touchAction: 'none' }}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={endStroke}
+                onPointerCancel={endStroke}
+                onPointerLeave={endStroke}
+              />
+              {/* Signing baseline */}
+              <div className="pointer-events-none absolute left-6 right-6 bottom-10 border-b border-[#9C978D]/50" />
+              {!hasInk && (
+                <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-[#9C978D]">
+                  Sign here with your finger or mouse
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Type */}
+          {tab === 'type' && (
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={typedName}
+                onChange={(e) => setTypedName(e.target.value.slice(0, 80))}
+                placeholder="Type your full name"
+                autoFocus
+                className={`w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 ${inputCls}`}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                {SCRIPT_FONTS.map((f, i) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFontIdx(i)}
+                    aria-pressed={fontIdx === i}
+                    className={`relative h-16 rounded-xl border bg-white px-2 text-[#111111] overflow-hidden transition-shadow ${
+                      fontIdx === i ? 'border-indigo-500 ring-2 ring-indigo-500/40' : 'border-[#E5E4DE] hover:border-[#9C978D]'
+                    }`}
+                  >
+                    <span className="block truncate text-2xl leading-[4rem]" style={{ fontFamily: f.family }}>
+                      {typedName.trim() || 'Your Name'}
+                    </span>
+                    <span className="absolute bottom-1 right-2 text-[9px] uppercase tracking-wider text-[#9C978D]">{f.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Upload */}
+          {tab === 'upload' && (
+            <div className="space-y-2">
+              <label
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  void handleFile(e.dataTransfer.files?.[0]);
+                }}
+                className={`relative flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-white cursor-pointer overflow-hidden ${
+                  dragOver ? 'border-indigo-500' : 'border-[#9C978D]/60'
+                }`}
+                style={{ height: PAD_HEIGHT }}
+              >
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="sr-only"
+                  onChange={(e) => {
+                    void handleFile(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+                {busy ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-[#9C978D]" />
+                ) : uploaded ? (
+                  <img src={uploaded} alt="Uploaded signature preview" className="max-h-[80%] max-w-[90%] object-contain" draggable={false} />
+                ) : (
+                  <>
+                    <ImageIcon className="w-6 h-6 text-[#9C978D]" />
+                    <span className="text-sm text-[#6B6860]">Tap to choose a photo of your signature</span>
+                    <span className="text-[11px] text-[#9C978D]">Dark pen on white paper works best · PNG, JPG, WEBP</span>
+                  </>
+                )}
+              </label>
+              {uploaded && !busy && <p className={`text-[11px] ${muted}`}>Background removed automatically. Tap the box to choose a different image.</p>}
+              {uploadError && <p className="text-xs text-rose-500">{uploadError}</p>}
+            </div>
+          )}
+
+          <label className={`mt-3 flex items-center gap-2 text-xs cursor-pointer select-none ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`}>
+            <input
+              type="checkbox"
+              checked={saveForLater}
+              onChange={(e) => setSaveChoice(e.target.checked)}
+              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            {saved ? 'Replace my saved signature with this one' : 'Save this signature for future documents'}
+          </label>
+
+          {applyError && <p className="mt-2 text-xs text-rose-500">{applyError}</p>}
           <p className={`mt-2 text-[11px] ${muted}`}>
             By applying, you agree this is your electronic signature.
           </p>
         </div>
 
-        <div className={`flex items-center justify-between gap-2 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3 border-t ${isDarkMode ? 'border-[#383838]' : 'border-[#E5E4DE]'}`}>
+        <div className={`flex items-center justify-between gap-2 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3 border-t ${divider}`}>
           <button
             type="button"
             onClick={clear}
-            disabled={!hasInk}
+            disabled={!canClear}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm disabled:opacity-40 ${ghostBtn}`}
           >
             <Eraser className="w-4 h-4" /> Clear
@@ -253,12 +481,11 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, onC
             </button>
             <button
               type="button"
-              onClick={apply}
-              disabled={!hasInk}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 ${
-                isDarkMode ? 'bg-[#ECECEC] text-[#171717] hover:bg-white' : 'bg-[#1F1E1D] text-white hover:bg-[#383734]'
-              }`}
+              onClick={() => void apply()}
+              disabled={!canApply}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 ${primaryBtn}`}
             >
+              {busy && tab !== 'upload' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Apply signature
             </button>
           </div>

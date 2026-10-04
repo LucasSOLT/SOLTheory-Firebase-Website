@@ -36,6 +36,7 @@ import PdfFormVisualRenderer from './pdf/PdfFormVisualRenderer';
 import { usePdfFormSource } from './pdf/usePdfFormSource';
 import PdfUploadFallback from './pdf/PdfUploadFallback';
 import MultiSignerPdfForm from './pdf/MultiSignerPdfForm';
+import SignaturePadModal from './pdf/SignaturePadModal';
 import { isMultiSignerWorkflow } from '@/lib/signing-workflow';
 
 // ----------------------------------------------------------------------
@@ -1082,6 +1083,8 @@ export function PdfFormRenderer({
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  // Signature Suite Phase A: the full pad (Draw / Type / Upload / saved) as an alternative to the inline pad.
+  const [isPadOpen, setIsPadOpen] = useState(false);
 
   // Redraw existing signature if present
   useEffect(() => {
@@ -1091,7 +1094,11 @@ export function PdfFormRenderer({
         const img = new Image();
         img.onload = () => {
           ctx.clearRect(0, 0, 400, 150);
-          ctx.drawImage(img, 0, 0);
+          // Fit inside the pad (typed/uploaded signatures aren't drawn at pad size).
+          const scale = Math.min(1, 400 / img.width, 150 / img.height);
+          const w = img.width * scale;
+          const h = img.height * scale;
+          ctx.drawImage(img, (400 - w) / 2, (150 - h) / 2, w, h);
         };
         img.src = signatureData;
       }
@@ -1437,13 +1444,22 @@ export function PdfFormRenderer({
                 Draw Signature <span className="text-rose-500">*</span>
               </label>
               {!disabled && !isSubmitting && (
-                <button
-                  type="button"
-                  onClick={clearSignature}
-                  className="text-xs text-indigo-500 hover:underline"
-                >
-                  Clear Pad
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsPadOpen(true)}
+                    className="text-xs text-indigo-500 hover:underline"
+                  >
+                    Type, upload or use saved
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearSignature}
+                    className="text-xs text-indigo-500 hover:underline"
+                  >
+                    Clear Pad
+                  </button>
+                </div>
               )}
             </div>
             <div className={`border rounded-lg max-w-md bg-white overflow-hidden ${
@@ -1465,6 +1481,16 @@ export function PdfFormRenderer({
               />
             </div>
           </div>
+          <SignaturePadModal
+            open={isPadOpen}
+            isDarkMode={isDarkMode}
+            defaultName={typedName}
+            onCancel={() => setIsPadOpen(false)}
+            onApply={(dataUrl) => {
+              setSignatureData(dataUrl);
+              setIsPadOpen(false);
+            }}
+          />
         </div>
       )}
 

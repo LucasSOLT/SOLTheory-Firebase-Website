@@ -268,6 +268,7 @@ export default function PdfFormVisualRenderer({
           <SignaturePadModal
             open={isPadOpen}
             isDarkMode={isDarkMode}
+            defaultName={typedName}
             onCancel={() => setIsPadOpen(false)}
             onApply={(dataUrl) => {
               setValue(VIRTUAL_SIGNATURE_FIELD, dataUrl);

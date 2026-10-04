@@ -514,6 +514,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
               <SignaturePadModal
                 open={isPadOpen}
                 isDarkMode={isDarkMode}
+                defaultName={typedName}
                 onCancel={() => setIsPadOpen(false)}
                 onApply={(dataUrl) => {
                   setValue(SEPARATE_SIGNATURE_KEY, dataUrl);
