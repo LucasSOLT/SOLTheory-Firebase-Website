@@ -31,6 +31,7 @@ import {
 import type { PDFField, PDFForm, PDFWidgetAnnotation, PDFObject } from 'pdf-lib';
 import { createHash } from 'crypto';
 import type { PdfFieldWidget } from '@/types/onboarding-templates';
+import { fillColorOfFieldName } from '@/lib/field-design';
 
 export type { PdfFieldWidget };
 
@@ -166,17 +167,34 @@ export async function detectPdfFields(pdfBytes: Uint8Array | ArrayBuffer): Promi
       }
     }
 
+    const layout = extractFieldLayout(field, options, pageMaps);
+
+    // Phase G (G1): smarter typing. A text field named "...Initials..." is an
+    // initials STAMP spot; a singular "Initial" only when the box is small (so
+    // "Initial deposit" stays a text field). Signature stamps use the same path.
+    if (type === 'text' && isInitialsStampName(name, layout.widgets)) {
+      type = 'signature';
+    }
+
     fields.push({
       name,
       type,
       readOnly,
       ...(options ? { options } : {}),
       currentValue,
-      ...extractFieldLayout(field, options, pageMaps),
+      ...layout,
     });
   }
 
   return fields;
+}
+
+/** Phase G: does this text field's name + size read as an INITIALS stamp spot? */
+function isInitialsStampName(name: string, widgets: PdfFieldWidget[] | undefined): boolean {
+  if (/initials/i.test(name)) return true;
+  if (!/initial/i.test(name)) return false;
+  const w = widgets?.find((x) => !x.hidden);
+  return !!w && w.width <= 80 && w.height <= 40;
 }
 
 // ── Widget Geometry (Phase 2, Step 2.2) ─────────────────────────────────────
@@ -365,7 +383,11 @@ export async function fillAndFlattenPdf(
   // Phase 2 Step 2.4: flatten BEFORE stamping. Flattening appends each field's
   // appearance to the page content, so a field with a background drawn after
   // the stamp could paint over the signature. Stamping last keeps it on top.
+  // Phase G: tap-to-fill boxes are un-checked first (their checkmark would flatten
+  // in) and painted as a solid color right after the flatten.
+  const fillPaints = collectFillBoxes(pdfDoc, form);
   form.flatten();
+  paintFillBoxes(pdfDoc, fillPaints);
 
   // ── Stamp Signatures ──
   signaturesApplied = await stampSignatures(pdfDoc, fillData.signatures);
@@ -429,6 +451,75 @@ function applyFieldValues(form: PDFForm, fields: Record<string, string | boolean
     }
   }
   return fieldsFilled;
+}
+
+// ── Phase G: tap-to-fill boxes ──────────────────────────────────────────────
+//
+// A tap-to-fill box is a real AcroForm CHECKBOX named Fill_<color>_<n>. When the
+// signer checks it, the finished document shows a solid color rectangle there.
+// We do NOT rely on a custom checkbox appearance: before flatten we read which
+// Fill_* boxes are checked (and where), un-check them, and after flatten we draw
+// the rectangles ourselves (before signatures are stamped on top).
+
+interface FillPaint {
+  pageIndex: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  hex: string;
+  opacity: number;
+}
+
+function collectFillBoxes(pdfDoc: PDFDocument, form: PDFForm): FillPaint[] {
+  const paints: FillPaint[] = [];
+  let maps: PageMaps | null = null;
+  for (const field of form.getFields()) {
+    const spec = fillColorOfFieldName(field.getName());
+    if (!spec || !(field instanceof PDFCheckBox)) continue;
+    try {
+      if (!field.isChecked()) continue;
+      maps = maps ?? buildPageMaps(pdfDoc);
+      for (const widget of field.acroField.getWidgets()) {
+        const parsed = readWidget(widget, maps, undefined);
+        if (!parsed || parsed.pageIndex < 0 || parsed.hidden) continue;
+        paints.push({
+          pageIndex: parsed.pageIndex,
+          x: parsed.x,
+          y: parsed.y,
+          width: parsed.width,
+          height: parsed.height,
+          hex: spec.hex,
+          opacity: spec.opacity,
+        });
+      }
+      field.uncheck();
+    } catch (err) {
+      console.warn(`[PDF Form Engine] Could not read fill box "${field.getName()}":`, err);
+    }
+  }
+  return paints;
+}
+
+function hexToRgb(hex: string) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
+}
+
+function paintFillBoxes(pdfDoc: PDFDocument, paints: FillPaint[]): void {
+  const pages = pdfDoc.getPages();
+  for (const p of paints) {
+    const page = pages[p.pageIndex];
+    if (!page) continue;
+    page.drawRectangle({
+      x: p.x,
+      y: p.y,
+      width: p.width,
+      height: p.height,
+      color: hexToRgb(p.hex),
+      opacity: p.opacity,
+    });
+  }
 }
 
 /** Draws signature images onto pages. Returns how many were applied. Never throws. */
@@ -518,7 +609,10 @@ export async function flattenAndStampPdf(
   signatures: PdfSignatureStamp[],
 ): Promise<{ pdfBytes: Uint8Array; sha256Hash: string; signaturesApplied: number }> {
   const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-  pdfDoc.getForm().flatten();
+  const finalForm = pdfDoc.getForm();
+  const fillPaints = collectFillBoxes(pdfDoc, finalForm);
+  finalForm.flatten();
+  paintFillBoxes(pdfDoc, fillPaints);
   const signaturesApplied = await stampSignatures(pdfDoc, signatures);
   const resultBytes = await pdfDoc.save();
   return {

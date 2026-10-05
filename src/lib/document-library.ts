@@ -19,6 +19,7 @@
 // ============================================================================
 
 import type { PdfFormContent } from '@/types/onboarding-templates';
+import { isAutoFillKind, type AutoFillKind } from '@/lib/pdf-autofill';
 
 export const TEMPLATE_STORAGE_ROOT = 'compliance_templates';
 export const TEMPLATE_COLLECTION = 'document_templates';
@@ -50,6 +51,10 @@ export interface LibraryTemplate {
   createdAt: string; // ISO
   archived: boolean;
   archivedAt?: string | null;
+  /** Phase G: auto-fill hints saved with a designed layout (e.g. new Date boxes). */
+  autoFill?: Record<string, AutoFillKind>;
+  /** Phase G: id of the template this one was designed from (the original is never modified). */
+  designedFrom?: string;
 }
 
 /** Org ids are used as a path segment — never allow anything that could escape it. */
@@ -106,7 +111,8 @@ export function cleanTemplateName(raw: unknown, fallbackFileName = ''): string {
 
 /** The fields a blueprint item copies from a library template. Never shares array references. */
 export function templateToPdfContent(
-  t: Pick<LibraryTemplate, 'pdfStoragePath' | 'detectedFields' | 'pageCount' | 'pdfTitle' | 'documentCategory'>,
+  t: Pick<LibraryTemplate, 'pdfStoragePath' | 'detectedFields' | 'pageCount' | 'pdfTitle' | 'documentCategory'> &
+    Partial<Pick<LibraryTemplate, 'autoFill'>>,
 ): Partial<PdfFormContent> {
   return {
     pdfStoragePath: t.pdfStoragePath,
@@ -114,6 +120,7 @@ export function templateToPdfContent(
     pageCount: t.pageCount || 1,
     pdfTitle: t.pdfTitle || '',
     documentCategory: t.documentCategory || 'other',
+    ...(t.autoFill && Object.keys(t.autoFill).length ? { autoFill: { ...t.autoFill } } : {}),
   };
 }
 
@@ -143,5 +150,16 @@ export function fromDoc(id: string, d: Record<string, any>): LibraryTemplate {
     createdAt: toIso(d.createdAt),
     archived: !!d.archived,
     archivedAt: d.archivedAt ? toIso(d.archivedAt) : null,
+    ...(cleanAutoFill(d.autoFill) ? { autoFill: cleanAutoFill(d.autoFill) } : {}),
+    ...(typeof d.designedFrom === 'string' && d.designedFrom ? { designedFrom: d.designedFrom } : {}),
   };
+}
+
+function cleanAutoFill(raw: unknown): Record<string, AutoFillKind> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: Record<string, AutoFillKind> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (isAutoFillKind(v)) out[k] = v;
+  }
+  return Object.keys(out).length ? out : undefined;
 }

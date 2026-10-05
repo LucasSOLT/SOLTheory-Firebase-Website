@@ -50,6 +50,9 @@ export interface CreateTemplateInput {
   validCategories: string[];
   by: { uid: string; email: string };
   detect?: (bytes: Uint8Array) => Promise<DetectResult>;
+  /** Phase G: extra metadata for a template created by the Visual Field Designer. */
+  autoFill?: Record<string, string>;
+  designedFrom?: string;
   nowIso?: string;
   newId?: () => string;
 }
@@ -112,6 +115,8 @@ export async function createLibraryTemplate(
     createdAt: input.nowIso || new Date().toISOString(),
     archived: false,
     archivedAt: null,
+    ...(input.autoFill && Object.keys(input.autoFill).length ? { autoFill: input.autoFill } : {}),
+    ...(input.designedFrom ? { designedFrom: input.designedFrom } : {}),
   };
   await col.doc(id).set(doc);
   return { template: fromDoc(id, doc), duplicate: false };

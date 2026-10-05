@@ -27,6 +27,8 @@ export function applyTemplateToContent(content: PdfFormContent, t: LibraryTempla
   const next: PdfFormContent = { ...content, ...templateToPdfContent(t) } as PdfFormContent;
   if (content.pdfStoragePath !== t.pdfStoragePath) {
     delete next.autoFill;
+    // Phase G: a designed template carries its own auto-fill hints (e.g. Date boxes).
+    if (t.autoFill && Object.keys(t.autoFill).length) next.autoFill = { ...t.autoFill };
     if (next.signingWorkflow) {
       next.signingWorkflow = {
         ...next.signingWorkflow,

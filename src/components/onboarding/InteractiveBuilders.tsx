@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, Trash2, GripVertical, FileText, Upload, Search, Check, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, GripVertical, FileText, Upload, Search, Check, Loader2, AlertCircle, PenLine } from 'lucide-react';
 import { 
   InteractiveContent, 
   QuizContent, QuizQuestion, QuizOption,
@@ -18,6 +18,7 @@ import { getAuthHeaders } from '@/lib/api-auth-client';
 import SigningOrderConfigurator from './SigningOrderConfigurator';
 import AutoFillConfigurator from './AutoFillConfigurator';
 import DocumentLibraryPicker from './DocumentLibraryPicker';
+import PdfFieldDesigner from './PdfFieldDesigner';
 import SignatureSpotsEditor from './SignatureSpotsEditor';
 import { signatureSpotsOf, withSignatureSpots } from '@/lib/signature-spots';
 
@@ -617,6 +618,7 @@ export function RecordedResponseBuilder({ content, onChange, isDarkMode }: Build
 export function PdfFormBuilder({ content, onChange, isDarkMode, orgId }: BuilderProps<PdfFormContent> & { orgId?: string }) {
   const [isDetecting, setIsDetecting] = React.useState(false);
   const [detectMsg, setDetectMsg] = React.useState<string | null>(null);
+  const [designerOpen, setDesignerOpen] = React.useState(false);
   const multiSigner = !!content.signingWorkflow?.enabled;
 
   const handleDetectFields = async () => {
@@ -699,6 +701,35 @@ export function PdfFormBuilder({ content, onChange, isDarkMode, orgId }: Builder
               </button>
             </div>
           </div>
+
+          {/* Signature Suite G: place / review fields visually on the real document */}
+          {orgId && content.pdfStoragePath && (
+            <div className={`p-3 rounded-xl border text-xs space-y-2 ${isDarkMode ? 'bg-indigo-950/30 border-indigo-800/50' : 'bg-indigo-50 border-indigo-200'}`}>
+              <div className="font-bold text-sm flex items-center gap-2">
+                <PenLine className="w-4 h-4 text-indigo-500" /> Visual field designer
+              </div>
+              <p className={isDarkMode ? 'text-slate-300' : 'text-slate-600'}>
+                See every detected field on the real document, fix any that are wrong, and draw your own boxes (text, tap-to-fill color,
+                signature, initials, auto date). Saved as a new Document Library template — the original file is never changed.
+              </p>
+              <button
+                type="button"
+                onClick={() => setDesignerOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-500 transition-colors"
+              >
+                <PenLine className="w-4 h-4" /> Design fields visually
+              </button>
+            </div>
+          )}
+          {designerOpen && orgId && (
+            <PdfFieldDesigner
+              orgId={orgId}
+              content={content}
+              onChange={onChange}
+              onClose={() => setDesignerOpen(false)}
+              isDarkMode={isDarkMode}
+            />
+          )}
 
           {detectMsg && (
             <div className={`p-2.5 rounded text-xs font-semibold flex items-center gap-2 ${

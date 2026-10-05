@@ -52,6 +52,7 @@ import {
 import SignaturePadModal from './SignaturePadModal';
 import { useSavedSignature } from './useSavedSignature';
 import { stampKindOfFieldName, STAMP_LABELS } from '@/lib/initials-fields';
+import { fillColorOfFieldName } from '@/lib/field-design';
 import PdfFieldInputSheet from './PdfFieldInputSheet';
 import { usePdfViewer } from './viewerContext';
 
@@ -344,6 +345,33 @@ export default function PdfFieldOverlay({
 
       case 'checkbox':
       case 'radio': {
+        // Phase G: tap-to-fill boxes render as a solid color when on, a dashed color outline when off.
+        const fillSpec = field.type === 'checkbox' ? fillColorOfFieldName(field.name) : null;
+        if (fillSpec) {
+          const on = value === true;
+          const paint = { background: on ? fillSpec.hex : 'transparent', opacity: on ? Math.max(fillSpec.opacity, 0.7) : 1 };
+          if (!editable) {
+            return <div style={{ width: w, height: h, ...paint }} aria-label={label} />;
+          }
+          return (
+            <button
+              type="button"
+              role="checkbox"
+              data-pdf-control={item.key}
+              aria-checked={on}
+              aria-label={`${label} (tap to fill)`}
+              title={label}
+              onClick={() => onChange(field.name, !on)}
+              style={{ width: w, height: h, ...paint, borderColor: fillSpec.hex }}
+              className={`relative block rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                on ? 'border border-solid' : 'border-2 border-dashed'
+              }`}
+            >
+              {/* Bigger invisible tap area so a small box is still easy to hit with a finger. */}
+              <span aria-hidden className="absolute" style={{ inset: isTouch ? -10 : -3 }} />
+            </button>
+          );
+        }
         const isRadio = field.type === 'radio';
         const checked = isRadio ? value === radioValueFor(item) : value === true;
         const glyph = Math.max(4, Math.min(w, h) * 0.8);
