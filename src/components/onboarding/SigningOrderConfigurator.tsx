@@ -228,13 +228,13 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
                   >
                     {/* Card header */}
                     <div className="flex items-center gap-2">
-                      <GripVertical className={`w-4 h-4 cursor-grab ${muted}`} aria-hidden />
+                      <GripVertical className={`hidden sm:block w-4 h-4 cursor-grab ${muted}`} aria-hidden />
                       <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-[11px] font-bold flex items-center justify-center shrink-0">
                         {s.order}
                       </span>
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <span className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
-                          {s.kind === 'supervisor' ? <UserCheck className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
+                          {s.kind === 'supervisor' ? <UserCheck className="w-3.5 h-3.5 text-indigo-500" /> : <User className="w-3.5 h-3.5 text-indigo-500" />}
                         </span>
                         <div className="min-w-0">
                           <div className="text-xs font-bold truncate">
@@ -246,15 +246,42 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
                           </div>
                         </div>
                       </div>
-                      <button type="button" title="Move up" onClick={() => move(idx, idx - 1)} disabled={idx === 0} className="p-1 rounded disabled:opacity-30 hover:bg-slate-500/10">
-                        <ArrowUp className="w-3.5 h-3.5" />
-                      </button>
-                      <button type="button" title="Move down" onClick={() => move(idx, idx + 1)} disabled={idx === signers.length - 1} className="p-1 rounded disabled:opacity-30 hover:bg-slate-500/10">
-                        <ArrowDown className="w-3.5 h-3.5" />
-                      </button>
-                      <button type="button" title="Remove signer" onClick={() => removeSigner(s.id)} className="p-1 rounded text-rose-500 hover:bg-rose-500/10">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          title="Move up"
+                          onClick={() => move(idx, idx - 1)}
+                          disabled={idx === 0}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                            isDarkMode
+                              ? 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300'
+                              : 'border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Move down"
+                          onClick={() => move(idx, idx + 1)}
+                          disabled={idx === signers.length - 1}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                            isDarkMode
+                              ? 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300'
+                              : 'border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Remove signer"
+                          onClick={() => removeSigner(s.id)}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-500 hover:bg-rose-500/10 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Who + label */}
@@ -298,27 +325,27 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
                             setOpenPicker(openPicker === s.id ? null : s.id);
                             setPickerSearch('');
                           }}
-                          className={`${input} flex items-center justify-between text-left`}
+                          className={`${input} min-h-[38px] flex items-center justify-between text-left cursor-pointer`}
                         >
                           <span className="truncate">
                             {member ? `${member.displayName || member.email} (${member.email})` : s.memberName || s.memberEmail || 'Search org members…'}
                           </span>
-                          <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                          <ChevronDown className="w-4 h-4 shrink-0 text-slate-400" />
                         </button>
                         {openPicker === s.id && (
-                          <div className={`absolute z-20 mt-1 w-full rounded-lg border shadow-lg ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
-                            <div className="p-2 flex items-center gap-2 border-b border-slate-500/20">
-                              <Search className={`w-3.5 h-3.5 ${muted}`} />
+                          <div className={`absolute z-30 mt-1 w-full rounded-xl border shadow-xl ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
+                            <div className="p-2.5 flex items-center gap-2 border-b border-slate-500/20">
+                              <Search className={`w-4 h-4 ${muted}`} />
                               <input
                                 autoFocus
                                 value={pickerSearch}
                                 onChange={(e) => setPickerSearch(e.target.value)}
-                                placeholder="Name or email"
-                                className="flex-1 bg-transparent text-xs outline-none"
+                                placeholder="Search by name or email…"
+                                className="flex-1 bg-transparent text-xs sm:text-sm outline-none"
                               />
                             </div>
-                            <div className="max-h-48 overflow-y-auto">
-                              {filteredMembers.length === 0 && <div className={`p-3 text-xs ${muted}`}>No members found</div>}
+                            <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                              {filteredMembers.length === 0 && <div className={`p-4 text-xs text-center ${muted}`}>No members found</div>}
                               {filteredMembers.map((m) => (
                                 <button
                                   key={m.uid}
@@ -327,10 +354,12 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
                                     updateSigner(s.id, { memberUid: m.uid, memberEmail: m.email, memberName: m.displayName || m.email });
                                     setOpenPicker(null);
                                   }}
-                                  className={`w-full text-left px-3 py-2 text-xs hover:bg-indigo-500/10 ${m.uid === s.memberUid ? 'font-bold' : ''}`}
+                                  className={`w-full text-left px-3.5 py-2.5 min-h-[44px] flex flex-col justify-center text-xs transition-colors hover:bg-indigo-500/10 active:bg-indigo-500/20 cursor-pointer ${
+                                    m.uid === s.memberUid ? (isDarkMode ? 'bg-indigo-950/40 font-bold text-indigo-300' : 'bg-indigo-50 font-bold text-indigo-700') : ''
+                                  }`}
                                 >
-                                  <div className="truncate">{m.displayName || m.email}</div>
-                                  <div className={`text-[10px] truncate ${muted}`}>{m.email} · {m.role}</div>
+                                  <div className="truncate text-xs sm:text-sm">{m.displayName || m.email}</div>
+                                  <div className={`text-[10px] sm:text-xs truncate ${muted}`}>{m.email} · <span className="capitalize">{m.role}</span></div>
                                 </button>
                               ))}
                             </div>
@@ -345,7 +374,7 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
                         <div className="text-[10px] font-semibold mb-1">
                           Fields this signer fills {s.kind === 'employee' ? <span className={muted}>(plus any field nobody else claims)</span> : null}
                         </div>
-                        <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
+                        <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto p-0.5">
                           {fillable.map((name) => {
                             const owner = claimedBy.get(name);
                             const mine = s.fieldNames.includes(name);
@@ -358,11 +387,11 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
                                 onClick={() => toggleField(s, name)}
                                 disabled={takenByOther}
                                 title={takenByOther ? `Assigned to signer ${owner}` : conflict ? `Also assigned to signer ${owner}` : name}
-                                className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-colors disabled:cursor-not-allowed ${
+                                className={`px-2.5 py-1 rounded-md text-xs font-mono border transition-colors disabled:cursor-not-allowed active:scale-95 ${
                                   conflict
                                     ? 'border-rose-500 text-rose-500 bg-rose-500/10'
                                     : mine
-                                      ? 'border-indigo-500 bg-indigo-600 text-white'
+                                      ? 'border-indigo-500 bg-indigo-600 text-white font-semibold'
                                       : takenByOther
                                         ? `opacity-40 ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`
                                         : isDarkMode ? 'border-slate-700 text-slate-300 hover:border-indigo-500' : 'border-slate-300 text-slate-700 hover:border-indigo-500'

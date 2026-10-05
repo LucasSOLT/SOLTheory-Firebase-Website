@@ -87,28 +87,39 @@ export default function SignatureSpotsEditor({ spots, onChange, isDarkMode, page
 
       {spots.map((s, i) => (
         <div key={i} className={`p-2 rounded-lg border space-y-1.5 ${isDarkMode ? 'border-slate-700 bg-slate-900/40' : 'border-slate-200 bg-white'}`}>
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold">Signature spot {i + 1}</span>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-bold">Signature spot {i + 1}</span>
             <div className="flex items-center gap-1">
-              <button type="button" title="Duplicate" onClick={() => duplicate(i)} disabled={full} className="p-1 rounded hover:bg-slate-500/10 disabled:opacity-30">
+              <button
+                type="button"
+                title="Duplicate"
+                onClick={() => duplicate(i)}
+                disabled={full}
+                className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-slate-500/10 disabled:opacity-30"
+              >
                 <Copy className="w-3.5 h-3.5" />
               </button>
-              <button type="button" title="Remove" onClick={() => remove(i)} className="p-1 rounded text-rose-500 hover:bg-rose-500/10">
+              <button
+                type="button"
+                title="Remove"
+                onClick={() => remove(i)}
+                className="w-7 h-7 flex items-center justify-center rounded-md text-rose-500 hover:bg-rose-500/10"
+              >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-5 gap-1.5">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             {FIELDS.map(({ key, label }) => (
-              <div key={key}>
-                <label className="block text-[9px] opacity-70">{label}</label>
+              <div key={key} className={key === 'pageIndex' ? 'col-span-2 sm:col-span-1' : ''}>
+                <label className="block text-[10px] font-medium opacity-80 mb-0.5">{label}</label>
                 <input
                   type="number"
                   min={key === 'pageIndex' ? 1 : key === 'width' || key === 'height' ? 1 : undefined}
                   max={key === 'pageIndex' ? maxPage : undefined}
                   value={key === 'pageIndex' ? s.pageIndex + 1 : s[key]}
                   onChange={(e) => update(i, key, e.target.value)}
-                  className={input}
+                  className={`${input} min-h-[34px]`}
                 />
               </div>
             ))}

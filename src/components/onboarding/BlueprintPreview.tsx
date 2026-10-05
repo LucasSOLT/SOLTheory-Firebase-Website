@@ -220,28 +220,28 @@ export default function BlueprintPreview({
       >
         {/* Header */}
         <div
-          className={`shrink-0 flex items-center justify-between px-6 py-4 border-b ${
+          className={`shrink-0 flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 border-b ${
             isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'
           }`}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 mr-2">
             <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${
                 isDarkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600'
               }`}
             >
-              <Eye className="w-5 h-5" />
+              <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <h2 className="text-lg font-bold">Employee Preview</h2>
-              <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                Previewing &ldquo;{roleName}&rdquo; — no data is created or modified
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold truncate">Employee Preview</h2>
+              <p className={`text-[11px] sm:text-xs truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                Previewing &ldquo;{roleName}&rdquo;
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className={`p-2 rounded-xl transition-colors ${
+            className={`p-1.5 sm:p-2 rounded-xl transition-colors shrink-0 ${
               isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
             }`}
           >
@@ -251,7 +251,7 @@ export default function BlueprintPreview({
 
         {/* Suppression Simulator */}
         <div
-          className={`shrink-0 px-6 py-3 border-b ${
+          className={`shrink-0 px-3 sm:px-6 py-2.5 sm:py-3 border-b ${
             isDarkMode ? 'border-slate-800 bg-slate-800/30' : 'border-slate-200/80 bg-slate-50'
           }`}
         >

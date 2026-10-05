@@ -378,32 +378,32 @@ export default function BlueprintEditor({
         }`}
       >
         {/* Header */}
-        <div className={`shrink-0 flex items-center justify-between px-6 py-4 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'}`}>
-          <h2 className="text-xl font-bold">
-            {existingBlueprint ? `Edit Blueprint: ${existingBlueprint.roleName}` : 'Create New Blueprint'}
+        <div className={`shrink-0 flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'}`}>
+          <h2 className="text-base sm:text-xl font-bold truncate mr-2">
+            {existingBlueprint ? `Edit: ${existingBlueprint.roleName}` : 'Create Blueprint'}
           </h2>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <button
               onClick={() => setShowPreview(true)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors ${
                 isDarkMode
                   ? 'bg-slate-700 hover:bg-slate-600 text-white'
                   : 'bg-slate-200 hover:bg-slate-300 text-slate-800'
               }`}
             >
-              <Eye className="w-4 h-4" />
-              Preview
+              <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">Preview</span>
             </button>
             <button
               onClick={handleSave}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+              className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-sm"
             >
-              <Save className="w-4 h-4" />
-              Save Blueprint
+              <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span>Save</span>
             </button>
             <button
               onClick={onClose}
-              className={`p-2 rounded-xl transition-colors ${
+              className={`p-1.5 sm:p-2 rounded-xl transition-colors ${
                 isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
               }`}
             >
@@ -413,12 +413,12 @@ export default function BlueprintEditor({
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
           
           {/* Basic Info */}
-          <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white border-slate-200/80'}`}>
-            <h3 className="text-lg font-bold mb-4">Basic Information</h3>
-            <div className="space-y-4">
+          <div className={`p-4 sm:p-6 rounded-xl border ${isDarkMode ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white border-slate-200/80 shadow-sm'}`}>
+            <h3 className="text-base sm:text-lg font-bold mb-3 sm:mb-4">Basic Information</h3>
+            <div className="space-y-3 sm:space-y-4">
               <div>
                 <label className={`block text-xs font-bold mb-1.5 uppercase tracking-wider ${validationErrors['roleName'] ? 'text-red-500' : isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                   Role Name <span className="text-red-500">*</span>
@@ -462,156 +462,178 @@ export default function BlueprintEditor({
             {phases.map((phase) => (
               <div key={phase.id} className={`rounded-xl border overflow-hidden ${isDarkMode ? 'bg-slate-800/30 border-slate-700/50' : 'bg-white border-slate-200/80 shadow-sm'}`}>
                 {/* Phase Header */}
-                <div className={`flex flex-col sm:flex-row sm:items-center gap-4 p-4 border-b ${isDarkMode ? 'border-slate-700/50 bg-slate-800/50' : 'border-slate-200/50 bg-slate-50/50'}`}>
-                  <button
-                    onClick={() => handleUpdatePhase(phase.id, { isExpanded: !phase.isExpanded })}
-                    className="p-1"
-                  >
-                    {phase.isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                  </button>
-                  <div className="flex-1 flex flex-wrap items-center gap-3">
-                    <span className="font-bold whitespace-nowrap">Phase {phase.phaseNumber}</span>
+                <div className={`p-3 sm:p-4 border-b space-y-3 ${isDarkMode ? 'border-slate-700/50 bg-slate-800/50' : 'border-slate-200/50 bg-slate-50/50'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        onClick={() => handleUpdatePhase(phase.id, { isExpanded: !phase.isExpanded })}
+                        className="p-1 rounded hover:bg-slate-500/10 shrink-0"
+                      >
+                        {phase.isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                      </button>
+                      <span className="font-bold text-sm sm:text-base whitespace-nowrap">Phase {phase.phaseNumber}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleAddItem(phase.id)}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                          isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'
+                        }`}
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Item
+                      </button>
+                      <button
+                        onClick={() => handleDeletePhase(phase.id)}
+                        className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
+                        title="Delete Phase"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
                     <input
                       type="text"
                       value={phase.name}
                       onChange={(e) => { handleUpdatePhase(phase.id, { name: e.target.value }); setValidationErrors(prev => ({ ...prev, [`phase_${phase.id}_name`]: false })); }}
-                      className={`${inputClass(`phase_${phase.id}_name`)} max-w-[200px]`}
+                      className={`${inputClass(`phase_${phase.id}_name`)} flex-1 text-sm`}
                       placeholder="Phase Name *"
                     />
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs">Day</span>
-                      <input
-                        type="number"
-                        value={phase.startDay}
-                        onChange={(e) => handleUpdatePhase(phase.id, { startDay: parseInt(e.target.value) || 0 })}
-                        className={`${inputClass()} w-20 text-center`}
-                      />
-                      <span className="text-xs">to</span>
-                      <input
-                        type="number"
-                        value={phase.endDay}
-                        onChange={(e) => handleUpdatePhase(phase.id, { endDay: parseInt(e.target.value) || 0 })}
-                        className={`${inputClass()} w-20 text-center`}
-                      />
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-medium text-slate-500">Days:</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          value={phase.startDay}
+                          onChange={(e) => handleUpdatePhase(phase.id, { startDay: parseInt(e.target.value) || 0 })}
+                          className={`${inputClass()} w-16 text-center text-xs py-1.5`}
+                          title="Start Day"
+                        />
+                        <span className="text-xs text-slate-400">to</span>
+                        <input
+                          type="number"
+                          value={phase.endDay}
+                          onChange={(e) => handleUpdatePhase(phase.id, { endDay: parseInt(e.target.value) || 0 })}
+                          className={`${inputClass()} w-16 text-center text-xs py-1.5`}
+                          title="End Day"
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleAddItem(phase.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                        isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'
-                      }`}
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Item
-                    </button>
-                    <button
-                      onClick={() => handleDeletePhase(phase.id)}
-                      className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
 
                 {/* Phase Items */}
                 {phase.isExpanded && (
-                  <div className="p-4 space-y-4">
+                  <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
                     {phase.items.length === 0 ? (
                       <div className={`text-center py-6 text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                         No items in this phase yet.
                       </div>
                     ) : (
                       phase.items.map((item) => (
-                        <div key={item.id} className={`rounded-lg border p-4 ${isDarkMode ? 'border-slate-700/60 bg-slate-900/50' : 'border-slate-200 bg-white'}`}>
+                        <div key={item.id} className={`rounded-xl border p-3 sm:p-4 ${isDarkMode ? 'border-slate-700/60 bg-slate-900/50' : 'border-slate-200 bg-white shadow-sm'}`}>
                           
                           {/* Item Top Row */}
-                          <div className="flex flex-wrap gap-3 items-center mb-4">
-                            <button
-                              onClick={() => handleUpdateItem(phase.id, item.id, { isExpanded: !item.isExpanded })}
-                              className="p-1"
-                            >
-                              {item.isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            </button>
-                            <input
-                              type="text"
-                              value={item.title}
-                              onChange={(e) => { handleUpdateItem(phase.id, item.id, { title: e.target.value }); setValidationErrors(prev => ({ ...prev, [`item_${item.id}_title`]: false })); }}
-                              placeholder="Item Title *"
-                              className={`${inputClass(`item_${item.id}_title`)} flex-1 min-w-[200px]`}
-                            />
-                            <select
-                              value={item.itemType}
-                              onChange={(e) => {
-                                const newType = e.target.value;
-                                const updates: Partial<BlueprintItem> = { itemType: newType };
-                                // Clear interactiveContent when switching types
-                                if (newType !== item.itemType) {
-                                  updates.interactiveContent = undefined;
-                                }
-                                handleUpdateItem(phase.id, item.id, updates);
-                              }}
-                              className={inputClass() + ' w-auto'}
-                            >
-                              <optgroup label="Standard">
-                                <option value="action_item">Action Item</option>
-                                <option value="document_upload">Document Upload</option>
-                                <option value="video_watch">Video</option>
-                                <option value="reading">Reading / SOP</option>
-                                <option value="shadowing_session">Shadowing</option>
-                                <option value="form_sign">Form to Sign</option>
-                              </optgroup>
-                              <optgroup label="Interactive">
-                                <option value="quiz">Quiz / Knowledge Check</option>
-                                <option value="short_answer">Short Answer Response</option>
-                                <option value="form">Form / Data Collection</option>
-                                <option value="checklist">Checklist (Multi-step)</option>
-                                <option value="policy_acknowledgment">Policy / E-Signature</option>
-                                <option value="external_verification">External Verification</option>
-                                <option value="recorded_response">Recorded Response</option>
-                                <option value="pdf_form">Fillable PDF Form</option>
-                              </optgroup>
-                            </select>
-                            <select
-                              value={item.priority}
-                              onChange={(e) => handleUpdateItem(phase.id, item.id, { priority: e.target.value })}
-                              className={inputClass() + ' w-auto'}
-                            >
-                              <option value="Low">Low</option>
-                              <option value="Medium">Medium</option>
-                              <option value="High">High</option>
-                              <option value="Critical">Critical</option>
-                            </select>
+                          <div className="space-y-2.5 mb-3">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold">Day Offset</span>
-                              <input
-                                type="number"
-                                value={item.dayOffset}
-                                onChange={(e) => handleUpdateItem(phase.id, item.id, { dayOffset: parseInt(e.target.value) || 0 })}
-                                className={`${inputClass()} w-20 text-center`}
-                              />
-                            </div>
-                            {item.suppressForTags && item.suppressForTags.length > 0 && (
-                              <span
-                                title={`Suppressed for: ${item.suppressForTags.join(', ')}`}
-                                className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 ml-auto"
+                              <button
+                                onClick={() => handleUpdateItem(phase.id, item.id, { isExpanded: !item.isExpanded })}
+                                className="p-1 rounded hover:bg-slate-500/10 shrink-0"
                               >
-                                <Filter className="w-3 h-3" />
-                                {item.suppressForTags.length} Suppressed
-                              </span>
-                            )}
-                            <button
-                              onClick={() => handleDeleteItem(phase.id, item.id)}
-                              className={`p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors ${
-                                item.suppressForTags && item.suppressForTags.length > 0 ? '' : 'ml-auto'
-                              }`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                                {item.isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </button>
+                              <input
+                                type="text"
+                                value={item.title}
+                                onChange={(e) => { handleUpdateItem(phase.id, item.id, { title: e.target.value }); setValidationErrors(prev => ({ ...prev, [`item_${item.id}_title`]: false })); }}
+                                placeholder="Item Title *"
+                                className={`${inputClass(`item_${item.id}_title`)} flex-1 min-w-0 text-sm font-semibold`}
+                              />
+                              <button
+                                onClick={() => handleDeleteItem(phase.id, item.id)}
+                                className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors shrink-0"
+                                title="Delete Item"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            {/* Controls row */}
+                            <div className="flex flex-wrap items-center gap-2 pl-0 sm:pl-7">
+                              <div className="flex-1 min-w-[140px]">
+                                <select
+                                  value={item.itemType}
+                                  onChange={(e) => {
+                                    const newType = e.target.value;
+                                    const updates: Partial<BlueprintItem> = { itemType: newType };
+                                    if (newType !== item.itemType) {
+                                      updates.interactiveContent = undefined;
+                                    }
+                                    handleUpdateItem(phase.id, item.id, updates);
+                                  }}
+                                  className={`${inputClass()} w-full text-xs py-1.5`}
+                                >
+                                  <optgroup label="Standard">
+                                    <option value="action_item">Action Item</option>
+                                    <option value="document_upload">Document Upload</option>
+                                    <option value="video_watch">Video</option>
+                                    <option value="reading">Reading / SOP</option>
+                                    <option value="shadowing_session">Shadowing</option>
+                                    <option value="form_sign">Form to Sign</option>
+                                  </optgroup>
+                                  <optgroup label="Interactive">
+                                    <option value="quiz">Quiz / Knowledge Check</option>
+                                    <option value="short_answer">Short Answer Response</option>
+                                    <option value="form">Form / Data Collection</option>
+                                    <option value="checklist">Checklist (Multi-step)</option>
+                                    <option value="policy_acknowledgment">Policy / E-Signature</option>
+                                    <option value="external_verification">External Verification</option>
+                                    <option value="recorded_response">Recorded Response</option>
+                                    <option value="pdf_form">Fillable PDF Form</option>
+                                  </optgroup>
+                                </select>
+                              </div>
+
+                              <div className="w-[100px]">
+                                <select
+                                  value={item.priority}
+                                  onChange={(e) => handleUpdateItem(phase.id, item.id, { priority: e.target.value })}
+                                  className={`${inputClass()} w-full text-xs py-1.5`}
+                                >
+                                  <option value="Low">Low</option>
+                                  <option value="Medium">Medium</option>
+                                  <option value="High">High</option>
+                                  <option value="Critical">Critical</option>
+                                </select>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-xs text-slate-500 whitespace-nowrap">Offset:</span>
+                                <input
+                                  type="number"
+                                  value={item.dayOffset}
+                                  onChange={(e) => handleUpdateItem(phase.id, item.id, { dayOffset: parseInt(e.target.value) || 0 })}
+                                  className={`${inputClass()} w-14 text-center text-xs py-1.5`}
+                                  title="Day Offset"
+                                />
+                              </div>
+
+                              {item.suppressForTags && item.suppressForTags.length > 0 && (
+                                <span
+                                  title={`Suppressed for: ${item.suppressForTags.join(', ')}`}
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                                >
+                                  <Filter className="w-3 h-3" />
+                                  {item.suppressForTags.length} Suppressed
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           {/* Item Details (Expanded) */}
                           {item.isExpanded && (
-                            <div className="pl-8 space-y-4 pt-2 border-t border-dashed border-slate-300 dark:border-slate-700">
+                            <div className="pl-0 sm:pl-7 space-y-4 pt-3 border-t border-dashed border-slate-300 dark:border-slate-700">
                               <div>
                                 <label className="block text-xs font-bold mb-1">Instructions</label>
                                 <textarea
@@ -983,24 +1005,26 @@ export default function BlueprintEditor({
         </div>
 
         {/* Footer */}
-        <div className={`shrink-0 flex items-center justify-between px-6 py-4 border-t ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'}`}>
+        <div className={`shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t ${
+          isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'
+        }`}>
           <div>
             {existingBlueprint && (
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer text-xs sm:text-sm">
                 <input
                   type="checkbox"
                   checked={applyToActive}
                   onChange={(e) => setApplyToActive(e.target.checked)}
                   className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
                 />
-                <span className="text-sm font-semibold">Apply changes to currently active new hires</span>
+                <span className="font-semibold">Apply to active hires</span>
               </label>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-end gap-2.5">
             <button
               onClick={onClose}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors ${
                 isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
               }`}
             >
@@ -1008,7 +1032,7 @@ export default function BlueprintEditor({
             </button>
             <button
               onClick={handleSave}
-              className="px-6 py-2 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-sm"
+              className="px-5 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-sm"
             >
               Save Blueprint
             </button>

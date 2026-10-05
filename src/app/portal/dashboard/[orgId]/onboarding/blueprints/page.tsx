@@ -238,14 +238,14 @@ export default function BlueprintsLibraryPage() {
               </div>
               Role Blueprints
             </h1>
-            <p className={`mt-1 text-sm ml-[52px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+            <p className={`mt-1 text-xs sm:text-sm ml-0 sm:ml-[52px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
               Manage standardized onboarding templates and tracks for your organization.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setEditorState({ isOpen: true, existingBlueprint: null })}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm active:scale-[0.98] cursor-pointer ${
+              className={`w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm active:scale-[0.98] cursor-pointer ${
                 isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'
               }`}
             >

@@ -712,19 +712,48 @@ export function PdfFormBuilder({ content, onChange, isDarkMode, orgId }: Builder
           )}
 
           {content.detectedFields && content.detectedFields.length > 0 && (
-            <div className={`p-3 rounded-lg border text-xs space-y-1 ${isDarkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-white border-slate-200'}`}>
-              <div className="font-bold">Detected AcroForm Fields ({content.detectedFields.length}):</div>
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {content.detectedFields.map((f) => (
-                  <span
-                    key={f.name}
-                    className={`px-2 py-0.5 rounded text-[11px] font-mono ${
-                      isDarkMode ? 'bg-slate-800 text-indigo-300' : 'bg-slate-100 text-indigo-700'
-                    }`}
-                  >
-                    {f.name} ({f.type})
+            <div className={`p-3.5 rounded-xl border text-xs space-y-2.5 ${isDarkMode ? 'bg-slate-900/60 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 font-bold text-xs sm:text-sm">
+                  <FileText className="w-4 h-4 text-indigo-500" />
+                  <span>Form Inputs Menu</span>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                    {content.detectedFields.length} detected
                   </span>
-                ))}
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {content.pageCount || 1} page{(content.pageCount || 1) === 1 ? '' : 's'}
+                </div>
+              </div>
+
+              <p className={`text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                These interactive fields were detected on the PDF and will be fillable by the signers.
+              </p>
+
+              <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto p-1 rounded-lg bg-slate-50 dark:bg-slate-950/40 border border-slate-200/60 dark:border-slate-800">
+                {content.detectedFields.map((f) => {
+                  const isSig = f.type === 'signature';
+                  const isDropdown = f.type === 'dropdown';
+                  const isCheckbox = f.type === 'checkbox';
+                  const badgeCls = isSig
+                    ? isDarkMode ? 'bg-amber-950/40 text-amber-300 border-amber-800/50' : 'bg-amber-50 text-amber-800 border-amber-200'
+                    : isDropdown
+                      ? isDarkMode ? 'bg-purple-950/40 text-purple-300 border-purple-800/50' : 'bg-purple-50 text-purple-800 border-purple-200'
+                      : isCheckbox
+                        ? isDarkMode ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/50' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : isDarkMode ? 'bg-slate-800 text-indigo-300 border-slate-700' : 'bg-white text-indigo-700 border-slate-200';
+                  return (
+                    <span
+                      key={f.name}
+                      title={`${f.name} (${f.type})`}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-mono border ${badgeCls}`}
+                    >
+                      <span>{isSig ? '✍' : isDropdown ? '▾' : isCheckbox ? '☑' : '📝'}</span>
+                      <span className="font-semibold">{f.name}</span>
+                      <span className="opacity-60 text-[10px]">({f.type})</span>
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
