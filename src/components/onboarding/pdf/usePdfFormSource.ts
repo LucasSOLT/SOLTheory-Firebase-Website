@@ -9,6 +9,10 @@
 //   route. If the task's saved fields predate Step 2.2 (no widget geometry),
 //   it also asks the server to re-detect them, so old assignments work too.
 // - Outside a task (e.g. previews): uses pdfDownloadUrl when geometry exists.
+// - Phase I fix: Blueprint Preview of a Document Library / Visual-Designer PDF
+//   (no pdfDownloadUrl) loads the template through the admin-only design route
+//   (and re-detects fields if the saved ones have no geometry), so admins can
+//   test-fill the document exactly like an employee would.
 // - Anything else → 'unavailable', and the caller keeps the legacy form grid.
 // ============================================================================
 
@@ -27,9 +31,12 @@ export const hasFieldLayout = (fields?: PdfFormField[]) =>
 export function usePdfFormSource({
   content,
   taskId,
+  orgId,
 }: {
   content: PdfFormContent;
   taskId?: string;
+  /** Lets previews (no task) load a library template through the admin-only route. */
+  orgId?: string;
 }): PdfFormSourceState {
   const [state, setState] = useState<PdfFormSourceState>({ status: 'loading' });
 
@@ -42,12 +49,46 @@ export function usePdfFormSource({
     let cancelled = false;
 
     if (!taskId) {
-      setState(
-        content.pdfDownloadUrl && savedHasLayout
-          ? { status: 'ready', fileUrl: content.pdfDownloadUrl, fields: savedFieldsRef.current || [] }
-          : { status: 'unavailable' },
-      );
-      return;
+      if (content.pdfDownloadUrl && savedHasLayout) {
+        setState({ status: 'ready', fileUrl: content.pdfDownloadUrl, fields: savedFieldsRef.current || [] });
+        return;
+      }
+      const path = content.pdfStoragePath;
+      if (!orgId || !path) {
+        setState({ status: 'unavailable' });
+        return;
+      }
+      setState({ status: 'loading' });
+      (async () => {
+        try {
+          const headers = await getAuthHeaders();
+          const [pdfRes, detRes] = await Promise.all([
+            fetch(`/api/onboarding/pdf-form/design?orgId=${encodeURIComponent(orgId)}&path=${encodeURIComponent(path)}`, { headers }),
+            savedHasLayout
+              ? Promise.resolve(null)
+              : fetch('/api/onboarding/pdf-form/detect-fields', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', ...headers },
+                  body: JSON.stringify({ storagePath: path, orgId }),
+                }),
+          ]);
+          if (!pdfRes.ok) throw new Error(`PDF request failed (${pdfRes.status})`);
+          const pdfBytes = new Uint8Array(await pdfRes.arrayBuffer());
+          let fields = savedFieldsRef.current || [];
+          if (detRes) {
+            if (!detRes.ok) throw new Error(`Field request failed (${detRes.status})`);
+            fields = ((await detRes.json()).fields as PdfFormField[]) || [];
+          }
+          if (cancelled) return;
+          setState(hasFieldLayout(fields) ? { status: 'ready', pdfBytes, fields } : { status: 'unavailable' });
+        } catch (err) {
+          console.warn('[PdfForm] Preview could not load the template, using standard form:', err);
+          if (!cancelled) setState({ status: 'unavailable' });
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
 
     setState({ status: 'loading' });
@@ -79,7 +120,7 @@ export function usePdfFormSource({
     return () => {
       cancelled = true;
     };
-  }, [taskId, content.pdfStoragePath, content.pdfDownloadUrl, savedHasLayout]);
+  }, [taskId, orgId, content.pdfStoragePath, content.pdfDownloadUrl, savedHasLayout]);
 
   return state;
 }

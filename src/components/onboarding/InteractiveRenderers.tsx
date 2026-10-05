@@ -1227,7 +1227,7 @@ export function PdfFormRenderer({
 
   // Phase 2 Step 2.4 — fill directly on the PDF when field geometry is available;
   // otherwise (or if loading fails) keep the standard form grid below.
-  const visualSource = usePdfFormSource({ content, taskId });
+  const visualSource = usePdfFormSource({ content, taskId, orgId });
   if (visualSource.status === 'loading') {
     return (
       <div className={`flex items-center justify-center gap-2 py-16 text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>

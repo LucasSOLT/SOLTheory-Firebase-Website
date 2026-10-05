@@ -142,16 +142,21 @@ export default function BlueprintEditor({
       setDescription(existingBlueprint.description || '');
       if (existingBlueprint.phases && existingBlueprint.phases.length > 0) {
         setPhases(existingBlueprint.phases);
-      } else if (existingBlueprint.steps && existingBlueprint.steps.length > 0) {
+      } else if (
+        (existingBlueprint.steps && existingBlueprint.steps.length > 0) ||
+        (existingBlueprint.phaseDefinitions && existingBlueprint.phaseDefinitions.length > 0)
+      ) {
+        // Phases with no items yet only exist in phaseDefinitions — rebuild from both lists.
+        const allSteps: any[] = existingBlueprint.steps || [];
         const phaseDefs: any[] = existingBlueprint.phaseDefinitions || [];
-        const phaseNumbersFromSteps = existingBlueprint.steps.map((s: any) => s.phase);
+        const phaseNumbersFromSteps = allSteps.map((s: any) => s.phase);
         const phaseNumbersFromDefs = phaseDefs.map((d: any) => d.phaseNumber);
         const uniquePhaseNumbers = Array.from(new Set([...phaseNumbersFromDefs, ...phaseNumbersFromSteps])) as number[];
         uniquePhaseNumbers.sort((a, b) => a - b);
 
         const reconstructed: BlueprintPhase[] = uniquePhaseNumbers.map((pNum) => {
           const def = phaseDefs.find((d: any) => d.phaseNumber === pNum);
-          const phaseSteps = existingBlueprint.steps.filter((s: any) => s.phase === pNum);
+          const phaseSteps = allSteps.filter((s: any) => s.phase === pNum);
           return {
             id: crypto.randomUUID(),
             phaseNumber: pNum,
