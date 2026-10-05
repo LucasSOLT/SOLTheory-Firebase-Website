@@ -600,6 +600,8 @@ export interface SignatureSpot {
   y: number;
   width: number;
   height: number;
+  /** Phase F — 'initials' spots take the signer's saved initials. Absent = 'signature'. */
+  kind?: 'signature' | 'initials';
 }
 
 export interface SigningWorkflow {
@@ -622,6 +624,8 @@ export interface SignerCompletion {
   userAgent: string;
   fieldsFilled: number;
   signaturesApplied: number;
+  /** Phase F — initials stamps applied in this step (absent on older records). */
+  initialsApplied?: number;
   /** SHA-256 of the partially filled PDF produced by this step. */
   partialPdfSha256: string;
   esignConsent: boolean;

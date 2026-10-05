@@ -10,12 +10,15 @@
 //
 // Shown when there are 2+ spots, or 1 spot and a saved signature exists.
 // Purely a UI shortcut — every stamp is still validated by the server.
+//
+// Phase F: `kind="initials"` renders the same bar for the signer's initials.
 // ============================================================================
 
 import React, { useState } from 'react';
 import { CheckCircle2, Loader2, PenTool, Sparkles } from 'lucide-react';
 import SignaturePadModal from './SignaturePadModal';
 import { useSavedSignature } from './useSavedSignature';
+import { STAMP_LABELS, type StampKind } from '@/lib/initials-fields';
 
 interface SignAllSpotsBarProps {
   total: number;
@@ -26,11 +29,23 @@ interface SignAllSpotsBarProps {
   disabled?: boolean;
   /** Pre-fills the pad's "Type" tab. */
   defaultName?: string;
+  /** Phase F — 'initials' swaps the wording and uses the saved initials. Default 'signature'. */
+  kind?: StampKind;
 }
 
-export default function SignAllSpotsBar({ total, signed, onApplyAll, isDarkMode, disabled, defaultName }: SignAllSpotsBarProps) {
+export default function SignAllSpotsBar({
+  total,
+  signed,
+  onApplyAll,
+  isDarkMode,
+  disabled,
+  defaultName,
+  kind = 'signature',
+}: SignAllSpotsBarProps) {
   const [padOpen, setPadOpen] = useState(false);
-  const { saved, loading } = useSavedSignature(!disabled && total > 0);
+  const { saved, loading } = useSavedSignature(!disabled && total > 0, kind);
+  const noun = STAMP_LABELS[kind].noun;
+  const verb = STAMP_LABELS[kind].button;
 
   if (disabled || total === 0 || (total < 2 && !saved)) return null;
 
@@ -48,8 +63,8 @@ export default function SignAllSpotsBar({ total, signed, onApplyAll, isDarkMode,
         {allSigned ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" /> : <PenTool className="w-4 h-4 shrink-0" />}
         <span className="text-xs font-semibold">
           {allSigned
-            ? `All ${total} signature ${plural} signed`
-            : `${total} signature ${plural} on this document${signed ? ` · ${signed} signed` : ''}`}
+            ? `All ${total} ${noun} ${plural} done`
+            : `${total} ${noun} ${plural} on this document${signed ? ` · ${signed} done` : ''}`}
         </span>
       </div>
 
@@ -61,7 +76,7 @@ export default function SignAllSpotsBar({ total, signed, onApplyAll, isDarkMode,
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors ${primary}`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Apply my saved signature to {total === 1 ? 'it' : `all ${total}`}
+            Apply my saved {noun} to {total === 1 ? 'it' : `all ${total}`}
           </button>
         )}
         <button
@@ -70,13 +85,14 @@ export default function SignAllSpotsBar({ total, signed, onApplyAll, isDarkMode,
           className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors ${saved || allSigned ? secondary : primary}`}
         >
           {loading && !saved ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PenTool className="w-3.5 h-3.5" />}
-          {allSigned ? 'Change signature everywhere' : total === 1 ? 'Sign' : `Sign all ${total} ${plural}`}
+          {allSigned ? `Change ${noun} everywhere` : total === 1 ? verb : `${verb} all ${total} ${plural}`}
         </button>
       </div>
 
       <SignaturePadModal
         open={padOpen}
-        title={total === 1 ? 'Add your signature' : `Your signature goes in all ${total} spots`}
+        kind={kind}
+        title={total === 1 ? `Add your ${noun}` : `Your ${noun} goes in all ${total} spots`}
         isDarkMode={isDarkMode}
         defaultName={defaultName}
         onCancel={() => setPadOpen(false)}

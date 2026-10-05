@@ -10,7 +10,8 @@
 
 import type { PdfFieldWidget, PdfFormContent, PdfFormField } from '@/types/onboarding-templates';
 import type { PdfFieldValues } from './overlayLayout';
-import { signatureSpotsOf, spotToWidget } from '@/lib/signature-spots';
+import { signatureSpotsOf, spotToWidget, splitSpotsByKind } from '@/lib/signature-spots';
+import { stampKindOfFieldName, VIRTUAL_INITIALS_FIELD, type StampKind } from '@/lib/initials-fields';
 
 /**
  * Key for the on-page signature box built from the admin's `signaturePosition`
@@ -32,35 +33,66 @@ export const isSignatureImage = (v: unknown): v is string => typeof v === 'strin
 
 const visibleWidgets = (f: PdfFormField) => (f.widgets || []).filter((w) => !w.hidden && w.pageIndex >= 0);
 
-/** Fields for the overlay: detected fields + a virtual signature box when the PDF has none. */
+/** Fields for the overlay: detected fields + virtual signature / initials boxes from the admin's spots. */
 export function buildOverlayFields(content: PdfFormContent, detected: PdfFormField[]): PdfFormField[] {
-  const hasOnPageSignature = detected.some((f) => f.type === 'signature' && !f.readOnly && visibleWidgets(f).length > 0);
+  // Phase F: an AcroForm field named like "Initials" is an initials spot, not the document's signature.
+  const hasOnPageSignature = detected.some(
+    (f) =>
+      f.type === 'signature' &&
+      stampKindOfFieldName(f.name) === 'signature' &&
+      !f.readOnly &&
+      visibleWidgets(f).length > 0,
+  );
   // Signature Suite Phase B: every admin-set spot is a widget of ONE virtual field (one signature fills all).
+  // Phase F: initials spots are widgets of a SECOND virtual field (one set of initials fills all).
   const spots = signatureSpotsOf(content);
-  if (!content.requireSignature || hasOnPageSignature || spots.length === 0) return detected;
+  if (!content.requireSignature || spots.length === 0) return detected;
+  const { signature, initials } = splitSpotsByKind(spots);
 
-  return [
-    ...detected,
-    {
+  const extra: PdfFormField[] = [];
+  if (!hasOnPageSignature && signature.length > 0) {
+    extra.push({
       name: VIRTUAL_SIGNATURE_FIELD,
       type: 'signature',
       readOnly: false,
       required: true,
       tooltip: 'Your signature',
-      widgets: spots.map(spotToWidget),
-    },
-  ];
+      widgets: signature.map(spotToWidget),
+    });
+  }
+  if (initials.length > 0) {
+    extra.push({
+      name: VIRTUAL_INITIALS_FIELD,
+      type: 'signature',
+      readOnly: false,
+      required: true,
+      tooltip: 'Your initials',
+      widgets: initials.map(spotToWidget),
+    });
+  }
+  return extra.length ? [...detected, ...extra] : detected;
 }
 
 /** Signature fields the signer can sign that are actually on a page. */
 export const signableFields = (fields: PdfFormField[]) =>
   fields.filter((f) => f.type === 'signature' && !f.readOnly && visibleWidgets(f).length > 0);
 
-/** Signature Suite Phase B — how many on-page signature spots these fields have, and how many are signed. */
-export function signatureSpotCounts(fields: PdfFormField[], values: PdfFieldValues): { total: number; signed: number } {
+/** Phase F — signable fields of one kind (signature or initials). */
+export const signableFieldsOfKind = (fields: PdfFormField[], kind: StampKind) =>
+  signableFields(fields).filter((f) => stampKindOfFieldName(f.name) === kind);
+
+/**
+ * Signature Suite Phase B — how many on-page signature spots these fields have, and how many are signed.
+ * Phase F: pass `kind` to count only signatures or only initials (default: both, as before).
+ */
+export function signatureSpotCounts(
+  fields: PdfFormField[],
+  values: PdfFieldValues,
+  kind?: StampKind,
+): { total: number; signed: number } {
   let total = 0;
   let signed = 0;
-  for (const f of signableFields(fields)) {
+  for (const f of kind ? signableFieldsOfKind(fields, kind) : signableFields(fields)) {
     const n = visibleWidgets(f).length;
     total += n;
     if (isSignatureImage(values[f.name])) signed += n;
@@ -99,14 +131,15 @@ export function fitSignatureInBox(
   return { x: box.x + inset, y: box.y + inset + (availH - height) / 2, width, height };
 }
 
-/** One stamp per visible widget of every signed signature field. */
+/** One stamp per visible widget of every signed signature field (Phase F: optionally one kind only). */
 export function buildSignatureStamps(
   fields: PdfFormField[],
   values: PdfFieldValues,
   imageSizes: Record<string, { width: number; height: number }>,
+  kind?: StampKind,
 ): SignatureStampSpec[] {
   const stamps: SignatureStampSpec[] = [];
-  for (const f of signableFields(fields)) {
+  for (const f of kind ? signableFieldsOfKind(fields, kind) : signableFields(fields)) {
     const image = values[f.name];
     if (!isSignatureImage(image)) continue;
     const size = imageSizes[f.name] || { width: 0, height: 0 };

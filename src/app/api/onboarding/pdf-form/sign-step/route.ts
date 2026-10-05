@@ -39,7 +39,7 @@ import {
   flattenAndStampPdf,
   type PdfSignatureStamp,
 } from '@/lib/pdf-form-engine';
-import { isStampInsideBoxes } from '@/lib/signing-workflow';
+import { boxesOfKind, isStampInsideBoxes } from '@/lib/signing-workflow';
 import { resolveAutoFill } from '@/lib/pdf-autofill';
 import {
   SIGNING_SESSIONS,
@@ -78,11 +78,13 @@ export async function POST(req: Request) {
     if (!auth.ok) return auth.response;
 
     const body = await req.json();
-    const { taskId, round, fields, signature, typedName, esignConsent } = body as {
+    const { taskId, round, fields, signature, initials, typedName, esignConsent } = body as {
       taskId: string;
       round: number;
       fields: Record<string, string | boolean>;
       signature?: { imageData?: string; stamps?: StampBox[] };
+      /** Phase F — the signer's initials (separate image + stamps, checked against their initials boxes). */
+      initials?: { imageData?: string; stamps?: StampBox[] };
       typedName?: string;
       esignConsent?: boolean;
     };
@@ -156,28 +158,47 @@ export async function POST(req: Request) {
     const imageData = signature?.imageData || '';
     const stamps = Array.isArray(signature?.stamps) ? signature!.stamps!.slice(0, MAX_STAMPS + 1) : [];
 
+    // Phase F: a signer's boxes are either SIGNATURE boxes or INITIALS boxes (kind comes from the box's field name).
+    const sigBoxes = boxesOfKind(signer.signatureBoxes, 'signature');
+    const iniBoxes = boxesOfKind(signer.signatureBoxes, 'initials');
+    const iniData = initials?.imageData || '';
+    const iniStamps = Array.isArray(initials?.stamps) ? initials!.stamps!.slice(0, MAX_STAMPS + 1) : [];
+
     if (signer.requireSignature) {
       if (!name) return NextResponse.json({ error: 'Please type your full legal name.' }, { status: 400 });
-      if (!imageData) return NextResponse.json({ error: 'Please draw your signature.' }, { status: 400 });
-      if (signer.signatureBoxes.length > 0 && stamps.length === 0) {
+      // A signer with ONLY initials boxes doesn't need a separate signature image.
+      const needsSignatureImage = sigBoxes.length > 0 || iniBoxes.length === 0;
+      if (needsSignatureImage && !imageData) return NextResponse.json({ error: 'Please draw your signature.' }, { status: 400 });
+      if (sigBoxes.length > 0 && stamps.length === 0) {
         return NextResponse.json({ error: 'Please place your signature in your signature box.' }, { status: 400 });
       }
+      if (iniBoxes.length > 0 && (!iniData || iniStamps.length === 0)) {
+        return NextResponse.json({ error: 'Please add your initials in each initials box.' }, { status: 400 });
+      }
     }
-    if (imageData) {
-      if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(imageData) || imageData.length > MAX_SIGNATURE_DATA_URL) {
+    for (const img of [imageData, iniData]) {
+      if (img && (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(img) || img.length > MAX_SIGNATURE_DATA_URL)) {
         return NextResponse.json({ error: 'Invalid signature image' }, { status: 400 });
       }
     }
-    if (stamps.length > MAX_STAMPS) {
+    if (stamps.length > MAX_STAMPS || iniStamps.length > MAX_STAMPS) {
       return NextResponse.json({ error: 'Too many signature placements' }, { status: 400 });
     }
     for (const st of stamps) {
-      if (!isStampInsideBoxes(st, signer.signatureBoxes)) {
+      if (!isStampInsideBoxes(st, sigBoxes)) {
         return NextResponse.json({ error: 'Your signature must be inside your own signature box.' }, { status: 400 });
+      }
+    }
+    for (const st of iniStamps) {
+      if (!isStampInsideBoxes(st, iniBoxes)) {
+        return NextResponse.json({ error: 'Your initials must be inside your own initials box.' }, { status: 400 });
       }
     }
     if (stamps.length > 0 && !imageData) {
       return NextResponse.json({ error: 'Missing signature image' }, { status: 400 });
+    }
+    if (iniStamps.length > 0 && !iniData) {
+      return NextResponse.json({ error: 'Missing initials image' }, { status: 400 });
     }
 
     // ── 4. Partial fill (NO flatten) ──
@@ -211,6 +232,22 @@ export async function POST(req: Request) {
       };
     }
 
+    // Phase F: initials are kept as a second image record; the final seal stamps every record the same way.
+    let newInitials: SignatureRecord | null = null;
+    if (iniData) {
+      const iniPath = `${dir}/r${session.round}_s${signer.order}_ini_${ts}.png`;
+      await bucket.file(iniPath).save(Buffer.from(iniData.replace(/^data:image\/png;base64,/, ''), 'base64'), {
+        metadata: { contentType: 'image/png' },
+      });
+      uploadedPaths.push(iniPath);
+      newInitials = {
+        order: signer.order,
+        imagePath: iniPath,
+        kind: 'initials',
+        stamps: iniStamps.map(({ pageIndex, x, y, width, height }) => ({ pageIndex, x, y, width, height })),
+      };
+    }
+
     const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'N/A';
     const userAgent = (req.headers.get('user-agent') || 'N/A').substring(0, 200);
     const completion: SignerCompletion = {
@@ -224,6 +261,7 @@ export async function POST(req: Request) {
       userAgent,
       fieldsFilled: partial.fieldsFilled,
       signaturesApplied: newSignature?.stamps.length ?? 0,
+      initialsApplied: newInitials?.stamps.length ?? 0,
       partialPdfSha256: partial.sha256Hash,
       esignConsent: !!esignConsent,
     };
@@ -236,7 +274,7 @@ export async function POST(req: Request) {
     const employeeSigns = session.signers.some((s) => s.uid === session.employeeUid);
     const completesParent = isEmployeeStep || (isLast && !employeeSigns);
     const allCompletions = [...session.completions, completion];
-    const allSignatures = newSignature ? [...session.signatures, newSignature] : [...session.signatures];
+    const allSignatures = [...session.signatures, ...(newSignature ? [newSignature] : []), ...(newInitials ? [newInitials] : [])];
 
     // ── 5. LAST signer → flatten + stamp + seal (still before the transaction) ──
     let finalDocument: SigningSessionDoc['finalDocument'] = null;
@@ -244,7 +282,8 @@ export async function POST(req: Request) {
     if (isLast) {
       const stampList: PdfSignatureStamp[] = [];
       for (const sig of allSignatures) {
-        const dataUrl = sig === newSignature ? imageData : await readSignatureDataUrl(bucket, sig.imagePath);
+        const dataUrl =
+          sig === newSignature ? imageData : sig === newInitials ? iniData : await readSignatureDataUrl(bucket, sig.imagePath);
         for (const st of sig.stamps) stampList.push({ imageData: dataUrl, ...st });
       }
       const executed = await flattenAndStampPdf(partial.pdfBytes, stampList);

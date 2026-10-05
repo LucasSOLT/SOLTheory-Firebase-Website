@@ -8,6 +8,8 @@
 // Stored at users/{uid}/private/signature via the Admin SDK only. No Firestore
 // rule matches that path, so clients can never read or write it directly (the
 // users/{uid} doc itself is list-readable, so the image must NOT live there).
+// Phase F: every verb also accepts ?kind=initials to act on the saved INITIALS instead
+// (users/{uid}/private/initials) — same privacy rules, same validation.
 // A user can only ever touch their own signature — the uid comes from the
 // verified ID token, never from the request.
 // ============================================================================
@@ -20,7 +22,10 @@ import { isValidSignaturePng, type SignatureMethod } from '@/lib/signature-image
 export const runtime = 'nodejs';
 
 const METHODS: SignatureMethod[] = ['draw', 'type', 'upload'];
-const docPath = (uid: string) => `users/${uid}/private/signature`;
+// Phase F: ?kind=initials stores the signer's initials as a second private doc (default = signature).
+const kindOf = (req: Request): 'signature' | 'initials' =>
+  new URL(req.url).searchParams.get('kind') === 'initials' ? 'initials' : 'signature';
+const docPath = (uid: string, kind: 'signature' | 'initials') => `users/${uid}/private/${kind}`;
 
 function fail(err: any, where: string) {
   console.error(`[SavedSignature:${where}]`, err?.message, err?.stack);
@@ -32,7 +37,7 @@ export async function GET(req: Request) {
     const auth = await verifyRequest(req);
     if (!auth.ok) return auth.response;
     initAdmin();
-    const snap = await getAdminFirestore().doc(docPath(auth.uid)).get();
+    const snap = await getAdminFirestore().doc(docPath(auth.uid, kindOf(req))).get();
     const d = snap.data();
     if (!snap.exists || !d || !isValidSignaturePng(d.imageData)) {
       return NextResponse.json({ signature: null });
@@ -57,7 +62,7 @@ export async function PUT(req: Request) {
     }
     initAdmin();
     const updatedAt = new Date().toISOString();
-    await getAdminFirestore().doc(docPath(auth.uid)).set({ imageData, method, updatedAt, email: auth.email || '' });
+    await getAdminFirestore().doc(docPath(auth.uid, kindOf(req))).set({ imageData, method, updatedAt, email: auth.email || '' });
     return NextResponse.json({ signature: { imageData, method, updatedAt } });
   } catch (err) {
     return fail(err, 'PUT');
@@ -69,7 +74,7 @@ export async function DELETE(req: Request) {
     const auth = await verifyRequest(req);
     if (!auth.ok) return auth.response;
     initAdmin();
-    await getAdminFirestore().doc(docPath(auth.uid)).delete();
+    await getAdminFirestore().doc(docPath(auth.uid, kindOf(req))).delete();
     return NextResponse.json({ ok: true });
   } catch (err) {
     return fail(err, 'DELETE');

@@ -7,6 +7,9 @@
 // page 4 of a handbook acknowledgment). The signer signs once and the same
 // signature is stamped in all of them. Coordinates are PDF points from the
 // bottom-left corner; Phase C replaces typing them with click-to-place.
+//
+// Phase F: each spot is either a SIGNATURE or the signer's INITIALS (a smaller
+// box). The signer's saved signature / initials fill them with one tap.
 // ============================================================================
 
 import React from 'react';
@@ -24,7 +27,12 @@ interface SignatureSpotsEditorProps {
   emptyHint?: string;
 }
 
-const FIELDS: { key: keyof SignatureSpot; label: string }[] = [
+type NumericKey = 'pageIndex' | 'x' | 'y' | 'width' | 'height';
+
+/** Sensible starting box for initials (much smaller than a signature). */
+const DEFAULT_INITIALS_SPOT: SignatureSpot = { pageIndex: 0, x: 50, y: 50, width: 60, height: 30, kind: 'initials' };
+
+const FIELDS: { key: NumericKey; label: string }[] = [
   { key: 'pageIndex', label: 'Page' },
   { key: 'x', label: 'X (pt)' },
   { key: 'y', label: 'Y (pt)' },
@@ -41,7 +49,22 @@ export default function SignatureSpotsEditor({ spots, onChange, isDarkMode, page
   const full = spots.length >= MAX_SIGNATURE_SPOTS;
   const maxPage = pageCount && pageCount > 0 ? pageCount : undefined;
 
-  const update = (i: number, key: keyof SignatureSpot, raw: string) => {
+  const setKind = (i: number, kind: 'signature' | 'initials') =>
+    onChange(
+      spots.map((s, idx) => {
+        if (idx !== i) return s;
+        const { kind: _old, ...rest } = s;
+        return kind === 'initials' ? { ...rest, kind } : rest;
+      }),
+    );
+
+  const addInitials = () => {
+    if (full) return;
+    const last = [...spots].reverse().find((s) => s.kind === 'initials');
+    onChange([...spots, last ? { ...last, pageIndex: maxPage ? Math.min(maxPage - 1, last.pageIndex + 1) : last.pageIndex + 1 } : { ...DEFAULT_INITIALS_SPOT }]);
+  };
+
+  const update = (i: number, key: NumericKey, raw: string) => {
     const n = parseInt(raw, 10);
     const next = spots.map((s, idx) => {
       if (idx !== i) return s;
@@ -59,7 +82,7 @@ export default function SignatureSpotsEditor({ spots, onChange, isDarkMode, page
 
   const add = () => {
     if (full) return;
-    const last = spots[spots.length - 1];
+    const last = [...spots].reverse().find((s) => s.kind !== 'initials');
     // New spot defaults to the next page at the same place (the common "sign every page" case).
     const nextPage = last ? (maxPage ? Math.min(maxPage - 1, last.pageIndex + 1) : last.pageIndex + 1) : 0;
     onChange([...spots, last ? { ...last, pageIndex: nextPage } : { ...DEFAULT_SIGNATURE_SPOT }]);
@@ -78,17 +101,36 @@ export default function SignatureSpotsEditor({ spots, onChange, isDarkMode, page
     if (!maxPage || !spots[0]) return;
     const base = spots[0];
     const pages = Math.min(maxPage, MAX_SIGNATURE_SPOTS);
-    onChange(Array.from({ length: pages }, (_, p) => ({ ...base, pageIndex: p })));
+    // Phase F: only replace spots of the same kind as spot 1 — leave the other kind alone.
+    const others = spots.filter((s) => (s.kind === 'initials') !== (base.kind === 'initials'));
+    const repeated = Array.from({ length: pages }, (_, p) => ({ ...base, pageIndex: p }));
+    onChange([...repeated, ...others].slice(0, MAX_SIGNATURE_SPOTS));
   };
 
   return (
     <div className="space-y-2">
       {spots.length === 0 && emptyHint && <p className={`text-[11px] ${muted}`}>{emptyHint}</p>}
 
-      {spots.map((s, i) => (
+      {spots.map((s, i) => {
+        const isIni = s.kind === 'initials';
+        const ordinal = spots.slice(0, i + 1).filter((x) => (x.kind === 'initials') === isIni).length;
+        return (
         <div key={i} className={`p-2 rounded-lg border space-y-1.5 ${isDarkMode ? 'border-slate-700 bg-slate-900/40' : 'border-slate-200 bg-white'}`}>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-bold">Signature spot {i + 1}</span>
+          <div className="flex items-center justify-between mb-1 gap-2">
+            <span className="text-xs font-bold">{isIni ? 'Initials' : 'Signature'} spot {ordinal}</span>
+            <div role="group" aria-label="Spot type" className={`flex rounded-md overflow-hidden border text-[11px] font-semibold ${isDarkMode ? 'border-slate-700' : 'border-slate-300'}`}>
+              {(['signature', 'initials'] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  aria-pressed={(k === 'initials') === isIni}
+                  onClick={() => setKind(i, k)}
+                  className={`px-2.5 min-h-[30px] ${(k === 'initials') === isIni ? 'bg-indigo-600 text-white' : muted}`}
+                >
+                  {k === 'initials' ? 'Initials' : 'Signature'}
+                </button>
+              ))}
+            </div>
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -125,11 +167,15 @@ export default function SignatureSpotsEditor({ spots, onChange, isDarkMode, page
             ))}
           </div>
         </div>
-      ))}
+        );
+      })}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <button type="button" onClick={add} disabled={full} className={linkBtn}>
           <Plus className="w-3.5 h-3.5" /> Add signature spot
+        </button>
+        <button type="button" onClick={addInitials} disabled={full} className={linkBtn}>
+          <Plus className="w-3.5 h-3.5" /> Add initials spot
         </button>
         {maxPage && maxPage > 1 && spots.length > 0 && (
           <button type="button" onClick={repeatOnEveryPage} className={linkBtn} title="Copy spot 1 onto every page">
@@ -139,7 +185,9 @@ export default function SignatureSpotsEditor({ spots, onChange, isDarkMode, page
         {full && <span className={`text-[10px] ${muted}`}>Max {MAX_SIGNATURE_SPOTS} spots</span>}
       </div>
       {spots.length > 1 && (
-        <p className={`text-[10px] ${muted}`}>The signer signs once — the same signature is placed in all {spots.length} spots.</p>
+        <p className={`text-[10px] ${muted}`}>
+          The signer signs once — the same signature is placed in every signature spot, and the same initials in every initials spot.
+        </p>
       )}
     </div>
   );

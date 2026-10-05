@@ -29,6 +29,7 @@ import {
   renderTypedSignature,
   type SignatureMethod,
 } from '@/lib/signature-image';
+import { initialsFromName, type StampKind } from '@/lib/initials-fields';
 import { useSavedSignature } from './useSavedSignature';
 import { Z_SIGNATURE_PAD } from './viewerContext';
 
@@ -52,8 +53,15 @@ interface SignaturePadModalProps {
   /** Pre-fills the "Type" tab (e.g. the typed legal name). Falls back to the account's display name. */
   defaultName?: string;
   onCancel: () => void;
-  /** Receives a transparent PNG data URL cropped to the signature strokes. */
-  onApply: (dataUrl: string) => void;
+  /** Receives a transparent PNG data URL cropped to the signature strokes (+ how it was made). */
+  onApply: (dataUrl: string, method: SignatureMethod) => void;
+  /** Phase F — 'initials' changes the wording, the typed default (JQP) and the saved slot. */
+  kind?: StampKind;
+  /**
+   * Phase F — manage mode (home-screen card): no saved-item block / "save for later" box;
+   * the button says "Save" and the caller persists the result itself.
+   */
+  saveOnly?: boolean;
 }
 
 // 200px normally; shrinks on short (landscape phone) screens so header + pad + buttons all fit.
@@ -65,7 +73,18 @@ const TABS: { id: SignatureMethod; label: string; Icon: typeof PenTool }[] = [
   { id: 'upload', label: 'Upload', Icon: Upload },
 ];
 
-export default function SignaturePadModal({ open, title, isDarkMode = false, defaultName, onCancel, onApply }: SignaturePadModalProps) {
+export default function SignaturePadModal({
+  open,
+  title,
+  isDarkMode = false,
+  defaultName,
+  onCancel,
+  onApply,
+  kind = 'signature',
+  saveOnly = false,
+}: SignaturePadModalProps) {
+  const isInitials = kind === 'initials';
+  const noun = isInitials ? 'initials' : 'signature';
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -83,8 +102,8 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, def
   const [saveChoice, setSaveChoice] = useState<boolean | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  const { saved, loading: savedLoading, save, remove } = useSavedSignature(open);
-  const saveForLater = saveChoice ?? !saved;
+  const { saved, loading: savedLoading, save, remove } = useSavedSignature(open && !saveOnly, kind);
+  const saveForLater = !saveOnly && (saveChoice ?? !saved);
 
   useEffect(() => setMounted(true), []);
 
@@ -138,13 +157,14 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, def
   useEffect(() => {
     if (!open) return;
     setTab('draw');
-    setTypedName((defaultName || getAuth().currentUser?.displayName || '').trim());
+    const fullName = (defaultName || getAuth().currentUser?.displayName || '').trim();
+    setTypedName(isInitials ? initialsFromName(fullName) : fullName);
     setUploaded(null);
     setUploadError(null);
     setApplyError(null);
     setBusy(false);
     setSaveChoice(null);
-  }, [open, defaultName]);
+  }, [open, defaultName, isInitials]);
 
   // Lock background scrolling while signing (prevents iOS rubber-banding behind the pad).
   useEffect(() => {
@@ -254,9 +274,9 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, def
       }
       // Saving is best-effort and never blocks signing.
       if (saveForLater) void save(dataUrl, tab);
-      onApply(dataUrl);
+      onApply(dataUrl, tab);
     } catch (err: any) {
-      setApplyError(err?.message || 'Could not create the signature.');
+      setApplyError(err?.message || `Could not create the ${noun}.`);
     } finally {
       setBusy(false);
     }
@@ -288,13 +308,13 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, def
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Add your signature"
+        aria-label={`Add your ${noun}`}
         className={`w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[92vh] ${card}`}
       >
         <div className={`flex items-center justify-between px-4 py-3 border-b ${divider}`}>
           <div className="flex items-center gap-2 min-w-0">
             <PenTool className="w-4 h-4 shrink-0" />
-            <span className="text-sm font-semibold truncate">{title || 'Add your signature'}</span>
+            <span className="text-sm font-semibold truncate">{title || `Add your ${noun}`}</span>
           </div>
           <button type="button" onClick={onCancel} className={`p-1.5 rounded-lg ${ghostBtn}`} aria-label="Close">
             <X className="w-4 h-4" />
@@ -303,30 +323,30 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, def
 
         <div className="p-4 overflow-y-auto">
           {/* Saved signature — one tap */}
-          {savedLoading && !saved && (
+          {!saveOnly && savedLoading && !saved && (
             <div className={`mb-3 flex items-center gap-2 text-xs ${muted}`}>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking for a saved signature…
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking for saved {noun}…
             </div>
           )}
-          {saved && (
+          {!saveOnly && saved && (
             <div className={`mb-3 flex items-center gap-3 rounded-xl border p-2 ${divider}`}>
               <div className="h-12 w-28 shrink-0 rounded-lg bg-white flex items-center justify-center overflow-hidden">
-                <img src={saved.imageData} alt="Your saved signature" className="max-h-10 max-w-[6.5rem] object-contain" draggable={false} />
+                <img src={saved.imageData} alt={`Your saved ${noun}`} className="max-h-10 max-w-[6.5rem] object-contain" draggable={false} />
               </div>
               <div className="min-w-0 flex-1">
                 <button
                   type="button"
-                  onClick={() => onApply(saved.imageData)}
+                  onClick={() => onApply(saved.imageData, saved.method)}
                   className={`w-full px-3 py-2 rounded-lg text-sm font-semibold ${primaryBtn}`}
                 >
-                  Use my saved signature
+                  Use my saved {noun}
                 </button>
                 <button
                   type="button"
                   onClick={() => void remove()}
                   className={`mt-1 text-[11px] underline-offset-2 hover:underline ${muted}`}
                 >
-                  Forget saved signature
+                  Forget saved {noun}
                 </button>
               </div>
             </div>
@@ -372,7 +392,7 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, def
               <div className="pointer-events-none absolute left-6 right-6 bottom-10 border-b border-[#9C978D]/50" />
               {!hasInk && (
                 <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-[#9C978D]">
-                  Sign here with your finger or mouse
+                  {isInitials ? 'Write your initials here' : 'Sign here with your finger or mouse'}
                 </span>
               )}
             </div>
@@ -385,7 +405,7 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, def
                 type="text"
                 value={typedName}
                 onChange={(e) => setTypedName(e.target.value.slice(0, 80))}
-                placeholder="Type your full name"
+                placeholder={isInitials ? 'Type your initials' : 'Type your full name'}
                 autoFocus
                 className={`w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 ${inputCls}`}
               />
@@ -401,7 +421,7 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, def
                     }`}
                   >
                     <span className="block truncate text-2xl leading-[4rem]" style={{ fontFamily: f.family }}>
-                      {typedName.trim() || 'Your Name'}
+                      {typedName.trim() || (isInitials ? 'AB' : 'Your Name')}
                     </span>
                     <span className="absolute bottom-1 right-2 text-[9px] uppercase tracking-wider text-[#9C978D]">{f.label}</span>
                   </button>
@@ -441,11 +461,11 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, def
                 {busy ? (
                   <Loader2 className="w-5 h-5 animate-spin text-[#9C978D]" />
                 ) : uploaded ? (
-                  <img src={uploaded} alt="Uploaded signature preview" className="max-h-[80%] max-w-[90%] object-contain" draggable={false} />
+                  <img src={uploaded} alt={`Uploaded ${noun} preview`} className="max-h-[80%] max-w-[90%] object-contain" draggable={false} />
                 ) : (
                   <>
                     <ImageIcon className="w-6 h-6 text-[#9C978D]" />
-                    <span className="text-sm text-[#6B6860]">Tap to choose a photo of your signature</span>
+                    <span className="text-sm text-[#6B6860]">Tap to choose a photo of your {noun}</span>
                     <span className="text-[11px] text-[#9C978D]">Dark pen on white paper works best · PNG, JPG, WEBP</span>
                   </>
                 )}
@@ -455,19 +475,23 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, def
             </div>
           )}
 
-          <label className={`mt-3 flex items-center gap-2 text-xs cursor-pointer select-none ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`}>
-            <input
-              type="checkbox"
-              checked={saveForLater}
-              onChange={(e) => setSaveChoice(e.target.checked)}
-              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            {saved ? 'Replace my saved signature with this one' : 'Save this signature for future documents'}
-          </label>
+          {!saveOnly && (
+            <label className={`mt-3 flex items-center gap-2 text-xs cursor-pointer select-none ${isDarkMode ? 'text-[#B4B4B4]' : 'text-[#6B6860]'}`}>
+              <input
+                type="checkbox"
+                checked={saveForLater}
+                onChange={(e) => setSaveChoice(e.target.checked)}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              {saved ? `Replace my saved ${noun} with this one` : isInitials ? 'Save these initials for future documents' : 'Save this signature for future documents'}
+            </label>
+          )}
 
           {applyError && <p className="mt-2 text-xs text-rose-500">{applyError}</p>}
           <p className={`mt-2 text-[11px] ${muted}`}>
-            By applying, you agree this is your electronic signature.
+            {saveOnly
+              ? `Stored privately — only you can use it. It is applied only when you tap a field.`
+              : `By applying, you agree this is your electronic ${noun}.`}
           </p>
         </div>
 
@@ -491,7 +515,7 @@ export default function SignaturePadModal({ open, title, isDarkMode = false, def
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 ${primaryBtn}`}
             >
               {busy && tab !== 'upload' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              Apply signature
+              {saveOnly ? `Save ${noun}` : `Apply ${noun}`}
             </button>
           </div>
         </div>

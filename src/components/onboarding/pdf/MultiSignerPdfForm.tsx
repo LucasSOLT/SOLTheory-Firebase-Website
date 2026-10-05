@@ -36,11 +36,24 @@ import {
 import type { PdfFieldWidget, PdfFormContent, PdfFormField } from '@/types/onboarding-templates';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import { isSignerSignatureField, signerSignatureFieldName } from '@/lib/signing-workflow';
+import {
+  isSignerInitialsField,
+  signerInitialsFieldName,
+  stampKindOfFieldName,
+  type StampKind,
+} from '@/lib/initials-fields';
 import PdfCanvasViewer from './PdfCanvasViewer';
 import PdfFieldOverlay from './PdfFieldOverlay';
 import SignaturePadModal from './SignaturePadModal';
 import { getMissingRequiredFields, type PdfFieldValues } from './overlayLayout';
-import { buildFillFields, buildSignatureStamps, isSignatureImage, loadImageSize, signableFields, signatureSpotCounts } from './pdfSubmission';
+import {
+  buildFillFields,
+  buildSignatureStamps,
+  isSignatureImage,
+  loadImageSize,
+  signableFields,
+  signatureSpotCounts,
+} from './pdfSubmission';
 import SignAllSpotsBar from './SignAllSpotsBar';
 import MissingItemsPanel, { buildMissingItems } from './MissingItemsPanel';
 import SendArchiveButton from '@/components/onboarding/SendArchiveButton';
@@ -70,7 +83,8 @@ interface SessionView {
   currentSignerOrder: number;
   signers: SessionSigner[];
   me: { order: number | null; isMyTurn: boolean; /** Phase 6.2 — server-computed read-only previews. */ autoFill?: Record<string, string> };
-  priorSignatures: { order: number; imageDataUrl: string | null }[];
+  /** Phase F: `kind` is absent on records saved before initials existed (= the signer's signature). */
+  priorSignatures: { order: number; imageDataUrl: string | null; kind?: StampKind }[];
   lastReRequest: { notes: string; resetAt: string } | null;
   finalDocument: { downloadUrl: string; sha256Hash: string; executedAt: string } | null;
   orgId: string;
@@ -158,7 +172,8 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
     const byName = new Map<string, PdfFormField>();
     for (const s of session.signers) {
       for (const b of s.signatureBoxes) {
-        if (!isSignerSignatureField(b.fieldName)) continue;
+        if (!isSignerSignatureField(b.fieldName) && !isSignerInitialsField(b.fieldName)) continue;
+        const isIni = isSignerInitialsField(b.fieldName);
         const widget: PdfFieldWidget = {
           pageIndex: b.pageIndex,
           rect: [b.x, b.y, b.x + b.width, b.y + b.height],
@@ -169,7 +184,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
         };
         const existing = byName.get(b.fieldName);
         if (existing) existing.widgets = [...(existing.widgets || []), widget];
-        else byName.set(b.fieldName, { name: b.fieldName, type: 'signature', readOnly: false, required: true, tooltip: `Signature — ${s.label}`, widgets: [widget] });
+        else byName.set(b.fieldName, { name: b.fieldName, type: 'signature', readOnly: false, required: true, tooltip: `${isIni ? 'Initials' : 'Signature'} — ${s.label}`, widgets: [widget] });
       }
     }
     return [...byName.values()];
@@ -182,6 +197,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
     if (!isMyTurn || !mySigner) return set;
     mySigner.fieldNames.forEach((n) => set.add(n));
     set.add(signerSignatureFieldName(mySigner.order));
+    set.add(signerInitialsFieldName(mySigner.order));
     return set;
   }, [isMyTurn, mySigner]);
 
@@ -203,34 +219,44 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
     for (const ps of session.priorSignatures) {
       if (!ps.imageDataUrl) continue;
       const signer = session.signers.find((s) => s.order === ps.order);
-      for (const b of signer?.signatureBoxes || []) out[b.fieldName] = ps.imageDataUrl;
+      // Phase F: a record only fills the boxes of its own kind; legacy records (no kind) fill every box, as before.
+      for (const b of signer?.signatureBoxes || []) {
+        if (!ps.kind || stampKindOfFieldName(b.fieldName) === ps.kind) out[b.fieldName] = ps.imageDataUrl;
+      }
     }
     return out;
   }, [session]);
 
   const displayValues = useMemo(() => ({ ...priorValues, ...values, ...autoValues }), [priorValues, values, autoValues]);
 
-  const mySignatureFields = useMemo(
+  // Phase F: my stamp spots, split into signature spots and initials spots.
+  const myStampFields = useMemo(
     () => signableFields(overlayFields).filter((f) => myFieldNames.has(f.name)),
     [overlayFields, myFieldNames],
   );
-  const needsSeparateSignature = isMyTurn && !!mySigner?.requireSignature && mySignatureFields.length === 0;
+  const mySignatureFields = useMemo(() => myStampFields.filter((f) => stampKindOfFieldName(f.name) === 'signature'), [myStampFields]);
+  const myInitialsFields = useMemo(() => myStampFields.filter((f) => stampKindOfFieldName(f.name) === 'initials'), [myStampFields]);
+  const needsSeparateSignature = isMyTurn && !!mySigner?.requireSignature && myStampFields.length === 0;
   const mySpotCounts = useMemo(() => signatureSpotCounts(mySignatureFields, values), [mySignatureFields, values]);
+  const myInitialsCounts = useMemo(() => signatureSpotCounts(myInitialsFields, values), [myInitialsFields, values]);
 
   const setValue = useCallback(
     (name: string, value: string | boolean) => {
       setValues((prev) => {
-        // One signature per signer: signing any of my boxes fills all of them.
-        if (isSignatureImage(value) && mySignatureFields.some((f) => f.name === name)) {
-          const next = { ...prev };
-          for (const f of mySignatureFields) next[f.name] = value;
-          return next;
+        // One signature per signer (and one set of initials): signing any of my boxes of a kind fills all of that kind.
+        if (isSignatureImage(value)) {
+          const group = [mySignatureFields, myInitialsFields].find((g) => g.some((f) => f.name === name));
+          if (group) {
+            const next = { ...prev };
+            for (const f of group) next[f.name] = value;
+            return next;
+          }
         }
         return { ...prev, [name]: value };
       });
       setErrorMsg(null);
     },
-    [mySignatureFields],
+    [mySignatureFields, myInitialsFields],
   );
 
   // ── Validation (only this signer's fields) ──
@@ -245,8 +271,9 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
     if (mySigner.requireSignature) {
       const signed = needsSeparateSignature
         ? isSignatureImage(values[SEPARATE_SIGNATURE_KEY])
-        : mySignatureFields.length > 0 && mySignatureFields.every((f) => isSignatureImage(values[f.name]));
+        : myStampFields.length > 0 && mySignatureFields.every((f) => isSignatureImage(values[f.name]));
       if (!signed) problems.push('your signature');
+      if (myInitialsFields.some((f) => !isSignatureImage(values[f.name]))) problems.push('your initials');
       if (!typedName.trim()) problems.push('your typed legal name');
     }
     if (session?.content.requireEsignConsent && !esignConsent) problems.push('the electronic signature consent');
@@ -258,7 +285,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
     isMyTurn && mySigner
       ? buildMissingItems({
           missingFields: missing,
-          signatureFields: mySignatureFields,
+          signatureFields: myStampFields,
           values,
           requireSignature: mySigner.requireSignature,
           separateSignatureValue: values[SEPARATE_SIGNATURE_KEY],
@@ -280,17 +307,20 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
     setErrorMsg(null);
     try {
       const sizes: Record<string, { width: number; height: number }> = {};
-      for (const f of mySignatureFields) {
+      for (const f of myStampFields) {
         const img = values[f.name];
         if (isSignatureImage(img)) sizes[f.name] = await loadImageSize(img);
       }
-      const stamps = buildSignatureStamps(mySignatureFields, values, sizes).map(({ pageIndex, x, y, width, height }) => ({
+      const rectOnly = ({ pageIndex, x, y, width, height }: { pageIndex: number; x: number; y: number; width: number; height: number }) => ({
         pageIndex,
         x,
         y,
         width,
         height,
-      }));
+      });
+      const stamps = buildSignatureStamps(mySignatureFields, values, sizes, 'signature').map(rectOnly);
+      const initialsStamps = buildSignatureStamps(myInitialsFields, values, sizes, 'initials').map(rectOnly);
+      const initialsData = myInitialsFields.map((f) => values[f.name]).find(isSignatureImage) ?? '';
       const imageData =
         mySignatureFields.map((f) => values[f.name]).find(isSignatureImage) ??
         (isSignatureImage(values[SEPARATE_SIGNATURE_KEY]) ? values[SEPARATE_SIGNATURE_KEY] : '');
@@ -305,6 +335,8 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
           round: session.round,
           fields: buildFillFields(editableDetected, values),
           signature: imageData ? { imageData, stamps } : undefined,
+          // Phase F: initials travel separately; the server checks each stamp against the signer's initials boxes.
+          initials: initialsData ? { imageData: initialsData, stamps: initialsStamps } : undefined,
           typedName,
           esignConsent,
         }),
@@ -520,6 +552,17 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
           total={mySpotCounts.total}
           signed={mySpotCounts.signed}
           onApplyAll={(dataUrl) => setValue(mySignatureFields[0].name, dataUrl)}
+          isDarkMode={isDarkMode}
+          disabled={isSubmitting}
+          defaultName={typedName}
+        />
+      )}
+      {isMyTurn && mySigner?.requireSignature && myInitialsFields.length > 0 && (
+        <SignAllSpotsBar
+          kind="initials"
+          total={myInitialsCounts.total}
+          signed={myInitialsCounts.signed}
+          onApplyAll={(dataUrl) => setValue(myInitialsFields[0].name, dataUrl)}
           isDarkMode={isDarkMode}
           disabled={isSubmitting}
           defaultName={typedName}

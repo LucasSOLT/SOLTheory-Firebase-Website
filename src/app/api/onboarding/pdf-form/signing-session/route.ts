@@ -66,9 +66,9 @@ export async function GET(req: Request) {
     const priorSignatures = await Promise.all(
       session.signatures.map(async (sig) => {
         try {
-          return { order: sig.order, imageDataUrl: await readSignatureDataUrl(bucket, sig.imagePath), stamps: sig.stamps };
+          return { order: sig.order, kind: sig.kind, imageDataUrl: await readSignatureDataUrl(bucket, sig.imagePath), stamps: sig.stamps };
         } catch {
-          return { order: sig.order, imageDataUrl: null, stamps: sig.stamps };
+          return { order: sig.order, kind: sig.kind, imageDataUrl: null, stamps: sig.stamps };
         }
       }),
     );

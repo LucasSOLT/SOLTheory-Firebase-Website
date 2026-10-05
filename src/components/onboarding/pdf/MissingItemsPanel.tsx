@@ -13,6 +13,7 @@ import React from 'react';
 import { AlertCircle, ArrowDownRight } from 'lucide-react';
 import type { PdfFormField } from '@/types/onboarding-templates';
 import { isSignatureImage } from './pdfSubmission';
+import { stampKindOfFieldName, STAMP_LABELS } from '@/lib/initials-fields';
 import { isFieldValueEmpty, type PdfFieldValues } from './overlayLayout';
 
 export interface MissingItem {
@@ -83,14 +84,20 @@ export function buildMissingItems(opts: {
         items.push({ key: 'sig:separate', label: 'Your signature', gotoId: 'separate-signature' });
       }
     } else {
-      const unsigned = opts.signatureFields.filter((f) => !isSignatureImage(opts.values[f.name]));
-      unsigned.forEach((f, i) =>
-        items.push({
-          key: `sig:${f.name}`,
-          label: unsigned.length > 1 ? `Signature (${i + 1} of ${unsigned.length})` : 'Your signature',
-          fieldName: f.name,
-        }),
-      );
+      // Phase F: signature spots and initials spots are listed separately.
+      for (const kind of ['signature', 'initials'] as const) {
+        const unsigned = opts.signatureFields.filter(
+          (f) => stampKindOfFieldName(f.name) === kind && !isSignatureImage(opts.values[f.name]),
+        );
+        const word = kind === 'initials' ? 'Initials' : 'Signature';
+        unsigned.forEach((f, i) =>
+          items.push({
+            key: `sig:${f.name}`,
+            label: unsigned.length > 1 ? `${word} (${i + 1} of ${unsigned.length})` : STAMP_LABELS[kind].mine,
+            fieldName: f.name,
+          }),
+        );
+      }
     }
   }
   if (opts.typedNameMissing) items.push({ key: 'typed-name', label: 'Your typed legal name', gotoId: 'typed-name' });

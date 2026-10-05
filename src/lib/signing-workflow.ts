@@ -14,7 +14,8 @@ import type {
   SignerDefinition,
   SigningWorkflow,
 } from '@/types/onboarding-templates';
-import { signatureSpotsOf, spotToWidget } from '@/lib/signature-spots';
+import { signatureSpotsOf, spotToWidget, splitSpotsByKind } from '@/lib/signature-spots';
+import { signerInitialsFieldName, stampKindOfFieldName, type StampKind } from '@/lib/initials-fields';
 
 /** Prefix for per-signer virtual signature boxes (built from `signaturePosition`). */
 export const SIGNER_SIGNATURE_FIELD_PREFIX = '__soltheory_signature__:';
@@ -101,10 +102,20 @@ export function signatureBoxesForSigner(
     }
   }
   // Signature Suite Phase B: every spot shares ONE virtual field, so one signature fills them all.
+  // Phase F: initials spots share a SECOND virtual field, so one set of initials fills them all.
   for (const pos of signatureSpotsOf(signer)) {
-    boxes.push({ fieldName: signerSignatureFieldName(signer.order), ...pos });
+    const { kind, ...rect } = pos;
+    boxes.push({
+      fieldName: kind === 'initials' ? signerInitialsFieldName(signer.order) : signerSignatureFieldName(signer.order),
+      ...rect,
+    });
   }
   return boxes;
+}
+
+/** Phase F — the boxes of one kind (signature or initials); kind comes from the field name. */
+export function boxesOfKind(boxes: SignatureBox[], kind: StampKind): SignatureBox[] {
+  return boxes.filter((b) => stampKindOfFieldName(b.fieldName) === kind);
 }
 
 /** True when the stamp lies inside one of the boxes (1pt tolerance). */
@@ -132,14 +143,28 @@ export function buildSignerSignatureFields(workflow: SigningWorkflow): PdfFormFi
   for (const s of orderedSigners(workflow)) {
     const spots = signatureSpotsOf(s);
     if (!s.requireSignature || spots.length === 0) continue;
-    out.push({
-      name: signerSignatureFieldName(s.order),
-      type: 'signature',
-      readOnly: false,
-      required: true,
-      tooltip: `Signature — ${s.label || `Signer ${s.order}`}`,
-      widgets: spots.map(spotToWidget),
-    });
+    const { signature, initials } = splitSpotsByKind(spots);
+    const who = s.label || `Signer ${s.order}`;
+    if (signature.length) {
+      out.push({
+        name: signerSignatureFieldName(s.order),
+        type: 'signature',
+        readOnly: false,
+        required: true,
+        tooltip: `Signature — ${who}`,
+        widgets: signature.map(spotToWidget),
+      });
+    }
+    if (initials.length) {
+      out.push({
+        name: signerInitialsFieldName(s.order),
+        type: 'signature',
+        readOnly: false,
+        required: true,
+        tooltip: `Initials — ${who}`,
+        widgets: initials.map(spotToWidget),
+      });
+    }
   }
   return out;
 }

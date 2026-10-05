@@ -59,6 +59,8 @@ export interface ResolvedSigner {
 export interface SignatureRecord {
   order: number;
   imagePath: string;
+  /** Phase F — 'initials' for the signer's initials image; absent on older records (= signature). */
+  kind?: 'signature' | 'initials';
   stamps: { pageIndex: number; x: number; y: number; width: number; height: number }[];
 }
 

@@ -35,7 +35,17 @@ const clean = (s: SignatureSpot): SignatureSpot => ({
   y: s.y,
   width: s.width,
   height: s.height,
+  // Phase F: only 'initials' is stored; absent keeps older data byte-identical.
+  ...(s.kind === 'initials' ? { kind: 'initials' as const } : {}),
 });
+
+/** Spots split by kind (older spots without `kind` are signatures). */
+export function splitSpotsByKind(spots: SignatureSpot[]): { signature: SignatureSpot[]; initials: SignatureSpot[] } {
+  return {
+    signature: spots.filter((s) => s.kind !== 'initials'),
+    initials: spots.filter((s) => s.kind === 'initials'),
+  };
+}
 
 /** Every usable signature spot on a PdfFormContent or SignerDefinition. */
 export function signatureSpotsOf(

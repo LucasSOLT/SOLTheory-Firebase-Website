@@ -29,6 +29,7 @@ import {
   isSignatureImage,
   loadImageSize,
   signableFields,
+  signableFieldsOfKind,
   signatureSpotCounts,
 } from './pdfSubmission';
 import SignAllSpotsBar from './SignAllSpotsBar';
@@ -72,7 +73,10 @@ export default function PdfFormVisualRenderer({
   );
 
   const overlayFields = useMemo(() => buildOverlayFields(content, fields), [content, fields]);
-  const signatureFields = useMemo(() => signableFields(overlayFields), [overlayFields]);
+  // Phase F: signature spots and initials spots are tracked separately (each gets its own "apply to all").
+  const stampFields = useMemo(() => signableFields(overlayFields), [overlayFields]);
+  const signatureFields = useMemo(() => signableFieldsOfKind(overlayFields, 'signature'), [overlayFields]);
+  const initialsFields = useMemo(() => signableFieldsOfKind(overlayFields, 'initials'), [overlayFields]);
   // No on-page place to sign (no signature field, no admin-set position): keep a pad below the document.
   const needsSeparateSignature = !!content.requireSignature && signatureFields.length === 0;
 
@@ -85,7 +89,8 @@ export default function PdfFormVisualRenderer({
   }, []);
 
   // Signature Suite Phase B — the same signature in every on-page signature spot.
-  const spotCounts = useMemo(() => signatureSpotCounts(overlayFields, values), [overlayFields, values]);
+  const spotCounts = useMemo(() => signatureSpotCounts(overlayFields, values, 'signature'), [overlayFields, values]);
+  const initialsCounts = useMemo(() => signatureSpotCounts(overlayFields, values, 'initials'), [overlayFields, values]);
   const applySignatureEverywhere = useCallback(
     (dataUrl: string) => {
       setValues((prev) => {
@@ -96,6 +101,17 @@ export default function PdfFormVisualRenderer({
       setErrorMsg(null);
     },
     [signatureFields],
+  );
+  const applyInitialsEverywhere = useCallback(
+    (dataUrl: string) => {
+      setValues((prev) => {
+        const next = { ...prev };
+        for (const f of initialsFields) next[f.name] = dataUrl;
+        return next;
+      });
+      setErrorMsg(null);
+    },
+    [initialsFields],
   );
 
   // Phase 6.2 — fields the server fills automatically (date / name / email): previewed read-only.
@@ -121,11 +137,16 @@ export default function PdfFormVisualRenderer({
     if (needsSeparateSignature) return isSignatureImage(values[VIRTUAL_SIGNATURE_FIELD]) ? 0 : 1;
     return signatureFields.filter((f) => !isSignatureImage(values[f.name])).length;
   }, [content.requireSignature, needsSeparateSignature, signatureFields, values]);
+  const unInitialedCount = useMemo(
+    () => (content.requireSignature ? initialsFields.filter((f) => !isSignatureImage(values[f.name])).length : 0),
+    [content.requireSignature, initialsFields, values],
+  );
 
   const problems: string[] = [];
   const missingNonSignature = missingFields.filter((f) => f.type !== 'signature').length;
   if (missingNonSignature) problems.push(`${missingNonSignature} required field${missingNonSignature === 1 ? '' : 's'} (outlined in red)`);
   if (unsignedCount) problems.push(unsignedCount === 1 ? 'your signature' : `${unsignedCount} signatures`);
+  if (unInitialedCount) problems.push(unInitialedCount === 1 ? 'your initials' : `${unInitialedCount} initials`);
   if (content.requireSignature && !typedName.trim()) problems.push('your typed legal name');
   if (content.requireEsignConsent && !esignConsent) problems.push('the electronic signature consent');
 
@@ -133,7 +154,7 @@ export default function PdfFormVisualRenderer({
   const rootRef = useRef<HTMLDivElement>(null);
   const missingItems = buildMissingItems({
     missingFields,
-    signatureFields,
+    signatureFields: stampFields,
     values: effValues,
     requireSignature: !!content.requireSignature,
     separateSignatureValue: values[VIRTUAL_SIGNATURE_FIELD],
@@ -156,7 +177,7 @@ export default function PdfFormVisualRenderer({
     try {
       // Signature image sizes are needed to fit each stamp inside its box without distortion.
       const imageSizes: Record<string, { width: number; height: number }> = {};
-      for (const f of signatureFields) {
+      for (const f of stampFields) {
         const img = values[f.name];
         if (isSignatureImage(img)) imageSizes[f.name] = await loadImageSize(img);
       }
@@ -259,6 +280,18 @@ export default function PdfFormVisualRenderer({
           total={spotCounts.total}
           signed={spotCounts.signed}
           onApplyAll={applySignatureEverywhere}
+          isDarkMode={isDarkMode}
+          disabled={locked}
+          defaultName={typedName}
+        />
+      )}
+
+      {content.requireSignature && (
+        <SignAllSpotsBar
+          kind="initials"
+          total={initialsCounts.total}
+          signed={initialsCounts.signed}
+          onApplyAll={applyInitialsEverywhere}
           isDarkMode={isDarkMode}
           disabled={locked}
           defaultName={typedName}

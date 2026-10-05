@@ -30,6 +30,12 @@
 //   • On touch devices text/dropdown boxes are tappable previews that open the
 //     large bottom input sheet (PdfFieldInputSheet) with Prev / Next / Done.
 //   • Unsigned signature spots render as a solid blue "Sign" button.
+//
+// Signature Suite F3: signature-type fields are either a SIGNATURE or the
+// signer's INITIALS (kind comes from the field name — see initials-fields.ts).
+// Each unsigned spot is a blue "Sign" / "Initial" button. With a saved
+// signature/initials one tap fills the spot; otherwise the pad opens on top of
+// the form (nothing is lost) and the new item is saved + applied.
 // ============================================================================
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -44,6 +50,8 @@ import {
   type PdfFieldValues,
 } from './overlayLayout';
 import SignaturePadModal from './SignaturePadModal';
+import { useSavedSignature } from './useSavedSignature';
+import { stampKindOfFieldName, STAMP_LABELS } from '@/lib/initials-fields';
 import PdfFieldInputSheet from './PdfFieldInputSheet';
 import { usePdfViewer } from './viewerContext';
 
@@ -117,6 +125,22 @@ export default function PdfFieldOverlay({
     !disabled && !field.readOnly && (isFieldEditable ? isFieldEditable(field) : true);
 
   const valueOf = (field: PdfFormField) => values[field.name] ?? field.currentValue;
+
+  // ── F3: saved signature / initials (only fetched when this form has editable stamp spots) ──
+  const hasSigSpots = fields.some((f) => f.type === 'signature' && stampKindOfFieldName(f.name) === 'signature' && canEdit(f));
+  const hasIniSpots = fields.some((f) => f.type === 'signature' && stampKindOfFieldName(f.name) === 'initials' && canEdit(f));
+  const savedSig = useSavedSignature(hasSigSpots, 'signature').saved;
+  const savedIni = useSavedSignature(hasIniSpots, 'initials').saved;
+
+  /** Tap on a stamp spot: empty + saved item → fill instantly; otherwise open the pad. */
+  const tapStamp = (field: PdfFormField, hasValue: boolean) => {
+    const saved = stampKindOfFieldName(field.name) === 'initials' ? savedIni : savedSig;
+    if (!hasValue && saved) {
+      onChange(field.name, saved.imageData);
+      return;
+    }
+    setSigningField(field);
+  };
 
   // ── Step 2.5: touch helpers ──
   const viewer = usePdfViewer();
@@ -355,10 +379,12 @@ export default function PdfFieldOverlay({
       }
 
       case 'signature': {
+        const stampKind = stampKindOfFieldName(field.name);
+        const words = STAMP_LABELS[stampKind];
         const signature = typeof value === 'string' && value.startsWith('data:image') ? value : null;
         const image = signature && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={signature} alt="Signature" className="max-w-full max-h-full object-contain" draggable={false} />
+          <img src={signature} alt={words.noun} className="max-w-full max-h-full object-contain" draggable={false} />
         );
         if (!editable) {
           return (
@@ -371,10 +397,10 @@ export default function PdfFieldOverlay({
           return (
             <button
               type="button"
-              onClick={() => setSigningField(field)}
+              onClick={() => tapStamp(field, true)}
               data-pdf-control={item.key}
-              aria-label={`${label} (signed — tap to re-sign)`}
-              title="Tap to re-sign"
+              aria-label={`${label} (done — tap to redo)`}
+              title="Tap to redo"
               style={{ width: w, height: h }}
               className="flex items-center justify-start overflow-hidden rounded-[2px] outline-none bg-transparent border border-dashed border-blue-500/50 focus-visible:ring-2 focus-visible:ring-blue-600"
             >
@@ -387,17 +413,17 @@ export default function PdfFieldOverlay({
         return (
           <button
             type="button"
-            onClick={() => setSigningField(field)}
+            onClick={() => tapStamp(field, false)}
             data-pdf-control={item.key}
-            aria-label={`${label} (tap to sign)`}
-            title="Tap to sign"
+            aria-label={`${label} (tap to ${words.button.toLowerCase()})`}
+            title={`Tap to ${words.button.toLowerCase()}`}
             style={{ width: w, height: h, fontSize: signFont, fontFamily: FONT_STACK }}
             className={`flex items-center justify-center gap-1 overflow-hidden rounded-[3px] outline-none font-bold text-white shadow-md active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-300 ${
               missing ? 'bg-red-600 ring-2 ring-red-300 animate-pulse' : 'bg-blue-600 hover:bg-blue-500'
             }`}
           >
             <PenTool style={{ width: '1em', height: '1em', flexShrink: 0 }} />
-            {w >= signFont * 3.2 && <span className="whitespace-nowrap">Sign</span>}
+            {w >= signFont * 3.2 && <span className="whitespace-nowrap">{words.button}</span>}
           </button>
         );
       }
@@ -473,6 +499,7 @@ export default function PdfFieldOverlay({
 
       <SignaturePadModal
         open={!!signingField}
+        kind={signingField ? stampKindOfFieldName(signingField.name) : 'signature'}
         title={signingField ? fieldLabel(signingField) : undefined}
         isDarkMode={isDarkMode}
         onCancel={() => setSigningField(null)}

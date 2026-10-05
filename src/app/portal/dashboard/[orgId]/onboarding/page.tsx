@@ -47,6 +47,7 @@ import ManageUserBlueprintsModal from '@/components/onboarding/ManageUserBluepri
 import SupervisorProgressView from '@/components/onboarding/SupervisorProgressView';
 import StuckDocumentsPanel from '@/components/onboarding/StuckDocumentsPanel';
 import AwaitingSignaturePanel from '@/components/onboarding/AwaitingSignaturePanel';
+import MySignatureCard from '@/components/onboarding/MySignatureCard';
 import ReadyToArchivePanel from '@/components/onboarding/ReadyToArchivePanel';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import type { ComplianceDocumentCategory } from '@/types/onboarding-templates';
@@ -733,6 +734,11 @@ export default function OnboardingPage() {
             isDarkMode={isDarkMode}
             onOpen={(task) => setSelectedTaskForPopup(task as any)}
           />
+        )}
+
+        {/* Signature Suite F1: reusable signature + initials, above the task list */}
+        {user?.uid && (
+          <MySignatureCard isDarkMode={isDarkMode} defaultName={user.displayName || myInstance?.userName || undefined} />
         )}
 
         {/* ════════════════════════════════════════════════════════════════ */}
