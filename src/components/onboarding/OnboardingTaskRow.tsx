@@ -453,7 +453,14 @@ export default function OnboardingTaskRow({
           {/* Ask JARVIS button */}
           {!isCompleted && (
             <button
-              onClick={() => onAskJarvis(`Tell me about: ${task.title}`)}
+              onClick={() => {
+                const details = [
+                  `Step: ${task.title}`,
+                  task.description ? `Description: ${task.description}` : '',
+                  task.metadata?.instructions ? `Instructions: ${task.metadata.instructions}` : ''
+                ].filter(Boolean).join('\n\n');
+                onAskJarvis(`I have a question about this onboarding step:\n\n${details}\n\nMy question is: `);
+              }}
               className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors ${
                 isDarkMode
                   ? 'bg-slate-700/50 text-slate-300 hover:bg-slate-700/80 border border-slate-600/40'

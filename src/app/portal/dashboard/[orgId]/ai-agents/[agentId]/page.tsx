@@ -593,12 +593,32 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
     return 'identity';
   });
 
+  const promptConsumedRef = useRef(false);
+
   // Auto-open Agent Studio when navigated with ?tab=pact
   useEffect(() => {
     const urlTab = searchParams.get('tab');
     if (urlTab === 'pact') {
       setIsKnowledgeBaseOpen(true);
       setActiveSettingsTab('pact');
+    }
+    
+    // Check for pre-filled prompt and focus input
+    const promptParam = searchParams.get('prompt');
+    if (promptParam && !promptConsumedRef.current) {
+      setInputValue(promptParam);
+      promptConsumedRef.current = true;
+      // Wait a tick for textarea to render and be focusable
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          // Move cursor to the end
+          textareaRef.current.setSelectionRange(promptParam.length, promptParam.length);
+        }
+      }, 50);
+      
+      // Clean up the URL to prevent re-triggering on refresh
+      window.history.replaceState(null, '', window.location.pathname);
     }
   }, [searchParams]);
   const [ragDocs, setRagDocs] = useState<any[]>([]);

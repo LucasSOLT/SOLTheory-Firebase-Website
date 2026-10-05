@@ -36,6 +36,7 @@ import {
 } from '@/types/onboarding-templates';
 import SendArchiveButton from '@/components/onboarding/SendArchiveButton';
 import BodyPortal, { MODAL_OVERLAY_CLASS, MODAL_OVERLAY_STYLE } from '@/components/onboarding/BodyPortal';
+import OnboardingHeader from '@/components/onboarding/OnboardingHeader';
 
 export default function ComplianceVaultPage() {
   const { orgId: routeOrgId } = useParams<{ orgId: string }>();
@@ -250,52 +251,29 @@ export default function ComplianceVaultPage() {
   return (
     <div className={`flex flex-col h-full -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#f5f1e8] text-slate-900'} font-sans overflow-hidden`}>
       {/* ── Top Header ──────────────────────────────────────────────────────── */}
-      <div className={`shrink-0 px-4 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200/80 bg-[#f5f1e8]'}`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <button
-                onClick={() => router.push(`/portal/dashboard/${orgId}/onboarding`)}
-                className={`flex items-center gap-1 text-xs font-semibold transition-colors ${
-                  isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Onboarding
-              </button>
-              <span className={`text-xs ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>•</span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 uppercase tracking-wider">
-                Monica Engine
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold flex items-center gap-3 tracking-tight">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              Executive Compliance Vault
-            </h1>
-            <p className={`mt-1 text-sm ml-[52px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-              Audit-safe repository and one-click verification console for all legal, HR, and safety documents.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleExportCSV}
-              disabled={documents.length === 0}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all shadow-sm active:scale-[0.98] ${
-                documents.length === 0
-                  ? 'opacity-50 cursor-not-allowed bg-slate-800 text-slate-500'
-                  : isDarkMode
-                    ? 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
-                    : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
-              }`}
-            >
-              <Download className="w-4 h-4" />
-              Export Audit Manifest (CSV)
-            </button>
-          </div>
-        </div>
-      </div>
+      <OnboardingHeader
+        orgId={orgId as string}
+        isDarkMode={isDarkMode}
+        isAdmin={isAdmin}
+        activeTab="vault"
+        actions={
+          <button
+            onClick={handleExportCSV}
+            disabled={documents.length === 0}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all shadow-sm active:scale-[0.98] ${
+              documents.length === 0
+                ? 'opacity-50 cursor-not-allowed bg-slate-800 text-slate-500'
+                : isDarkMode
+                  ? 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
+            }`}
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Export Audit Manifest (CSV)</span>
+            <span className="sm:hidden">Export CSV</span>
+          </button>
+        }
+      />
 
       {/* ── Body ────────────────────────────────────────────────────────────── */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-6">

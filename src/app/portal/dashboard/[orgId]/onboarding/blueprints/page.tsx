@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
+import { useOrgRole } from '@/hooks/useOrgRole';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import { getAllOrgIds, getOrgLabel } from '@/lib/org-config';
 import {
@@ -24,12 +25,16 @@ import {
 import BlueprintEditor from '@/components/onboarding/BlueprintEditor';
 import BlueprintPreview from '@/components/onboarding/BlueprintPreview';
 import BodyPortal, { MODAL_OVERLAY_CLASS, MODAL_OVERLAY_STYLE } from '@/components/onboarding/BodyPortal';
+import OnboardingHeader from '@/components/onboarding/OnboardingHeader';
 
 export default function BlueprintsLibraryPage() {
   const { orgId: routeOrgId } = useParams<{ orgId: string }>();
   const orgId = routeOrgId;
   const router = useRouter();
   const { isDarkMode } = useTheme();
+
+  const { role } = useOrgRole(orgId);
+  const isAdmin = role === 'admin' || role === 'oracle';
 
   const [blueprints, setBlueprints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,42 +224,23 @@ export default function BlueprintsLibraryPage() {
   return (
     <div className={`flex flex-col h-full -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#f5f1e8] text-slate-900'} font-sans overflow-hidden`}>
       {/* Header */}
-      <div className={`shrink-0 px-4 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200/80 bg-[#f5f1e8]'}`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <button
-                onClick={() => router.push(`/portal/dashboard/${orgId}/onboarding`)}
-                className={`flex items-center gap-1 text-xs font-semibold transition-colors cursor-pointer ${
-                  isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Onboarding
-              </button>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold flex items-center gap-3 tracking-tight">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer ${isDarkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`} onClick={() => router.push(`/portal/dashboard/${orgId}/onboarding`)}>
-                <GraduationCap className="w-5 h-5" />
-              </div>
-              Role Blueprints
-            </h1>
-            <p className={`mt-1 text-xs sm:text-sm ml-0 sm:ml-[52px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-              Manage standardized onboarding templates and tracks for your organization.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setEditorState({ isOpen: true, existingBlueprint: null })}
-              className={`w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm active:scale-[0.98] cursor-pointer ${
-                isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'
-              }`}
-            >
-              <Plus className="w-4 h-4" />
-              Create New Blueprint
-            </button>
-          </div>
-        </div>
-      </div>
+      <OnboardingHeader
+        orgId={orgId as string}
+        isDarkMode={isDarkMode}
+        isAdmin={isAdmin}
+        activeTab="blueprints"
+        actions={
+          <button
+            onClick={() => setEditorState({ isOpen: true, existingBlueprint: null })}
+            className={`w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all shadow-sm active:scale-[0.98] cursor-pointer ${
+              isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'
+            }`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Create New Blueprint
+          </button>
+        }
+      />
 
       {/* Main Content */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-6">

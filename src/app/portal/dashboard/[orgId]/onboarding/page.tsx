@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useUser, useFirestore } from '@/firebase';
 import { useOrgId } from '@/contexts/OrgContext';
 import { useTheme } from '@/components/ThemeProvider';
@@ -49,6 +49,7 @@ import StuckDocumentsPanel from '@/components/onboarding/StuckDocumentsPanel';
 import AwaitingSignaturePanel from '@/components/onboarding/AwaitingSignaturePanel';
 import MySignatureCard from '@/components/onboarding/MySignatureCard';
 import ReadyToArchivePanel from '@/components/onboarding/ReadyToArchivePanel';
+import OnboardingHeader, { OnboardingTab } from '@/components/onboarding/OnboardingHeader';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import type { ComplianceDocumentCategory } from '@/types/onboarding-templates';
 import { logActivity } from '@/lib/activity-logger';
@@ -163,15 +164,24 @@ export default function OnboardingPage() {
   });
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'roadmaps' | 'blueprints' | 'vault' | 'reviews'>('roadmaps');
+
+  // Sync tab from URL query param
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'reviews') {
+      setActiveTab('reviews');
+    } else if (!tabParam) {
+      setActiveTab('roadmaps');
+    }
+  }, [searchParams]);
   const [selectedTaskForPopup, setSelectedTaskForPopup] = useState<TaskDoc | null>(null);
   const [selectedInstanceForCalendar, setSelectedInstanceForCalendar] = useState<OnboardingInstanceDoc | null>(null);
   const [selectedAdminInstance, setSelectedAdminInstance] = useState<OnboardingInstanceDoc | null>(null);
   const [adminReviewTask, setAdminReviewTask] = useState<TaskDoc | null>(null);
   const [nudgeLoadingMap, setNudgeLoadingMap] = useState<Record<string, boolean>>({});
   const [nudgeStatusMap, setNudgeStatusMap] = useState<Record<string, string>>({});
-  const [isGlobalNudging, setIsGlobalNudging] = useState(false);
-  const [globalNudgeMessage, setGlobalNudgeMessage] = useState<string | null>(null);
   const [manageBlueprintsInstance, setManageBlueprintsInstance] = useState<OnboardingInstanceDoc | null>(null);
   const isAdmin = role === 'admin' || role === 'oracle';
 
@@ -203,30 +213,6 @@ export default function OnboardingPage() {
           return next;
         });
       }, 4000);
-    }
-  };
-
-  const handleRunGlobalNudges = async () => {
-    setIsGlobalNudging(true);
-    setGlobalNudgeMessage(null);
-    try {
-      const headers = await getAuthHeaders();
-      const res = await fetch('/api/onboarding/cron/nudges', {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orgId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setGlobalNudgeMessage(`Bobby dispatched ${data.sentCount || 0} reminder email(s)!`);
-      } else {
-        setGlobalNudgeMessage(data.error || 'Failed to dispatch nudges');
-      }
-    } catch (err: any) {
-      setGlobalNudgeMessage(err.message || 'Error triggering nudges');
-    } finally {
-      setIsGlobalNudging(false);
-      setTimeout(() => setGlobalNudgeMessage(null), 5000);
     }
   };
 
@@ -617,111 +603,24 @@ export default function OnboardingPage() {
     <div className={`flex flex-col h-full -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#f5f1e8] text-slate-900'} font-sans overflow-hidden`}>
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className={`shrink-0 px-4 sm:px-8 pt-6 sm:pt-8 pb-4 sm:pb-6 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200/80 bg-[#f5f1e8]'}`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold flex items-center gap-3 tracking-tight">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
-                <GraduationCap className="w-5 h-5" />
-              </div>
-              Onboarding
-            </h1>
-            <p className={`mt-1 text-sm ml-[52px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-              {isAdmin
-                ? 'Track and manage new hire onboarding across your organization.'
-                : 'Complete your onboarding steps and get up to speed with your new role.'}
-            </p>
-          </div>
-
-          {/* Admin buttons */}
-          {isAdmin && (
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleRunGlobalNudges}
-                disabled={isGlobalNudging}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm active:scale-[0.98] cursor-pointer border ${
-                  isDarkMode
-                    ? 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-amber-500/30'
-                    : 'bg-white hover:bg-amber-50 text-amber-700 border-amber-200'
-                }`}
-                title="Bobby scans for approaching and overdue tasks to send friendly Gmail reminders"
-              >
-                {isGlobalNudging ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Bell className="w-4 h-4 text-amber-500" />
-                )}
-                <span>Run Bobby Nudges</span>
-              </button>
-
-              <button
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-sm active:scale-[0.98] cursor-pointer ${
-                  isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'
-                }`}
-                onClick={() => setIsInviteModalOpen(true)}
-              >
-                <Plus className="w-4 h-4" />
-                Onboard New Hire
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Bobby Nudges Feedback Pill */}
-        {globalNudgeMessage && (
-          <div className="mt-3 px-4 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-            <Sparkles className="w-4 h-4 shrink-0" />
-            <span>{globalNudgeMessage}</span>
-          </div>
-        )}
-
-        {/* ── Tab Bar (Admin Only) ─────────────────────────────────────── */}
-        {isAdmin && (() => {
-          const pendingReviewCount = tasks.filter(t => t.metadata?.reviewStatus === 'pending_review').length;
-          return (
-          <div className={`flex items-center gap-1 mt-4 px-1 py-1 rounded-xl ${isDarkMode ? 'bg-slate-800/60' : 'bg-slate-100/80'}`}>
-            {([
-              { key: 'roadmaps' as const, label: 'Active Roadmaps', icon: <Users className="w-4 h-4" /> },
-              { key: 'blueprints' as const, label: 'Role Blueprints', icon: <GraduationCap className="w-4 h-4" /> },
-              { key: 'vault' as const, label: 'Compliance Vault', icon: <ShieldCheck className="w-4 h-4" /> },
-              { key: 'reviews' as const, label: 'Review Queue', icon: <ClipboardCheck className="w-4 h-4" /> },
-            ]).map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => {
-                  if (tab.key === 'blueprints') {
-                    router.push(`/portal/dashboard/${orgId}/onboarding/blueprints`);
-                  } else if (tab.key === 'vault') {
-                    router.push(`/portal/dashboard/${orgId}/onboarding/vault`);
-                  } else {
-                    setActiveTab(tab.key);
-                    if (tab.key !== 'roadmaps') setSelectedAdminInstance(null);
-                  }
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                  activeTab === tab.key
-                    ? (isDarkMode ? 'bg-slate-700 text-white shadow-sm' : 'bg-white text-slate-900 shadow-sm')
-                    : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-700/50' : 'text-slate-500 hover:text-slate-900 hover:bg-white/50')
-                }`}
-              >
-                {tab.icon}
-                <span className="hidden sm:inline">{tab.label}</span>
-                {/* Pending count badge for Review Queue */}
-                {tab.key === 'reviews' && pendingReviewCount > 0 && (
-                  <span className={`ml-0.5 min-w-[20px] h-5 flex items-center justify-center text-[10px] font-black rounded-full px-1.5 ${
-                    activeTab === 'reviews'
-                      ? 'bg-amber-500 text-white'
-                      : (isDarkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700')
-                  }`}>
-                    {pendingReviewCount}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          );
-        })()}
-      </div>
+      <OnboardingHeader
+        orgId={orgId as string}
+        isDarkMode={isDarkMode}
+        isAdmin={isAdmin}
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          if (tab === 'blueprints') {
+            router.push(`/portal/dashboard/${orgId}/onboarding/blueprints`);
+          } else if (tab === 'vault') {
+            router.push(`/portal/dashboard/${orgId}/onboarding/vault`);
+          } else {
+            setActiveTab(tab);
+            if (tab !== 'roadmaps') setSelectedAdminInstance(null);
+          }
+        }}
+        onOnboardNewHire={() => setIsInviteModalOpen(true)}
+        pendingReviewCount={tasks.filter(t => t.metadata?.reviewStatus === 'pending_review').length}
+      />
 
       {/* ── Main Content ──────────────────────────────────────────────────── */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
