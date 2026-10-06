@@ -25,6 +25,7 @@ import {
   ExternalLink,
   CheckCircle2,
   XCircle,
+  RotateCcw,
   Loader2,
   FileText,
 } from 'lucide-react';
@@ -60,7 +61,7 @@ export default function ComplianceVaultPage() {
 
   // Verify modal state
   const [selectedDoc, setSelectedDoc] = useState<ComplianceDocument | null>(null);
-  const [actionType, setActionType] = useState<'verified' | 'rejected' | null>(null);
+  const [actionType, setActionType] = useState<'verified' | 'rejected' | 're_request' | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -144,23 +145,60 @@ export default function ComplianceVaultPage() {
 
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch('/api/onboarding/vault/verify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers,
-        },
-        body: JSON.stringify({
-          orgId,
-          documentId: selectedDoc.id,
-          status: actionType,
-          notes: reviewNotes,
-        }),
-      });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to update document status');
+      if (actionType === 're_request') {
+        if (!selectedDoc.taskId) {
+          throw new Error("This document is not attached to an onboarding task, so it cannot be re-requested. Use 'Reject (Final)' instead.");
+        }
+        if (!reviewNotes.trim()) {
+          throw new Error("Notes are required when requesting a revision so the employee knows what to fix.");
+        }
+        
+        const res = await fetch('/api/onboarding/re-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers },
+          body: JSON.stringify({
+            orgId,
+            taskId: selectedDoc.taskId,
+            notes: reviewNotes,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to request revision');
+        }
+
+        // Also update the vault document to rejected and superseded
+        await fetch('/api/onboarding/vault/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers },
+          body: JSON.stringify({
+            orgId,
+            documentId: selectedDoc.id,
+            status: 'rejected',
+            notes: `Superseded - revision requested: ${reviewNotes}`.substring(0, 500),
+          }),
+        });
+      } else {
+        const res = await fetch('/api/onboarding/vault/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...headers,
+          },
+          body: JSON.stringify({
+            orgId,
+            documentId: selectedDoc.id,
+            status: actionType,
+            notes: reviewNotes,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to update document status');
+        }
       }
 
       // Close modal
@@ -479,31 +517,68 @@ export default function ComplianceVaultPage() {
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" /> Verify
                           </button>
+                          {doc.taskId && (
+                            <button
+                              onClick={() => {
+                                setSelectedDoc(doc);
+                                setActionType('re_request');
+                                setReviewNotes('');
+                              }}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-white shadow-sm transition-all"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" /> Request Revision
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               setSelectedDoc(doc);
                               setActionType('rejected');
                               setReviewNotes('');
                             }}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-sm transition-all"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white shadow-sm transition-all"
                           >
-                            <XCircle className="w-3.5 h-3.5" /> Reject
+                            <XCircle className="w-3.5 h-3.5" /> Reject (Final)
                           </button>
                         </>
                       )}
 
                       {/* Allow re-verifying or rejecting already reviewed docs */}
                       {!isPending && (
-                        <button
-                          onClick={() => {
-                            setSelectedDoc(doc);
-                            setActionType(isVerified ? 'rejected' : 'verified');
-                            setReviewNotes('');
-                          }}
-                          className={`text-xs underline font-medium ${isDarkMode ? 'text-slate-500 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                          Change status
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Change status:</span>
+                          <button
+                            onClick={() => {
+                              setSelectedDoc(doc);
+                              setActionType('verified');
+                              setReviewNotes('');
+                            }}
+                            className={`text-xs underline font-medium ${isDarkMode ? 'text-slate-500 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'}`}
+                          >
+                            Verify
+                          </button>
+                          {doc.taskId && (
+                            <button
+                              onClick={() => {
+                                setSelectedDoc(doc);
+                                setActionType('re_request');
+                                setReviewNotes('');
+                              }}
+                              className={`text-xs underline font-medium ${isDarkMode ? 'text-slate-500 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                              Request Revision
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setSelectedDoc(doc);
+                              setActionType('rejected');
+                              setReviewNotes('');
+                            }}
+                            className={`text-xs underline font-medium ${isDarkMode ? 'text-slate-500 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'}`}
+                          >
+                            Reject (Final)
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -522,7 +597,7 @@ export default function ComplianceVaultPage() {
             isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
             <h3 className="text-base font-bold">
-              {actionType === 'verified' ? 'Verify Compliance Document' : 'Reject Compliance Document'}
+              {actionType === 'verified' ? 'Verify Compliance Document' : actionType === 're_request' ? 'Request Document Revision' : 'Reject Compliance Document'}
             </h3>
             <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
               You are updating <strong>{selectedDoc.fileName}</strong> for <strong>{selectedDoc.userName}</strong>.
@@ -536,7 +611,7 @@ export default function ComplianceVaultPage() {
 
             <div>
               <label className="block text-xs font-semibold mb-1">
-                {actionType === 'verified' ? 'Approval Notes (Optional)' : 'Reason for Rejection (Required)'}
+                {actionType === 'verified' ? 'Approval Notes (Optional)' : actionType === 're_request' ? 'Revision Notes (Required)' : 'Reason for Rejection (Required)'}
               </label>
               <textarea
                 rows={3}
@@ -562,13 +637,13 @@ export default function ComplianceVaultPage() {
               </button>
               <button
                 onClick={handlePerformAction}
-                disabled={isProcessing || (actionType === 'rejected' && !reviewNotes.trim())}
+                disabled={isProcessing || ((actionType === 'rejected' || actionType === 're_request') && !reviewNotes.trim())}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white shadow-sm transition-all ${
-                  actionType === 'verified' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500'
+                  actionType === 'verified' ? 'bg-emerald-600 hover:bg-emerald-500' : actionType === 're_request' ? 'bg-amber-500 hover:bg-amber-400' : 'bg-slate-700 hover:bg-slate-600'
                 } ${isProcessing ? 'opacity-50' : ''}`}
               >
                 {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                <span>Confirm {actionType === 'verified' ? 'Verification' : 'Rejection'}</span>
+                <span>Confirm {actionType === 'verified' ? 'Verification' : actionType === 're_request' ? 'Revision Request' : 'Rejection'}</span>
               </button>
             </div>
           </div>
