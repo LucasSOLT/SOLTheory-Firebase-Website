@@ -66,6 +66,24 @@ interface BlueprintEditorProps {
   existingBlueprint?: any;
 }
 
+const REFERENCE_DATE = new Date();
+REFERENCE_DATE.setHours(0, 0, 0, 0);
+
+function offsetToDateStr(offset: number): string {
+  const d = new Date(REFERENCE_DATE.getTime() + offset * 86400000);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function dateStrToOffset(dateStr: string): number {
+  if (!dateStr) return 0;
+  const [y, m, d] = dateStr.split('-');
+  const selected = new Date(Number(y), Number(m) - 1, Number(d));
+  return Math.round((selected.getTime() - REFERENCE_DATE.getTime()) / 86400000);
+}
+
 export default function BlueprintEditor({
   isOpen,
   onClose,
@@ -517,23 +535,24 @@ export default function BlueprintEditor({
                       className={`${inputClass(`phase_${phase.id}_name`)} flex-1 text-sm`}
                       placeholder="Phase Name *"
                     />
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs font-medium text-slate-500">Days:</span>
-                      <div className="flex items-center gap-1.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 shrink-0">
+                      <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Opens</span>
                         <input
-                          type="number"
-                          value={phase.startDay}
-                          onChange={(e) => handleUpdatePhase(phase.id, { startDay: parseInt(e.target.value) || 0 })}
-                          className={`${inputClass()} w-16 text-center text-xs py-1.5`}
-                          title="Start Day"
+                          type="date"
+                          value={offsetToDateStr(phase.startDay)}
+                          onChange={(e) => handleUpdatePhase(phase.id, { startDay: dateStrToOffset(e.target.value) })}
+                          className={`${inputClass()} w-32 text-xs py-1 px-1.5`}
                         />
-                        <span className="text-xs text-slate-400">to</span>
+                      </div>
+                      <div className="hidden sm:block text-xs text-slate-400">to</div>
+                      <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Due</span>
                         <input
-                          type="number"
-                          value={phase.endDay}
-                          onChange={(e) => handleUpdatePhase(phase.id, { endDay: parseInt(e.target.value) || 0 })}
-                          className={`${inputClass()} w-16 text-center text-xs py-1.5`}
-                          title="End Day"
+                          type="date"
+                          value={offsetToDateStr(phase.endDay)}
+                          onChange={(e) => handleUpdatePhase(phase.id, { endDay: dateStrToOffset(e.target.value) })}
+                          className={`${inputClass()} w-32 text-xs py-1 px-1.5`}
                         />
                       </div>
                     </div>
@@ -625,43 +644,45 @@ export default function BlueprintEditor({
                                 </select>
                               </div>
 
-                              <div className="flex items-center shrink-0 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-                                <div className="flex items-center gap-1.5 px-2">
-                                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Opens</span>
-                                  <span className="text-xs text-slate-500 whitespace-nowrap">Day</span>
-                                  <input
-                                    type="number"
-                                    value={item.openDayOffset ?? 0}
-                                    onChange={(e) => handleUpdateItem(phase.id, item.id, { openDayOffset: parseInt(e.target.value) || 0 })}
-                                    className={`${inputClass()} w-14 text-center text-xs py-1 px-1`}
-                                    title="Open Day Offset"
-                                  />
-                                  <input
-                                    type="time"
-                                    value={item.openTime || '09:00'}
-                                    onChange={(e) => handleUpdateItem(phase.id, item.id, { openTime: e.target.value })}
-                                    className={`${inputClass()} w-[88px] text-xs py-1 px-1.5`}
-                                    title="Open Time"
-                                  />
+                              <div className="flex flex-col sm:flex-row sm:items-center shrink-0 bg-slate-100 dark:bg-slate-800/50 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 gap-1.5 sm:gap-0">
+                                <div className="flex items-center gap-1.5 px-2 justify-between sm:justify-start">
+                                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider w-10">Opens</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="date"
+                                      value={offsetToDateStr(item.openDayOffset ?? 0)}
+                                      onChange={(e) => handleUpdateItem(phase.id, item.id, { openDayOffset: dateStrToOffset(e.target.value) })}
+                                      className={`${inputClass()} w-32 text-xs py-1 px-1.5`}
+                                      title="Open Date"
+                                    />
+                                    <input
+                                      type="time"
+                                      value={item.openTime || '09:00'}
+                                      onChange={(e) => handleUpdateItem(phase.id, item.id, { openTime: e.target.value })}
+                                      className={`${inputClass()} w-[88px] text-xs py-1 px-1.5`}
+                                      title="Open Time"
+                                    />
+                                  </div>
                                 </div>
-                                <div className="w-px h-6 bg-slate-300 dark:bg-slate-600"></div>
-                                <div className="flex items-center gap-1.5 px-2">
-                                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Due</span>
-                                  <span className="text-xs text-slate-500 whitespace-nowrap">Day</span>
-                                  <input
-                                    type="number"
-                                    value={item.dayOffset ?? 0}
-                                    onChange={(e) => handleUpdateItem(phase.id, item.id, { dayOffset: parseInt(e.target.value) || 0 })}
-                                    className={`${inputClass()} w-14 text-center text-xs py-1 px-1`}
-                                    title="Due Day Offset"
-                                  />
-                                  <input
-                                    type="time"
-                                    value={item.dueTime || '17:00'}
-                                    onChange={(e) => handleUpdateItem(phase.id, item.id, { dueTime: e.target.value })}
-                                    className={`${inputClass()} w-[88px] text-xs py-1 px-1.5`}
-                                    title="Due Time"
-                                  />
+                                <div className="hidden sm:block w-px h-6 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+                                <div className="flex items-center gap-1.5 px-2 justify-between sm:justify-start pt-1.5 border-t border-slate-200 dark:border-slate-700 sm:pt-0 sm:border-t-0">
+                                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider w-10">Due</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="date"
+                                      value={offsetToDateStr(item.dayOffset ?? 0)}
+                                      onChange={(e) => handleUpdateItem(phase.id, item.id, { dayOffset: dateStrToOffset(e.target.value) })}
+                                      className={`${inputClass()} w-32 text-xs py-1 px-1.5`}
+                                      title="Due Date"
+                                    />
+                                    <input
+                                      type="time"
+                                      value={item.dueTime || '17:00'}
+                                      onChange={(e) => handleUpdateItem(phase.id, item.id, { dueTime: e.target.value })}
+                                      className={`${inputClass()} w-[88px] text-xs py-1 px-1.5`}
+                                      title="Due Time"
+                                    />
+                                  </div>
                                 </div>
                               </div>
 
