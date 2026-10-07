@@ -21,11 +21,14 @@ import {
   AlertCircle,
   X,
   Eye,
+  ChevronDown,
+  LayoutTemplate,
 } from 'lucide-react';
 import BlueprintEditor from '@/components/onboarding/BlueprintEditor';
 import BlueprintPreview from '@/components/onboarding/BlueprintPreview';
 import BodyPortal, { MODAL_OVERLAY_CLASS, MODAL_OVERLAY_STYLE } from '@/components/onboarding/BodyPortal';
 import OnboardingHeader from '@/components/onboarding/OnboardingHeader';
+import TemplateGalleryModal from '@/components/onboarding/TemplateGalleryModal';
 
 export default function BlueprintsLibraryPage() {
   const { orgId: routeOrgId } = useParams<{ orgId: string }>();
@@ -67,6 +70,11 @@ export default function BlueprintsLibraryPage() {
     successMessage: null,
     errorMessage: null,
   });
+
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
+  
+  const systemTemplates = blueprints.filter(bp => bp.isSystem);
 
   const handlePushBlueprint = async () => {
     if (!pushModalState.blueprint || !pushModalState.targetOrgId) return;
@@ -206,8 +214,9 @@ export default function BlueprintsLibraryPage() {
   };
 
   const filteredBlueprints = blueprints.filter(bp =>
-    bp.roleName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bp.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    !bp.isSystem &&
+    (bp.roleName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    bp.description?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   if (loading) {
@@ -230,15 +239,51 @@ export default function BlueprintsLibraryPage() {
         isAdmin={isAdmin}
         activeTab="blueprints"
         actions={
-          <button
-            onClick={() => setEditorState({ isOpen: true, existingBlueprint: null })}
-            className={`w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all shadow-sm active:scale-[0.98] cursor-pointer ${
-              isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'
-            }`}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Create New Blueprint
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
+              className={`w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all shadow-sm active:scale-[0.98] cursor-pointer ${
+                isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Create New Blueprint
+              <ChevronDown className="w-3.5 h-3.5 opacity-70 ml-1" />
+            </button>
+            {isCreateMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsCreateMenuOpen(false)} />
+                <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl border overflow-hidden z-50 ${
+                  isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
+                }`}>
+                  <button
+                    onClick={() => {
+                      setIsCreateMenuOpen(false);
+                      setEditorState({ isOpen: true, existingBlueprint: null });
+                    }}
+                    className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-semibold text-left transition-colors ${
+                      isDarkMode ? 'hover:bg-slate-700/50 text-white' : 'hover:bg-slate-50 text-slate-900'
+                    }`}
+                  >
+                    <Plus className="w-4 h-4 text-indigo-500" />
+                    Start from scratch
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsCreateMenuOpen(false);
+                      setIsTemplateGalleryOpen(true);
+                    }}
+                    className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-semibold text-left border-t transition-colors ${
+                      isDarkMode ? 'border-slate-700 hover:bg-slate-700/50 text-white' : 'border-slate-100 hover:bg-slate-50 text-slate-900'
+                    }`}
+                  >
+                    <LayoutTemplate className="w-4 h-4 text-emerald-500" />
+                    Start from a template
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         }
       />
 
@@ -517,6 +562,20 @@ export default function BlueprintsLibraryPage() {
         </div>
         </BodyPortal>
       )}
+
+      {/* Template Gallery Modal */}
+      <TemplateGalleryModal
+        isOpen={isTemplateGalleryOpen}
+        onClose={() => setIsTemplateGalleryOpen(false)}
+        systemTemplates={systemTemplates}
+        isDarkMode={isDarkMode}
+        onPreviewTemplate={(bp) => setPreviewBlueprint(bp)}
+        onSelectTemplate={(bp) => {
+          setIsTemplateGalleryOpen(false);
+          const cloned = { ...bp, id: undefined, roleName: `${bp.roleName} (Copy)`, isSystem: false };
+          setEditorState({ isOpen: true, existingBlueprint: cloned });
+        }}
+      />
 
       {/* Blueprint Preview Modal */}
       {previewBlueprint && (
