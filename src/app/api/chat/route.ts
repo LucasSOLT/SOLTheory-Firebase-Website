@@ -14,7 +14,7 @@ import { createStreamingCompletion, createCompletion, autoSelectModel, MODEL_REG
 import { CRM_TOOL_DEFINITIONS, buildCrmSystemPrompt, executeCrmCreateContact, executeCrmUpdateContact, executeCrmDeleteContact, executeCrmSearchContacts, executeCrmGetContactProfile, executeCrmListContactBooks, executeCrmGetAnalytics, executeCrmResolveContact, executeCrmEvaluateContacts, executeCrmBatchUpdate, executeCrmMergeContacts, executeCrmAddActivity, executeCrmCreateContactBook, executeCrmRenameContactBook, executeCrmDeleteContactBook, executeCrmMoveContact, executeCrmScheduleFollowup, executeCrmCompleteTask, CrmInstance } from "@/lib/jarvis-crm-tools";
 import { routeIntent, type JarvisDomain } from "@/lib/jarvis-router";
 import { filterToolsForDomain, getDomainPrompt } from "@/lib/jarvis-agents";
-import { ORG_BRAIN_TOOL_DEFINITIONS, PERSONAL_BRAIN_TOOL_DEFINITIONS, executeSearchOrgBrain, executeSearchPersonalBrain } from "@/lib/jarvis-org-brain-tools";
+import { ORG_BRAIN_TOOL_DEFINITIONS, PERSONAL_BRAIN_TOOL_DEFINITIONS, executeSearchOrgBrain, executeSearchPersonalBrain, isDocumentListRequest } from "@/lib/jarvis-org-brain-tools";
 import { orchestrateMultiStep } from "@/lib/jarvis-orchestrator";
 import type { AgentEvent } from "@/lib/agent-events";
 const tools: any = [
@@ -661,7 +661,7 @@ The current date/time for the user is: ${monicaTime}.`;
     if (finalKnowledge.length > 0) {
       groqMessages.push({
         role: "system",
-        content: `[KNOWLEDGE BASE]\nAuthoritative org data — overrides your training data. Reference sources naturally. If not covered here, use general knowledge.\n\n${finalKnowledge.substring(0, 3000)}`
+        content: `[KNOWLEDGE BASE]\nAuthoritative org data — overrides your training data. Reference sources naturally. If not covered here, use general knowledge.\nThese are only a few query-matched excerpts — NOT a complete list of uploaded documents. Never count or list the user's documents from these sources; use the AI Brain tool's list_only mode instead.\n\n${finalKnowledge.substring(0, 3000)}`
       });
     }
 
@@ -829,6 +829,7 @@ Use it to look up:
 - Mission statement, elevator pitch, leadership team
 - Compliance frameworks, confidential topics, approved tools
 - **READ uploaded org brain documents** — you can retrieve and read the full text content of documents uploaded to the Org AI Brain. Use section="documents" or include the document name in your query.
+- **LIST / COUNT uploaded org brain documents** — for ANY question like "how many documents/items/files are in the org brain" or "what are the names of the documents", call search_org_brain with section="documents", list_only=true and an EMPTY query. The result starts with "TOTAL DOCUMENTS: N" followed by every document name. Report exactly that N and list every name — never count from a partial content search.
 Do NOT guess or fabricate organizational policies — always call search_org_brain first.
 This is separate from CRM (which stores external contacts). The Org AI Brain stores internal company policies, values, operational knowledge, and uploaded reference documents.`,
         });
@@ -843,8 +844,37 @@ This is separate from CRM (which stores external contacts). The Org AI Brain sto
 You have access to the user's Personal AI Brain documents via the search_personal_brain tool.
 Use it when the user asks about documents they uploaded to their AI Brain, or when they ask you to read, summarize, analyze, or quote from a personal document.
 You can search by document name or by content query. This searches ONLY the user's private documents — NEVER use this in organization scope conversations.
-If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer review"), call search_personal_brain with document_name set to that name.`,
+If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer review"), call search_personal_brain with document_name set to that name.
+To LIST or COUNT the user's documents ("how many documents do I have", "what files are in my AI brain"), call search_personal_brain with list_only=true and an EMPTY query. The result starts with "TOTAL DOCUMENTS: N" followed by every document name — report exactly that N and list every name.`,
         });
+      }
+    }
+
+    // --- AI BRAIN DOCUMENT LIST: deterministic answer for "how many / what are the names" questions ---
+    // The model sometimes answers these from the partial [KNOWLEDGE BASE] excerpts or calls the tool
+    // without list_only, which yields only a handful of documents. When the user's message is clearly
+    // a list/count request, fetch the authoritative list server-side and hand it to the model.
+    // Org scope only ever receives the org list; the personal list is only fetched in personal scope.
+    if ((agentId === "jarvis" || agentId === "bobby" || agentId === "monica") && isDocumentListRequest(lastUserText2)) {
+      const mentionsOrg = /\b(org|orgs|organi[sz]ation(al)?|company|team|shared)\b/i.test(lastUserText2);
+      const wantPersonal = chatScope !== 'org' && !!uid && !mentionsOrg;
+      try {
+        const listJson = await Promise.race([
+          wantPersonal
+            ? executeSearchPersonalBrain(uid, { list_only: true })
+            : executeSearchOrgBrain(orgId, { list_only: true }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Document list timeout")), 5000)),
+        ]);
+        const listText = String(JSON.parse(listJson)?.result || "");
+        if (/TOTAL DOCUMENTS: \d+/.test(listText)) {
+          groqMessages.push({
+            role: "system",
+            content: `[${wantPersonal ? "PERSONAL" : "ORGANIZATION"} AI BRAIN — COMPLETE DOCUMENT LIST (fetched live for this question)]\nThe user is asking how many documents there are and/or what they are called. This list is authoritative and complete. Answer with exactly the TOTAL below and list every name as a numbered list. Do NOT count documents from [KNOWLEDGE BASE] excerpts or earlier answers, and do not drop or merge duplicate names.\n\n${listText}`,
+          });
+          console.log(`[AI BRAIN LIST] Injected ${wantPersonal ? "personal" : "org"} document list (${/TOTAL DOCUMENTS: (\d+)/.exec(listText)?.[1]} docs)`);
+        }
+      } catch (listErr: any) {
+        console.warn("[AI BRAIN LIST] Could not prefetch document list:", listErr?.message);
       }
     }
 
@@ -1979,7 +2009,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
 
           // ── Organization AI Brain Tool ──
           } else if (functionName === "search_org_brain") {
-            console.log("[ORG BRAIN] Searching org brain for:", args.query || "(full profile)", "section:", args.section || "all");
+            console.log("[ORG BRAIN] Searching org brain for:", args.query || "(full profile)", "section:", args.section || "all", "list_only:", args.list_only ?? false);
             functionResult = await executeSearchOrgBrain(orgId, args);
 
           // ── Personal AI Brain Tool ──

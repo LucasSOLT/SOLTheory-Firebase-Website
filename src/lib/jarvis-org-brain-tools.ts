@@ -37,6 +37,8 @@ export const ORG_BRAIN_TOOL_DEFINITIONS = [
         "elevator pitch, mission statement, compliance frameworks, leadership team, off-limits topics, " +
         "AND to READ the contents of documents uploaded to the Org AI Brain. " +
         "When the user asks about an org brain document by name, use this tool with section='documents' and include the document name in query. " +
+        "To list or count all uploaded documents (e.g. 'how many documents/items/files are in the org brain', 'what are the names of the documents'), use section='documents', set list_only=true, and leave the query EMPTY. " +
+        "The list_only result contains the authoritative total count and every document name — report that count and those names exactly. " +
         "This is NOT the CRM — this contains internal company policies, values, operational guidelines, and uploaded reference documents.",
       parameters: {
         type: "object",
@@ -44,13 +46,18 @@ export const ORG_BRAIN_TOOL_DEFINITIONS = [
           query: {
             type: "string",
             description:
-              'Free-text search query, e.g. "core values", "escalation protocol", "peer review document", "Kyle Jenkins". Used for keyword matching and vector search of uploaded documents.',
+              'Free-text search query, e.g. "core values", "escalation protocol", "peer review document", "Kyle Jenkins". Used for keyword matching and vector search of uploaded documents. Leave EMPTY when list_only=true.',
           },
           section: {
             type: "string",
             enum: ["all", "values", "escalation", "identity", "operations", "rules", "documents"],
             description:
               'Optional filter. "values" = core org values, "escalation" = urgent contacts, "identity" = elevator pitch / mission / leadership, "operations" = compliance / off-limits / tone, "rules" = AI behavior rules, "documents" = search and READ uploaded org brain documents. "all" = everything including documents.',
+          },
+          list_only: {
+            type: "boolean",
+            description:
+              "Set to true to list and count ALL documents uploaded to the Org AI Brain (names, sizes, total count) without their contents. Use for any 'how many' / 'list' / 'what documents' question. Use with section='documents' and an empty query.",
           },
         },
         required: [],
@@ -69,6 +76,7 @@ export const PERSONAL_BRAIN_TOOL_DEFINITIONS = [
         "Use this when the user asks about documents they uploaded to their personal AI Brain, " +
         "or when they ask you to read, summarize, analyze, or quote from a document. " +
         "You can search by document name or by content query. " +
+        "To list or count all of the user's uploaded documents, set list_only=true and leave query and document_name EMPTY; the result contains the authoritative total count and every document name — report them exactly. " +
         "This searches ONLY the user's private documents — not the organization's shared documents.",
       parameters: {
         type: "object",
@@ -82,6 +90,11 @@ export const PERSONAL_BRAIN_TOOL_DEFINITIONS = [
             type: "string",
             description:
               'Optional exact or partial document filename to look up, e.g. "Kyle Jenkins" or "peer review". If provided, the tool will find the matching document and return its full text content.',
+          },
+          list_only: {
+            type: "boolean",
+            description:
+              "Set to true to list and count ALL documents in the user's Personal AI Brain (names, sizes, total count) without their contents. Use for any 'how many' / 'list' / 'what documents' question.",
           },
         },
         required: [],
@@ -125,12 +138,169 @@ const KEYWORD_HINTS: Array<{ keywords: RegExp; sections: string[] }> = [
   { keywords: /\b(compliance|hipaa|pci|soc|fedramp|gdpr|framework|regulation)\b/i, sections: ["operations"] },
   { keywords: /\b(confidential|off[\s-]?limits?|tone|jargon|approved\s*tools?|never\s*(reveal|share|quote))\b/i, sections: ["rules", "operations"] },
   { keywords: /\b(document|file|upload|pdf|docx|report|paper|thesis|review|memo|manual|guide)\b/i, sections: ["documents"] },
+  // "items" / "list" and plural forms (the pattern above uses \b…\b so it never matches "documents"/"files")
+  { keywords: /\b(item|items|list|documents|docs|files|uploads)\b/i, sections: ["documents"] },
 ];
 
 /** Cap for plaintext returned per document */
 const MAX_DOC_PLAINTEXT = 6000;
 /** Cap for total plaintext returned across all documents */
 const MAX_TOTAL_PLAINTEXT = 24000;
+/** Max documents returned in list mode (metadata only — plaintext is never read or returned) */
+const MAX_LIST_DOCS = 500;
+/** Max names included in the document index appended to normal (content) searches */
+const MAX_INDEX_NAMES_IN_SEARCH = 100;
+/** Max extra name-matched documents fetched beyond the first 30 in a normal search */
+const MAX_EXTRA_NAME_MATCHES = 10;
+
+/**
+ * Detects "how many documents" / "list the files" / "names of the documents" style
+ * requests so list mode still kicks in if the model forgets to set list_only.
+ */
+const LIST_INTENT_PATTERNS: RegExp[] = [
+  /\bhow\s+many\s+(?:\S+\s+){0,3}?(?:documents?|docs?|files?|items?|uploads?|things|pdfs?)\b/i,
+  /\b(?:list|enumerate|name|count)\s+(?:me\s+)?(?:all\s+)?(?:of\s+)?(?:the\s+|your\s+|my\s+|our\s+)?(?:\S+\s+){0,3}?(?:documents|docs|files|items|uploads|pdfs)\b/i,
+  /\b(?:names?|titles?|list|count|number)\s+of\s+(?:all\s+)?(?:the\s+)?(?:\S+\s+){0,3}?(?:documents|docs|files|items|uploads|pdfs)\b/i,
+  /\b(?:what|which)\s+(?:documents|docs|files|items|uploads|pdfs)\s+(?:are|do|does|have|has|is|did)\b/i,
+  // "I uploaded 20 more documents, how many are there now?"
+  /\b(?:documents?|docs?|files?|items?|uploads?|pdfs?)\b[^.?!]{0,80}?\bhow\s+many\s+(?:are|is|do|does|have|has|did)\b/i,
+];
+
+function detectListIntent(text: string): boolean {
+  if (!text) return false;
+  return LIST_INTENT_PATTERNS.some((re) => re.test(text));
+}
+
+/**
+ * Words that carry no content meaning in a document query. A query made ONLY of these
+ * (e.g. "documents", "all documents", "org brain documents", "list", "uploaded files")
+ * is a request to see the documents, not a content search — so it is served by list mode
+ * instead of a relevance search that returns only the first few documents.
+ */
+const GENERIC_QUERY_WORDS = new Set([
+  "a", "an", "the", "all", "every", "each", "any", "my", "our", "your", "their", "them", "of", "in", "on",
+  "inside", "within", "from", "for", "to", "and", "is", "are", "what", "which", "show", "me", "give", "get",
+  "see", "view", "find", "search", "please", "now", "rn", "currently", "current", "there", "here", "available",
+  "stored", "saved", "uploaded", "upload", "uploads", "document", "documents", "doc", "docs", "file", "files",
+  "item", "items", "pdf", "pdfs", "list", "listing", "names", "name", "titles", "title", "count", "total",
+  "number", "everything", "org", "organization", "organizational", "company", "team", "shared", "ai", "brain",
+  "personal", "private", "knowledge", "base", "library", "how", "many",
+]);
+const GENERIC_QUERY_ANCHORS = new Set([
+  "document", "documents", "doc", "docs", "file", "files", "item", "items", "pdf", "pdfs", "uploads",
+  "uploaded", "list", "listing", "names", "titles", "everything", "count", "total",
+]);
+
+function isGenericDocumentQuery(text: string): boolean {
+  if (!text) return false;
+  const words = text.toLowerCase().replace(/[^a-z0-9\s]+/g, " ").split(/\s+/).filter(Boolean);
+  if (words.length === 0) return false;
+  return words.every((w) => GENERIC_QUERY_WORDS.has(w)) && words.some((w) => GENERIC_QUERY_ANCHORS.has(w));
+}
+
+/**
+ * True when a USER message is asking to list / count the AI Brain documents.
+ * Used by the chat route to steer the model to list_only (and away from partial excerpts).
+ */
+export function isDocumentListRequest(text: string): boolean {
+  if (!text) return false;
+  return detectListIntent(text) && /\b(brains?|documents?|docs?|files?|uploads?|uploaded|pdfs?|knowledge\s*base)\b/i.test(text);
+}
+
+/** Tool args may arrive as a real boolean or as the string "true" depending on the model. */
+function parseListOnly(value: unknown): boolean {
+  return value === true || (typeof value === "string" && value.trim().toLowerCase() === "true");
+}
+
+// ── Helper: List ALL documents in a collection (names + metadata only) ──────
+
+type DocIndexEntry = { id: string; name: string; size: string; vectorChunks: number; processing: boolean };
+type DocIndex = { entries: DocIndexEntry[]; total: number };
+
+/** Reads name/size metadata for every document (plaintext is never read). Throws on Firestore errors. */
+async function fetchDocumentIndex(
+  db: FirebaseFirestore.Firestore,
+  collectionPath: string,
+): Promise<DocIndex> {
+  // .select() fetches only the listed fields, so large plaintext bodies are never read.
+  const docsSnap = await db
+    .collection(collectionPath)
+    .select("name", "size", "vectorChunkCount", "status")
+    .limit(MAX_LIST_DOCS)
+    .get();
+
+  let total = docsSnap.size;
+  if (docsSnap.size >= MAX_LIST_DOCS) {
+    try {
+      const countSnap = await db.collection(collectionPath).count().get();
+      total = countSnap.data().count;
+    } catch { /* best effort — fall back to the fetched size */ }
+  }
+
+  const entries = docsSnap.docs
+    .map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        name: String(data.name || d.id),
+        size: String(data.size || "?"),
+        vectorChunks: Number(data.vectorChunkCount || 0),
+        processing: data.status === "processing",
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+
+  return { entries, total };
+}
+
+function formatDocumentIndex(index: DocIndex, maxNames: number = MAX_LIST_DOCS): string[] {
+  const lines: string[] = [];
+  const { entries, total } = index;
+  if (total === 0) {
+    lines.push("TOTAL DOCUMENTS: 0 — no documents have been uploaded yet.");
+    return lines;
+  }
+  if (entries.length > maxNames) {
+    lines.push(`TOTAL DOCUMENTS: ${total} (too many to name here — call this tool with list_only=true to list every document)`);
+    return lines;
+  }
+  lines.push(
+    total > entries.length
+      ? `TOTAL DOCUMENTS: ${total} (showing the first ${entries.length} names below)`
+      : `TOTAL DOCUMENTS: ${total} (this is the complete list — every document is listed below)`,
+  );
+  // Same file uploaded more than once: each upload is its own document (matches the AI Brain page).
+  const seen = new Map<string, number>();
+  for (const e of entries) seen.set(e.name.toLowerCase(), (seen.get(e.name.toLowerCase()) || 0) + 1);
+  const dupNames = [...seen.values()].filter((n) => n > 1).length;
+  if (dupNames > 0) {
+    lines.push(
+      `Note: ${dupNames} file name(s) appear more than once because the same file was uploaded more than once ` +
+      `(${seen.size} unique names). Each upload is counted separately, matching the AI Brain page.`,
+    );
+  }
+  entries.forEach((e, i) => {
+    lines.push(`${i + 1}. ${e.name} (${e.size}, ${e.vectorChunks} vector chunks${e.processing ? ", still processing" : ""})`);
+  });
+  return lines;
+}
+
+async function listAllDocuments(
+  db: FirebaseFirestore.Firestore,
+  collectionPath: string,
+): Promise<string[]> {
+  try {
+    return formatDocumentIndex(await fetchDocumentIndex(db, collectionPath));
+  } catch (err: any) {
+    console.warn(`[Brain Tool] Document listing failed for ${collectionPath}:`, err?.message);
+    return ["Error listing documents. Please try again."];
+  }
+}
+
+/** Normalizes a name/query for loose matching ("Stage 4, 31_ Equal…" ≈ "stage 4 31 equal"). */
+function normalizeForMatch(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
 
 // ── Helper: Search documents by name or query in a collection ────────────────
 
@@ -139,7 +309,11 @@ async function searchDocuments(
   collectionPath: string,
   query: string,
   documentName?: string,
+  listOnly?: boolean,
 ): Promise<string[]> {
+  // List mode: return EVERY document name + authoritative count (no scoring, no plaintext cap)
+  if (listOnly) return [(await listAllDocuments(db, collectionPath)).join("\n")];
+
   const lines: string[] = [];
   let totalChars = 0;
 
@@ -147,11 +321,53 @@ async function searchDocuments(
     const docsSnap = await db.collection(collectionPath).limit(30).get();
     if (docsSnap.empty) return lines;
 
+    // Metadata index of EVERY document (names only, no plaintext). Used for the authoritative
+    // count and to find name matches beyond the first 30 documents. Best effort.
+    let index: DocIndex | null = null;
+    try {
+      index = await fetchDocumentIndex(db, collectionPath);
+    } catch (idxErr: any) {
+      console.warn(`[Brain Tool] Document index failed for ${collectionPath}:`, idxErr?.message);
+    }
+    const indexBlock = index
+      ? [`#### Complete document list`, ...formatDocumentIndex(index, MAX_INDEX_NAMES_IN_SEARCH)].join("\n")
+      : "";
+
+    // No query/name = "show me the documents": lead with the complete name list + count,
+    // because the plaintext section below is capped and only covers a few documents.
+    if (!query && !documentName && indexBlock) {
+      lines.push(indexBlock);
+    }
+
     const queryLower = query.toLowerCase();
     const nameLower = (documentName || "").toLowerCase();
 
+    // The first-30 read above misses later uploads; fetch documents whose NAME matches
+    // the requested name/query even if they are outside those 30.
+    let candidateDocs: Array<{ id: string; data: () => any }> = docsSnap.docs;
+    if (index && (nameLower || queryLower)) {
+      const have = new Set(docsSnap.docs.map((d) => d.id));
+      const nName = normalizeForMatch(nameLower);
+      const nQuery = normalizeForMatch(queryLower);
+      const qWords = nQuery.split(" ").filter((w) => w.length > 2);
+      const extraIds = index.entries
+        .filter((e) => {
+          if (have.has(e.id)) return false;
+          const n = normalizeForMatch(e.name);
+          return (nName && n.includes(nName)) ||
+            (nQuery && n.includes(nQuery)) ||
+            (qWords.length > 0 && qWords.every((w) => n.includes(w)));
+        })
+        .slice(0, MAX_EXTRA_NAME_MATCHES)
+        .map((e) => e.id);
+      if (extraIds.length > 0) {
+        const extraSnaps = await db.getAll(...extraIds.map((id) => db.collection(collectionPath).doc(id)));
+        candidateDocs = [...candidateDocs, ...extraSnaps.filter((s) => s.exists).map((s) => ({ id: s.id, data: () => s.data() || {} }))];
+      }
+    }
+
     // Score each document by relevance
-    const scored = docsSnap.docs.map((d) => {
+    const scored = candidateDocs.map((d) => {
       const data = d.data();
       const docName = (data.name || d.id || "").toLowerCase();
       const plaintext = data.plaintext || "";
@@ -173,6 +389,9 @@ async function searchDocuments(
         }
       }
 
+      // Punctuation-insensitive name match ("Stage 4, 31_ Equal…" vs "stage 4 31 equal")
+      if (nameLower && normalizeForMatch(docName).includes(normalizeForMatch(nameLower))) score += 100;
+
       // If no specific search, include everything with a base score
       if (!queryLower && !nameLower) score = 1;
 
@@ -185,12 +404,15 @@ async function searchDocuments(
       .sort((a, b) => b.score - a.score);
 
     if (relevant.length === 0) {
-      lines.push("No matching documents found.");
+      lines.push("No matching documents found. (To see the name of every uploaded document, call this tool again with list_only=true.)");
+      if (indexBlock) lines.push(indexBlock);
       return lines;
     }
 
+    let emitted = 0;
     for (const doc of relevant) {
       if (totalChars >= MAX_TOTAL_PLAINTEXT) break;
+      emitted++;
 
       const { data } = doc;
       const name = data.name || doc.id;
@@ -207,6 +429,14 @@ async function searchDocuments(
         lines.push(`### 📄 ${name} (${size}) — ⚠️ No text content extracted. The document may need to be re-uploaded.`);
       }
     }
+    if (emitted < relevant.length) {
+      lines.push(`[Note: contents shown for only ${emitted} of ${relevant.length} matching documents due to size limits. This is NOT the full document count — call this tool with list_only=true to list every document.]`);
+    }
+    // Content searches only show a few documents — always end with the authoritative count + names
+    // so a partial content result is never mistaken for the full set of documents.
+    if ((query || documentName) && indexBlock) {
+      lines.push(`[The documents above are only the search matches. The full set of uploaded documents is:]\n${indexBlock}`);
+    }
   } catch (err: any) {
     console.warn(`[Brain Tool] Document search failed for ${collectionPath}:`, err?.message);
     lines.push("Error searching documents. Please try again.");
@@ -219,13 +449,25 @@ async function searchDocuments(
 
 export async function executeSearchOrgBrain(
   orgId: string,
-  args: { query?: string; section?: string }
+  args: { query?: string; section?: string; list_only?: boolean | string }
 ): Promise<string> {
   await initAdmin();
   const db = getAdminFirestore();
 
   const query = (args.query || "").trim().toLowerCase();
   const explicitSection = args.section || "";
+
+  // ── List mode: count + name every uploaded org document ────────────────
+  // Overrides `section` (the model sometimes guesses e.g. "operations" for "items").
+  const listOnly = parseListOnly(args.list_only) || detectListIntent(query) || isGenericDocumentQuery(query);
+  if (listOnly) {
+    const docLines = await searchDocuments(db, `orgs/${orgId}/org_brain_docs`, "", undefined, true);
+    return JSON.stringify({
+      result: `## Uploaded Org Brain Documents\n\n${docLines.join("\n\n")}`,
+      source: "Organization AI Brain — Uploaded Documents (complete list)",
+      orgId,
+    });
+  }
 
   // ── Determine which sections to include ────────────────────────────────
   let targetSections: Set<string> = new Set();
@@ -403,7 +645,7 @@ export async function executeSearchOrgBrain(
 
 export async function executeSearchPersonalBrain(
   uid: string,
-  args: { query?: string; document_name?: string }
+  args: { query?: string; document_name?: string; list_only?: boolean | string }
 ): Promise<string> {
   await initAdmin();
   const db = getAdminFirestore();
@@ -411,6 +653,16 @@ export async function executeSearchPersonalBrain(
   const query = (args.query || "").trim();
   const documentName = (args.document_name || "").trim();
   const lines: string[] = [];
+
+  // ── List mode: count + name every personal document (personal collection only) ──
+  const listOnly = parseListOnly(args.list_only) || detectListIntent(query) || (!documentName && isGenericDocumentQuery(query));
+  if (listOnly) {
+    const docLines = await searchDocuments(db, `users/${uid}/ai_brain_docs`, "", undefined, true);
+    return JSON.stringify({
+      result: `## Personal AI Brain Documents\n\n${docLines.join("\n\n")}`,
+      source: "Personal AI Brain — Uploaded Documents (complete list)",
+    });
+  }
 
   // If a query is provided, try vector search first
   if (query && query.length > 3) {
