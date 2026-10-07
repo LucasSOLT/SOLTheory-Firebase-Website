@@ -789,6 +789,15 @@ The current date/time for the user is: ${monicaTime}.`;
       }
     }
 
+    // ── ORG SCOPE: always allow tools for brain-enabled agents ──
+    // In an org chat almost any question ("what does our contract say about double billing?",
+    // "how are peer recovery coaches different from QBHAs?") may need the Org AI Brain.
+    // Without tools the model tries to call search_org_brain anyway and returns an empty reply.
+    if (!forceTools && chatScope === 'org' && (agentId === "jarvis" || agentId === "bobby" || agentId === "monica")) {
+      forceTools = true;
+      console.log(`[ROUTER] Org scope — forcing tools so search_org_brain is available`);
+    }
+
     const messageNeedsTools = routedDomain !== 'GENERAL' || forceTools;
     const useTools = !!(hasToolApis || uid) && messageNeedsTools;
     // Filter master tools array to only include domain-relevant tools
@@ -1074,6 +1083,32 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
                     }
                   }
                 }
+              }
+            }
+
+            // ── EMPTY-RESPONSE SAFETY NET ──
+            // Some models (notably Gemini) return no text when they attempt a tool call that
+            // isn't attached. Retry once, non-streaming, with an explicit plain-text instruction.
+            if (!fullResponse.trim()) {
+              console.warn(`[STREAM] Empty response from ${selectedModel} — retrying as plain text`);
+              try {
+                const retry = await createCompletion({
+                  model: selectedModel,
+                  messages: [
+                    ...groqMessages,
+                    { role: 'system', content: 'Answer the user\'s last message directly in plain text now using the context above. Do NOT call or mention any tools.' },
+                  ],
+                  maxTokens: dynamicMaxTokens,
+                  temperature: 0.5,
+                });
+                let retryText = sanitizeChunk((retry.content || '').replace(/<think>[\s\S]*?<\/think>/g, '')).trim();
+                if (!retryText) {
+                  retryText = "Sorry — I couldn't put an answer together for that one. Could you rephrase or ask me again?";
+                }
+                fullResponse = retryText;
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: retryText })}\n\n`));
+              } catch (retryErr: any) {
+                console.error('[STREAM] Empty-response retry failed:', retryErr?.message || retryErr);
               }
             }
 
