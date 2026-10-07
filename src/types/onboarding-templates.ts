@@ -102,10 +102,22 @@ export interface OnboardingStep {
   priority: 'High' | 'Medium' | 'Low';
 
   /**
+   * Number of calendar days after the start date that this step opens/unlocks.
+   * Examples: 0 = same day, 1 = next day.
+   */
+  openDayOffset?: number;
+
+  /** Time of day the step opens (HH:mm format, e.g. "09:00"). */
+  openTime?: string;
+
+  /**
    * Number of calendar days after the start date that this step is due.
    * Examples: 0 = same day, 1 = next day, 7 = one week, 30 = one month.
    */
   dayOffset: number;
+
+  /** Time of day the step is due (HH:mm format, e.g. "17:00"). */
+  dueTime?: string;
 
   /** Estimated time to complete in minutes (optional, used for timesheet logging). */
   estimatedMinutes?: number;

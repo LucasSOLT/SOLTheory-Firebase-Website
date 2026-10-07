@@ -30,7 +30,10 @@ interface BlueprintItem {
   title: string;
   itemType: string;
   priority: string;
+  openDayOffset?: number;
+  openTime?: string;
   dayOffset: number;
+  dueTime?: string;
   instructions: string;
   hyperlink: string;
   headerImageUrl: string;
@@ -169,7 +172,10 @@ export default function BlueprintEditor({
               title: step.title || '',
               itemType: step.itemType || 'action_item',
               priority: step.priority || 'Medium',
+              openDayOffset: step.openDayOffset ?? 0,
+              openTime: step.openTime || '09:00',
               dayOffset: step.dayOffset ?? 0,
+              dueTime: step.dueTime || '17:00',
               instructions: step.instructions || step.description || '',
               hyperlink: step.hyperlink || step.sopUrl || '',
               headerImageUrl: step.headerImageUrl || '',
@@ -245,7 +251,10 @@ export default function BlueprintEditor({
               title: 'New Item',
               itemType: 'action_item',
               priority: 'Medium',
+              openDayOffset: p.startDay,
+              openTime: '09:00',
               dayOffset: p.startDay,
+              dueTime: '17:00',
               instructions: '',
               hyperlink: '',
               headerImageUrl: '',
@@ -328,7 +337,10 @@ export default function BlueprintEditor({
         title: item.title,
         description: item.instructions || '',
         priority: item.priority || 'Medium',
+        openDayOffset: item.openDayOffset ?? 0,
+        openTime: item.openTime || '09:00',
         dayOffset: item.dayOffset || 0,
+        dueTime: item.dueTime || '17:00',
         requiresDocumentUpload: item.requiresDocumentUpload || false,
         ...(item.documentCategory ? { documentCategory: item.documentCategory } : {}),
         ...(item.hyperlink ? { sopUrl: item.hyperlink, hyperlink: item.hyperlink } : {}),
@@ -613,15 +625,44 @@ export default function BlueprintEditor({
                                 </select>
                               </div>
 
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-xs text-slate-500 whitespace-nowrap">Offset:</span>
-                                <input
-                                  type="number"
-                                  value={item.dayOffset}
-                                  onChange={(e) => handleUpdateItem(phase.id, item.id, { dayOffset: parseInt(e.target.value) || 0 })}
-                                  className={`${inputClass()} w-14 text-center text-xs py-1.5`}
-                                  title="Day Offset"
-                                />
+                              <div className="flex items-center shrink-0 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <div className="flex items-center gap-1.5 px-2">
+                                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Opens</span>
+                                  <span className="text-xs text-slate-500 whitespace-nowrap">Day</span>
+                                  <input
+                                    type="number"
+                                    value={item.openDayOffset ?? 0}
+                                    onChange={(e) => handleUpdateItem(phase.id, item.id, { openDayOffset: parseInt(e.target.value) || 0 })}
+                                    className={`${inputClass()} w-14 text-center text-xs py-1 px-1`}
+                                    title="Open Day Offset"
+                                  />
+                                  <input
+                                    type="time"
+                                    value={item.openTime || '09:00'}
+                                    onChange={(e) => handleUpdateItem(phase.id, item.id, { openTime: e.target.value })}
+                                    className={`${inputClass()} w-[88px] text-xs py-1 px-1.5`}
+                                    title="Open Time"
+                                  />
+                                </div>
+                                <div className="w-px h-6 bg-slate-300 dark:bg-slate-600"></div>
+                                <div className="flex items-center gap-1.5 px-2">
+                                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Due</span>
+                                  <span className="text-xs text-slate-500 whitespace-nowrap">Day</span>
+                                  <input
+                                    type="number"
+                                    value={item.dayOffset ?? 0}
+                                    onChange={(e) => handleUpdateItem(phase.id, item.id, { dayOffset: parseInt(e.target.value) || 0 })}
+                                    className={`${inputClass()} w-14 text-center text-xs py-1 px-1`}
+                                    title="Due Day Offset"
+                                  />
+                                  <input
+                                    type="time"
+                                    value={item.dueTime || '17:00'}
+                                    onChange={(e) => handleUpdateItem(phase.id, item.id, { dueTime: e.target.value })}
+                                    className={`${inputClass()} w-[88px] text-xs py-1 px-1.5`}
+                                    title="Due Time"
+                                  />
+                                </div>
                               </div>
 
                               {item.suppressForTags && item.suppressForTags.length > 0 && (

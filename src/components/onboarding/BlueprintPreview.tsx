@@ -27,7 +27,10 @@ interface PreviewStep {
   title: string;
   description?: string;
   priority: 'High' | 'Medium' | 'Low';
+  openDayOffset?: number;
+  openTime?: string;
   dayOffset: number;
+  dueTime?: string;
   requiresDocumentUpload?: boolean;
   documentCategory?: string;
   sopUrl?: string;
@@ -70,16 +73,26 @@ function stepsToMockTasks(
   startDate: Date,
 ): any[] {
   const MS_PER_DAY = 86_400_000;
-  return steps.map((step) => ({
-    id: `preview_${step.id}`,
-    title: step.title,
-    description: step.description || step.instructions || '',
-    priority: step.priority || 'Medium',
-    column: 'todo' as const,
-    dueDate: new Date(startDate.getTime() + (step.dayOffset || 0) * MS_PER_DAY),
-    completedAt: null,
-    isLate: false,
-    metadata: {
+  return steps.map((step) => {
+    const [openHour, openMin] = (step.openTime || '09:00').split(':').map(Number);
+    const itemStartDate = new Date(startDate.getTime() + (step.openDayOffset ?? 0) * MS_PER_DAY);
+    itemStartDate.setHours(openHour, openMin, 0, 0);
+
+    const [dueHour, dueMin] = (step.dueTime || '17:00').split(':').map(Number);
+    const dueDate = new Date(startDate.getTime() + (step.dayOffset ?? 0) * MS_PER_DAY);
+    dueDate.setHours(dueHour, dueMin, 0, 0);
+
+    return {
+      id: `preview_${step.id}`,
+      title: step.title,
+      description: step.description || step.instructions || '',
+      priority: step.priority || 'Medium',
+      column: 'todo' as const,
+      startDate: itemStartDate,
+      dueDate: dueDate,
+      completedAt: null,
+      isLate: false,
+      metadata: {
       phase: step.phase,
       stepId: step.id,
       requiresDocumentUpload: step.requiresDocumentUpload || false,
@@ -97,7 +110,8 @@ function stepsToMockTasks(
       orgId: '',
     },
     attachments: [],
-  }));
+  };
+  });
 }
 
 // ── Component ───────────────────────────────────────────────────────────────

@@ -242,7 +242,13 @@ export async function POST(req: Request) {
         const taskId = taskRef.id;
         taskIds.push(taskId);
 
-        const dueDate = new Date(startDateMs + step.dayOffset * MS_PER_DAY);
+        const [openHour, openMin] = (step.openTime || '09:00').split(':').map(Number);
+        const itemStartDate = new Date(startDateMs + (step.openDayOffset ?? 0) * MS_PER_DAY);
+        itemStartDate.setHours(openHour, openMin, 0, 0);
+
+        const [dueHour, dueMin] = (step.dueTime || '17:00').split(':').map(Number);
+        const dueDate = new Date(startDateMs + (step.dayOffset ?? 0) * MS_PER_DAY);
+        dueDate.setHours(dueHour, dueMin, 0, 0);
 
         // ── Phase 3: multi-party signing session (server-only state) ──
         // Built BEFORE anything is committed so a bad signing order (e.g. a
@@ -291,7 +297,7 @@ export async function POST(req: Request) {
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
           dueDate,
-          startDate: new Date(startDateMs),
+          startDate: itemStartDate,
 
           // Time estimate
           ...(step.estimatedMinutes ? { estimatedMinutes: step.estimatedMinutes } : {}),
