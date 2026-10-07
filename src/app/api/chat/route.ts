@@ -645,34 +645,7 @@ The current date/time for the user is: ${monicaTime}.`;
       console.log(`[CRM TOOLS] Injected CRM management context — active book: ${crmInstanceId}`);
     }
 
-    // --- ORG AI BRAIN: Lightweight hint so agents know to call search_org_brain ---
-    if (agentId === "jarvis" || agentId === "bobby" || agentId === "monica") {
-      groqMessages.push({
-        role: "system",
-        content: `[ORGANIZATION AI BRAIN]
-You have access to the organization's AI Brain via the search_org_brain tool.
-Use it to look up:
-- Core organizational values
-- Escalation protocols (who to call for outages, security flags, client emergencies)
-- Mission statement, elevator pitch, leadership team
-- Compliance frameworks, confidential topics, approved tools
-- **READ uploaded org brain documents** — you can retrieve and read the full text content of documents uploaded to the Org AI Brain. Use section="documents" or include the document name in your query.
-Do NOT guess or fabricate organizational policies — always call search_org_brain first.
-This is separate from CRM (which stores external contacts). The Org AI Brain stores internal company policies, values, operational knowledge, and uploaded reference documents.`,
-      });
-    }
 
-    // --- PERSONAL AI BRAIN: Only in personal scope — tells Jarvis it can read uploaded personal docs ---
-    if ((agentId === "jarvis" || agentId === "bobby" || agentId === "monica") && chatScope !== 'org') {
-      groqMessages.push({
-        role: "system",
-        content: `[PERSONAL AI BRAIN — DOCUMENTS]
-You have access to the user's Personal AI Brain documents via the search_personal_brain tool.
-Use it when the user asks about documents they uploaded to their AI Brain, or when they ask you to read, summarize, analyze, or quote from a personal document.
-You can search by document name or by content query. This searches ONLY the user's private documents — NEVER use this in organization scope conversations.
-If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer review"), call search_personal_brain with document_name set to that name.`,
-      });
-    }
 
     // --- EMAIL BEHAVIOR RULES: Deferred to after domain routing ---
     // Email rules (~3k chars) only injected when routedDomain is EMAIL. See "CONTEXT PRUNING" below.
@@ -763,7 +736,7 @@ If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer re
     const hasToolApis = !!(gmail || calendar);
     const lastUserText2 = textOf(messages.filter((m: any) => m.role === 'user').pop()?.content);
     let routedDomain: JarvisDomain = await routeIntent(lastUserText2);
-    const toolKeywords = /doc|dco|docs|document|slide|sheet|spreadsheet|presentation|youtube|calendar|event|meeting|meet|appointment|email|emai|emial|draft|mail|text|message|imessage|contact|crm|dossier|profile|search web|look up|find\s+(in|my|the|their|his|her|contact|lead|email)|what\s*do\s*we\s*know|google|gogle|googl|goolge|calender|calandar|survey|questionnaire|feedback form|grant|block sender|unsubscribe|trash|spam|knowledge base|web search|remember when|past conversation|what did we|merge|move\s+(the\s+)?contact|follow[\s-]?up|log\s+(a\s+)?(note|call|activity)|schedule\s+(a\s+)?follow|complete\s+(the\s+)?task|contact\s*book/i;
+    const toolKeywords = /doc|dco|docs|document|slide|sheet|spreadsheet|presentation|youtube|calendar|event|meeting|meet|appointment|email|emai|emial|draft|mail|text|message|imessage|contact|crm|dossier|profile|search web|look up|find\s+(in|my|the|their|his|her|contact|lead|email)|what\s*do\s*we\s*know|google|gogle|googl|goolge|calender|calandar|survey|questionnaire|feedback form|grant|block sender|unsubscribe|trash|spam|knowledge base|web search|remember when|past conversation|what did we|merge|move\s+(the\s+)?contact|follow[\s-]?up|log\s+(a\s+)?(note|call|activity)|schedule\s+(a\s+)?follow|complete\s+(the\s+)?task|contact\s*book|\b(org brains?|ai brains?|personal brains?|core values|escalation|brains?)\b/i;
     let forceTools = toolKeywords.test(lastUserText2);
 
     // ── CONVERSATION-AWARE ROUTING FIX ──
@@ -842,6 +815,37 @@ If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer re
         content: getDomainPrompt(routedDomain),
       });
       console.log(`[ROUTER] Injected domain prompt for: ${routedDomain}`);
+
+      // --- ORG AI BRAIN: Lightweight hint so agents know to call search_org_brain ---
+      const hasOrgBrainTool = domainTools.some((t: any) => t.function?.name === 'search_org_brain');
+      if (hasOrgBrainTool && (agentId === "jarvis" || agentId === "bobby" || agentId === "monica")) {
+        groqMessages.push({
+          role: "system",
+          content: `[ORGANIZATION AI BRAIN]
+You have access to the organization's AI Brain via the search_org_brain tool.
+Use it to look up:
+- Core organizational values
+- Escalation protocols (who to call for outages, security flags, client emergencies)
+- Mission statement, elevator pitch, leadership team
+- Compliance frameworks, confidential topics, approved tools
+- **READ uploaded org brain documents** — you can retrieve and read the full text content of documents uploaded to the Org AI Brain. Use section="documents" or include the document name in your query.
+Do NOT guess or fabricate organizational policies — always call search_org_brain first.
+This is separate from CRM (which stores external contacts). The Org AI Brain stores internal company policies, values, operational knowledge, and uploaded reference documents.`,
+        });
+      }
+
+      // --- PERSONAL AI BRAIN: Only in personal scope — tells Jarvis it can read uploaded personal docs ---
+      const hasPersonalBrainTool = domainTools.some((t: any) => t.function?.name === 'search_personal_brain');
+      if (hasPersonalBrainTool && (agentId === "jarvis" || agentId === "bobby" || agentId === "monica") && chatScope !== 'org') {
+        groqMessages.push({
+          role: "system",
+          content: `[PERSONAL AI BRAIN — DOCUMENTS]
+You have access to the user's Personal AI Brain documents via the search_personal_brain tool.
+Use it when the user asks about documents they uploaded to their AI Brain, or when they ask you to read, summarize, analyze, or quote from a personal document.
+You can search by document name or by content query. This searches ONLY the user's private documents — NEVER use this in organization scope conversations.
+If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer review"), call search_personal_brain with document_name set to that name.`,
+        });
+      }
     }
 
     // ── CONTEXT PRUNING: Domain-Aware Heavy Context Injection ──

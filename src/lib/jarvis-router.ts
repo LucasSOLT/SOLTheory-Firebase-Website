@@ -51,7 +51,7 @@ const DOMAIN_PATTERNS: Array<{ domain: JarvisDomain; pattern: RegExp }> = [
   // GENERAL — catch-all with specific triggers for web search + memory
   {
     domain: "GENERAL",
-    pattern: /\b(remember\s*when|what\s*did\s*we\s*(discuss|talk)|last\s*time\s*we|search\s*(the\s*)?(web|internet|online)|look\s*up|what\s*(is|are|was|were)\s+(?!on\s*my\s*calendar))/i,
+    pattern: /\b(remember\s*when|what\s*did\s*we\s*(discuss|talk)|last\s*time\s*we|search\s*(the\s*)?(web|internet|online)|look\s*up|what\s*(is|are|was|were)\s+(?!on\s*my\s*calendar)|org\s*brains?|ai\s*brains?|personal\s*brains?|core\s*values|escalation|brains?)\b/i,
   },
 ];
 

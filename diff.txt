@@ -1,0 +1,1086 @@
+﻿diff --git a/src/app/api/onboarding/instantiate/route.ts b/src/app/api/onboarding/instantiate/route.ts
+index 83838fd..4d60f84 100644
+--- a/src/app/api/onboarding/instantiate/route.ts
++++ b/src/app/api/onboarding/instantiate/route.ts
+@@ -315,6 +315,7 @@ export async function POST(req: Request) {
+             ...(step.sopUrl ? { sopUrl: step.sopUrl } : {}),
+             ...(step.itemType ? { itemType: step.itemType } : {}),
+             ...(step.completionGating ? { completionGating: step.completionGating } : {}),
++            ...(step.releaseRule ? { releaseRule: step.releaseRule } : {}),
+             ...(step.instructions ? { instructions: step.instructions } : {}),
+             ...(step.hyperlink ? { hyperlink: step.hyperlink } : {}),
+             ...(step.headerImageUrl ? { headerImageUrl: step.headerImageUrl } : {}),
+@@ -351,6 +352,7 @@ export async function POST(req: Request) {
+         userName: targetUserName,
+         templateId: template.id,
+         roleName: template.roleName,
++        phaseDefinitions: template.phaseDefinitions,
+         status: 'in_progress',
+         startedAt: FieldValue.serverTimestamp(),
+         completedAt: null,
+diff --git a/src/app/portal/dashboard/[orgId]/onboarding/page.tsx b/src/app/portal/dashboard/[orgId]/onboarding/page.tsx
+index b048116..687b25e 100644
+--- a/src/app/portal/dashboard/[orgId]/onboarding/page.tsx
++++ b/src/app/portal/dashboard/[orgId]/onboarding/page.tsx
+@@ -35,6 +35,7 @@ import {
+   ClipboardCheck,
+   FileText,
+   ExternalLink,
++  Trash2,
+ } from 'lucide-react';
+ import { Progress } from '@/components/ui/progress';
+ import OnboardingPhaseCard from '@/components/onboarding/OnboardingPhaseCard';
+@@ -65,9 +66,11 @@ interface OnboardingInstanceDoc {
+   userName: string;
+   templateId: string;
+   roleName: string;
+-  status: 'in_progress' | 'completed';
++  phaseDefinitions?: any[];
++  status: 'in_progress' | 'completed' | 'deleted';
+   startedAt: any;
+   completedAt: any;
++  deletedAt?: any;
+   overallProgress: number;
+   totalSteps: number;
+   completedSteps: number;
+@@ -88,6 +91,7 @@ interface TaskDoc {
+   description?: string;
+   priority: 'High' | 'Medium' | 'Low';
+   column: 'todo' | 'doing' | 'done';
++  startDate?: any;
+   dueDate?: any;
+   completedAt?: any;
+   isLate?: boolean;
+@@ -100,6 +104,8 @@ interface TaskDoc {
+     stepId?: string;
+     requiresDocumentUpload?: boolean;
+     documentCategory?: string;
++    releaseRule?: string;
++    supervisorReleased?: boolean;
+     sopUrl?: string;
+     itemType?: string;
+     completionGating?: string;
+@@ -126,7 +132,15 @@ interface TaskDoc {
+ function formatDate(ts: any): string {
+   if (!ts) return 'ΓÇö';
+   try {
+-    const d = typeof ts.toDate === 'function' ? ts.toDate() : new Date(ts);
++    let d: Date;
++    if (typeof ts.toDate === 'function') {
++      d = ts.toDate();
++    } else if (ts && typeof ts === 'object' && 'seconds' in ts && typeof ts.seconds === 'number') {
++      d = new Date(ts.seconds * 1000);
++    } else {
++      d = new Date(ts);
++    }
++    if (isNaN(d.getTime())) return 'ΓÇö';
+     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+   } catch {
+     return 'ΓÇö';
+@@ -165,15 +179,15 @@ export default function OnboardingPage() {
+ 
+   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+   const searchParams = useSearchParams();
+-  const [activeTab, setActiveTab] = useState<'roadmaps' | 'blueprints' | 'vault' | 'reviews'>('roadmaps');
++  const [activeTab, setActiveTab] = useState<OnboardingTab>('my_roadmaps');
+ 
+   // Sync tab from URL query param
+   useEffect(() => {
+-    const tabParam = searchParams.get('tab');
+-    if (tabParam === 'reviews') {
+-      setActiveTab('reviews');
++    const tabParam = searchParams.get('tab') as OnboardingTab;
++    if (tabParam && ['my_roadmaps', 'supervised', 'archive', 'reviews', 'blueprints', 'vault'].includes(tabParam)) {
++      setActiveTab(tabParam);
+     } else if (!tabParam) {
+-      setActiveTab('roadmaps');
++      setActiveTab('my_roadmaps');
+     }
+   }, [searchParams]);
+   const [selectedTaskForPopup, setSelectedTaskForPopup] = useState<TaskDoc | null>(null);
+@@ -476,6 +490,7 @@ export default function OnboardingPage() {
+     if (!isAdmin) return [];
+     return instances
+       .filter(inst => {
++        if (inst.status === 'deleted') return false;
+         if (filterStatus !== 'all' && inst.status !== filterStatus) return false;
+         if (searchQuery) {
+           const q = searchQuery.toLowerCase();
+@@ -516,6 +531,39 @@ export default function OnboardingPage() {
+       });
+   }, [instances, tasks, isAdmin, filterStatus, searchQuery]);
+ 
++  const archiveInstances = useMemo(() => {
++    if (!isAdmin) return [];
++    return instances
++      .filter(inst => {
++        if (inst.status !== 'deleted') return false;
++        if (searchQuery) {
++          const q = searchQuery.toLowerCase();
++          return (
++            inst.userName.toLowerCase().includes(q) ||
++            inst.userEmail.toLowerCase().includes(q) ||
++            inst.roleName.toLowerCase().includes(q)
++          );
++        }
++        return true;
++      })
++      .map(inst => {
++        const instTasks = tasks.filter(t => t.metadata?.onboardingInstanceId === inst.id);
++        const completedCount = instTasks.filter(t => t.column === 'done').length;
++        const totalCount = instTasks.length || inst.totalSteps;
++        return {
++          ...inst,
++          computedProgress: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0,
++          computedCompleted: completedCount,
++          computedTotal: totalCount,
++        };
++      })
++      .sort((a, b) => {
++        const aTime = a.deletedAt ? (typeof a.deletedAt === 'number' ? a.deletedAt : a.deletedAt?.toDate?.()?.getTime?.() || 0) : 0;
++        const bTime = b.deletedAt ? (typeof b.deletedAt === 'number' ? b.deletedAt : b.deletedAt?.toDate?.()?.getTime?.() || 0) : 0;
++        return bTime - aTime;
++      });
++  }, [instances, tasks, isAdmin, searchQuery]);
++
+   // Count of new hires with OVERDUE compliance docs (past due date, nothing uploaded)
+   const overdueDocsCount = useMemo(
+     () => adminInstances.filter(i => i.overdueDocuments > 0 && i.status === 'in_progress').length,
+@@ -530,6 +578,19 @@ export default function OnboardingPage() {
+ 
+   // ΓöÇΓöÇ Handlers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ 
++  const handleDeleteRoadmap = async (instanceId: string) => {
++    if (!firestore || !confirm('Are you sure you want to permanently delete this roadmap? This will remove it for all parties involved and move it to the Archive.')) return;
++    try {
++      await updateDoc(doc(firestore, 'onboarding_instances', instanceId), {
++        status: 'deleted',
++        deletedAt: serverTimestamp(),
++      });
++      fetchServerData();
++    } catch (err) {
++      console.error('[Onboarding] Failed to delete roadmap:', err);
++    }
++  };
++
+   const handleToggleComplete = useCallback(
+     async (taskId: string, currentColumn: string) => {
+       if (!firestore) return;
+@@ -607,6 +668,7 @@ export default function OnboardingPage() {
+         orgId={orgId as string}
+         isDarkMode={isDarkMode}
+         isAdmin={isAdmin}
++        hasSupervisedRoadmaps={supervisedInstanceIds.length > 0}
+         activeTab={activeTab}
+         onTabChange={(tab) => {
+           if (tab === 'blueprints') {
+@@ -615,7 +677,7 @@ export default function OnboardingPage() {
+             router.push(`/portal/dashboard/${orgId}/onboarding/vault`);
+           } else {
+             setActiveTab(tab);
+-            if (tab !== 'roadmaps') setSelectedAdminInstance(null);
++            if (tab !== 'my_roadmaps' && tab !== 'supervised') setSelectedAdminInstance(null);
+           }
+         }}
+         onOnboardNewHire={() => setIsInviteModalOpen(true)}
+@@ -643,7 +705,7 @@ export default function OnboardingPage() {
+         {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+         {/* NEW HIRE VIEW ΓÇö 4-Phase Onboarding Roadmap                     */}
+         {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+-        {myInstance && (
++        {myInstance && activeTab === 'my_roadmaps' && (
+           <div className="space-y-6">
+             {/* Welcome banner */}
+             <div className={`rounded-2xl px-5 py-5 ${isDarkMode ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white/70 border border-slate-200/80 shadow-sm'}`}>
+@@ -682,14 +744,47 @@ export default function OnboardingPage() {
+ 
+               return phases.map(phase => {
+                 const phaseTasks = myTasksByPhase[phase] || [];
+-                // Phase is locked if any previous phase has incomplete tasks
+                 const previousPhasesComplete = phases
+                   .filter(p => p < phase)
+                   .every(p => {
+                     const prevTasks = myTasksByPhase[p] || [];
+                     return prevTasks.length > 0 && prevTasks.every(t => t.column === 'done');
+                   });
+-                const isLocked = phase !== phases[0] && !previousPhasesComplete;
++
++                // Default logic (fallback)
++                let isLocked = phase !== phases[0] && !previousPhasesComplete;
++                let lockReason = 'Locked';
++
++                // Advanced I6 Release Rules
++                const phaseDef = myInstance?.phaseDefinitions?.find(p => p.phaseNumber === phase);
++                if (phaseDef) {
++                  const rule = phaseDef.releaseRule || 'previous_complete';
++                  if (rule === 'immediately') {
++                    isLocked = false;
++                  } else if (rule === 'previous_complete') {
++                    isLocked = !previousPhasesComplete;
++                    lockReason = 'Complete previous phase';
++                  } else if (rule === 'date_time') {
++                    const startedAtMs = myInstance?.startedAt?.toMillis?.() ?? (myInstance?.startedAt ? new Date(myInstance.startedAt).getTime() : Date.now());
++                    const unlockDate = new Date(startedAtMs + (phaseDef.startDay ?? 0) * 86400000);
++                    if (Date.now() < unlockDate.getTime()) {
++                      isLocked = true;
++                      lockReason = `Opens ${formatDate(unlockDate.toISOString())}`;
++                    } else {
++                      isLocked = false;
++                    }
++                  } else if (rule === 'supervisor') {
++                    // Check if supervisor has released this phase (using a custom property on the instance if available, otherwise just say 'Awaiting Supervisor')
++                    // For now, assume a field `releasedPhases: number[]` on the instance
++                    const releasedPhases: number[] = (myInstance as any)?.releasedPhases || [];
++                    if (!releasedPhases.includes(phase)) {
++                      isLocked = true;
++                      lockReason = 'Awaiting Supervisor Release';
++                    } else {
++                      isLocked = false;
++                    }
++                  }
++                }
+ 
+                 return (
+                   <OnboardingPhaseCard
+@@ -701,6 +796,7 @@ export default function OnboardingPage() {
+                     isAssignee={true}
+                     verificationMap={verificationMap}
+                     isLocked={isLocked}
++                    lockReason={lockReason}
+                     defaultOpen={phase === phases[0] || (previousPhasesComplete && phaseTasks.some(t => t.column !== 'done'))}
+                     onToggleComplete={handleToggleComplete}
+                     onUploadDocument={handleUploadDocument}
+@@ -774,7 +870,7 @@ export default function OnboardingPage() {
+         {/* SUPERVISOR VIEW ΓÇö Monitor assigned employees (Phase 1)        */}
+         {/* Shows for any user who is a mentor/supervisor for ΓëÑ1 instance */}
+         {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+-        {user?.uid && (
++        {user?.uid && activeTab === 'supervised' && (
+           <SupervisorProgressView
+             supervisorUid={user.uid}
+             instances={instances}
+@@ -789,7 +885,7 @@ export default function OnboardingPage() {
+         {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+         {/* ADMIN / MANAGER VIEW ΓÇö Organization Onboarding Overview        */}
+         {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+-        {isAdmin && activeTab === 'roadmaps' && !selectedAdminInstance && (
++        {isAdmin && activeTab === 'supervised' && !selectedAdminInstance && (
+           <div className="space-y-6">
+ 
+             {/* Phase 6.5: documents waiting on a signer (nudge / change who signs) */}
+@@ -1020,6 +1116,21 @@ export default function OnboardingPage() {
+                           )}
+                           <span>{nudgeStatusMap[inst.id] || 'Nudge'}</span>
+                         </button>
++
++                        <button
++                          onClick={(e) => {
++                            e.stopPropagation();
++                            handleDeleteRoadmap(inst.id);
++                          }}
++                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
++                            isDarkMode
++                              ? 'bg-rose-950/40 border-rose-800/60 text-rose-400 hover:bg-rose-900/40'
++                              : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
++                          }`}
++                          title="Permanently Delete Roadmap"
++                        >
++                          <Trash2 className="w-3.5 h-3.5" />
++                        </button>
+                       </div>
+ 
+                       <ArrowRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+@@ -1035,7 +1146,7 @@ export default function OnboardingPage() {
+         {/* ADMIN DRILL-DOWN ΓÇö View an employee's tasks after clicking     */}
+         {/* their instance card in the roster above                        */}
+         {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+-        {isAdmin && activeTab === 'roadmaps' && selectedAdminInstance && (
++        {isAdmin && (activeTab === 'supervised' || activeTab === 'archive') && selectedAdminInstance && (
+           <div className="space-y-4">
+             {/* Back bar */}
+             <button
+@@ -1196,6 +1307,90 @@ export default function OnboardingPage() {
+           </div>
+         )}
+ 
++        {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
++        {/* ARCHIVE VIEW ΓÇö Deleted and archived roadmaps                     */}
++        {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
++        {isAdmin && activeTab === 'archive' && !selectedAdminInstance && (
++          <div className="space-y-6">
++            <div className={`rounded-2xl px-5 py-5 ${isDarkMode ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white/70 border border-slate-200/80 shadow-sm'}`}>
++              <div className="flex items-center gap-3">
++                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-slate-700/50 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
++                  <Users className="w-4.5 h-4.5" />
++                </div>
++                <div>
++                  <h2 className={`text-base font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
++                    Archived Roadmaps
++                  </h2>
++                  <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
++                    {archiveInstances.length} deleted roadmap{archiveInstances.length !== 1 ? 's' : ''}
++                  </p>
++                </div>
++              </div>
++            </div>
++
++            {archiveInstances.length === 0 ? (
++              <div className={`rounded-2xl border-2 border-dashed px-6 py-12 text-center ${
++                isDarkMode ? 'border-slate-700/50 bg-slate-800/20' : 'border-slate-200/60 bg-white/30'
++              }`}>
++                <h3 className={`text-lg font-bold mb-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
++                  Archive is empty
++                </h3>
++              </div>
++            ) : (
++              <div className="space-y-3">
++                {archiveInstances.map(inst => (
++                  <div
++                    key={inst.id}
++                    onClick={() => setSelectedAdminInstance(inst)}
++                    className={`rounded-xl px-5 py-4 transition-all cursor-pointer opacity-70 ${
++                      isDarkMode
++                        ? 'bg-slate-800/60 border border-slate-700/50 hover:bg-slate-800/80'
++                        : 'bg-white/70 border border-slate-200/80 hover:bg-slate-50/80'
++                    }`}
++                  >
++                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
++                      {/* Avatar */}
++                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-black uppercase ${
++                        isDarkMode ? 'bg-slate-800 text-slate-500' : 'bg-slate-200 text-slate-500'
++                      }`}>
++                        {inst.userName.charAt(0)}
++                      </div>
++
++                      {/* Info */}
++                      <div className="flex-1 min-w-0">
++                        <div className="flex items-center gap-2 flex-wrap">
++                          <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
++                            {inst.userName}
++                          </span>
++                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
++                            isDarkMode ? 'bg-slate-800 text-slate-500 border-slate-700' : 'bg-slate-100 text-slate-500 border-slate-200'
++                          }`}>
++                            Deleted
++                          </span>
++                        </div>
++                        <div className={`text-[11px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
++                          {inst.roleName} ΓÇó Deleted {inst.deletedAt ? formatDate(inst.deletedAt) : 'Unknown'}
++                        </div>
++                      </div>
++
++                      {/* Progress */}
++                      <div className="flex items-center gap-3 shrink-0">
++                        <div className="text-right">
++                          <div className={`text-lg font-extrabold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
++                            {inst.computedProgress}%
++                          </div>
++                        </div>
++                      </div>
++
++                      <ArrowRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
++                    </div>
++                  </div>
++                ))}
++              </div>
++            )}
++          </div>
++        )}
++
+         {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+         {/* ADMIN REVIEW QUEUE ΓÇö Consolidated pending approvals inbox     */}
+         {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
+diff --git a/src/app/portal/dashboard/layout.tsx b/src/app/portal/dashboard/layout.tsx
+index 9a8d602..56b67f0 100644
+--- a/src/app/portal/dashboard/layout.tsx
++++ b/src/app/portal/dashboard/layout.tsx
+@@ -1589,25 +1589,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
+                     </Link>
+                     <div className={`my-1.5 mx-2 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/60'}`} />
+                     {isDemoUser ? (
+-                      /* Demo users: locked beta/org features */
+-                      <>
+-                        {[
+-                          { icon: <Compass className="w-5 h-5" />, label: t.agenticProspecting || 'Agentic Prospecting' },
+-                          { icon: <Mail className="w-5 h-5" />, label: t.email },
+-                          { icon: <Send className="w-5 h-5" />, label: t.agenticCampaigning },
+-                          { icon: <BarChart3 className="w-5 h-5" />, label: t.businessIntelligence },
+-                          { icon: <GraduationCap className="w-5 h-5" />, label: 'Onboarding' },
+-                        ].map((item) => (
+-                          <Link key={item.label} href={`${dashboardHome}/store`} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 rounded-xl font-semibold text-[15px] opacity-60 hover:opacity-100 transition-opacity cursor-pointer select-none" title="Upgrade to an organization account to access this feature">
+-                            <span className="text-slate-500">{item.icon}</span>
+-                            <span className={isDarkMode ? 'text-slate-400' : 'text-slate-600'}>{item.label}</span>
+-                            <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-600 border border-indigo-200'}`}>≡ƒöÆ Upgrade</span>
+-                          </Link>
+-                        ))}
+-                      </>
+-                    ) : (
+-                      /* Org users: normal beta feature links */
+-                      <>
++                  /* Demo users: locked beta/org features */
++                  <>
++                    {[
++                      { icon: <GraduationCap className="w-5 h-5" />, label: 'Onboarding' },
++                      { icon: <Compass className="w-5 h-5" />, label: t.agenticProspecting || 'Agentic Prospecting' },
++                      { icon: <Mail className="w-5 h-5" />, label: t.email },
++                      { icon: <Send className="w-5 h-5" />, label: t.agenticCampaigning },
++                      { icon: <BarChart3 className="w-5 h-5" />, label: t.businessIntelligence },
++                    ].map((item) => (
++                      <Link key={item.label} href={`${dashboardHome}/store`} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 rounded-xl font-semibold text-[15px] opacity-60 hover:opacity-100 transition-opacity cursor-pointer select-none" title="Upgrade to an organization account to access this feature">
++                        <span className="text-slate-500">{item.icon}</span>
++                        <span className={isDarkMode ? 'text-slate-400' : 'text-slate-600'}>{item.label}</span>
++                        <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-600 border border-indigo-200'}`}>≡ƒöÆ Upgrade</span>
++                      </Link>
++                    ))}
++                  </>
++                ) : (
++                  /* Org users: normal beta feature links */
++                  <>
++                    <Link href={`${dashboardHome}/onboarding`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/onboarding') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
++                      <GraduationCap className="w-5 h-5 text-slate-500" />
++                      <span>Onboarding</span>
++                      {isUserAdmin && (
++                        <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/25' : 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'}`}>Admin</span>
++                      )}
++                    </Link>
+                     <Link href={`${dashboardHome}/agentic-prospecting`} onClick={(e) => { setIsMobileMenuOpen(false); handleBetaFeatureClick(e, 'Agentic Prospecting', `${dashboardHome}/agentic-prospecting`); }} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/agentic-prospecting') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                       <Compass className="w-5 h-5 text-slate-500" />
+                       <span>{t.agenticProspecting || 'Agentic Prospecting'}</span>
+@@ -1628,15 +1635,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
+                       <span>{t.businessIntelligence}</span>
+                       <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>
+                     </Link>
+-                    <Link href={`${dashboardHome}/onboarding`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/onboarding') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+-                      <GraduationCap className="w-5 h-5 text-slate-500" />
+-                      <span>Onboarding</span>
+-                      {isUserAdmin && (
+-                        <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${isDarkMode ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/25' : 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'}`}>Admin</span>
+-                      )}
+-                    </Link>
+-                      </>
+-                    )}
++                  </>
++                )}
+                     {user?.email && isUserAdmin && (
+                     <Link href={`${dashboardHome}/admin`} onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer font-semibold text-[15px] ${pathname.includes('/admin') ? (isDarkMode ? 'bg-indigo-900/30 text-indigo-300 shadow-sm' : 'bg-indigo-50 text-indigo-900 shadow-sm') : (isDarkMode ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-[#f2ece0] text-slate-700')}`}>
+                       <ShieldCheck className="w-5 h-5 text-indigo-500" />
+@@ -2065,11 +2065,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
+                   /* Demo users: locked beta/org features in desktop sidebar */
+                   <>
+                     {[
++                      { icon: <GraduationCap className="w-5 h-5" />, label: 'Onboarding' },
+                       { icon: <Compass className="w-5 h-5" />, label: t.agenticProspecting || 'Agentic Prospecting' },
+                       { icon: <Mail className="w-5 h-5" />, label: t.email },
+                       { icon: <Send className="w-5 h-5" />, label: t.agenticCampaigning },
+                       { icon: <BarChart3 className="w-5 h-5" />, label: t.businessIntelligence },
+-                      { icon: <GraduationCap className="w-5 h-5" />, label: 'Onboarding' },
+                     ].map((item) => (
+                       <Link key={item.label} href={`${dashboardHome}/store`} className={`flex items-center ${isEffectiveCollapsed ? 'justify-center p-1.5' : 'gap-3 px-2.5 py-1.5'} rounded-xl opacity-60 hover:opacity-100 transition-opacity cursor-pointer select-none`} title="Upgrade to an organization account">
+                         <div className={getSidebarIconClass(false, isEffectiveCollapsed)}>
+@@ -2083,6 +2083,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
+                 ) : (
+                   /* Org users: normal beta feature links */
+                   <>
++                <Link href={`${dashboardHome}/onboarding`} className={getSidebarLinkClass(pathname.includes('/onboarding'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'Onboarding' : undefined}>
++                  <div className={getSidebarIconClass(pathname.includes('/onboarding'), isEffectiveCollapsed)}>
++                    <GraduationCap className="w-5 h-5" />
++                  </div>
++                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">Onboarding</span>}
++                  {!isEffectiveCollapsed && isUserAdmin && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap animate-in fade-in duration-150 ${isDarkMode ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/25' : 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'}`}>Admin</span>}
++                </Link>
++
+                 <Link href={`${dashboardHome}/agentic-prospecting`} onClick={(e) => handleBetaFeatureClick(e, 'Agentic Prospecting', `${dashboardHome}/agentic-prospecting`)} className={getSidebarLinkClass(pathname.includes('/agentic-prospecting'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? (t.agenticProspecting || 'Agentic Prospecting') : undefined}>
+                   <div className={getSidebarIconClass(pathname.includes('/agentic-prospecting'), isEffectiveCollapsed)}>
+                     <Compass className="w-5 h-5" />
+@@ -2114,14 +2122,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
+                   {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">{t.businessIntelligence}</span>}
+                   {!isEffectiveCollapsed && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap animate-in fade-in duration-150 ${isDarkMode ? 'bg-violet-500/15 text-violet-400 border border-violet-500/25' : 'bg-violet-500/10 text-violet-600 border border-violet-500/20'}`}>Beta</span>}
+                 </Link>
+-
+-                <Link href={`${dashboardHome}/onboarding`} className={getSidebarLinkClass(pathname.includes('/onboarding'), isEffectiveCollapsed)} title={isEffectiveCollapsed ? 'Onboarding' : undefined}>
+-                  <div className={getSidebarIconClass(pathname.includes('/onboarding'), isEffectiveCollapsed)}>
+-                    <GraduationCap className="w-5 h-5" />
+-                  </div>
+-                  {!isEffectiveCollapsed && <span className="text-sm font-medium whitespace-nowrap animate-in fade-in duration-150">Onboarding</span>}
+-                  {!isEffectiveCollapsed && isUserAdmin && <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap animate-in fade-in duration-150 ${isDarkMode ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/25' : 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20'}`}>Admin</span>}
+-                </Link>
+                   </>
+                 )}
+ 
+diff --git a/src/components/onboarding/BlueprintEditor.tsx b/src/components/onboarding/BlueprintEditor.tsx
+index 3a36d2a..5878a45 100644
+--- a/src/components/onboarding/BlueprintEditor.tsx
++++ b/src/components/onboarding/BlueprintEditor.tsx
+@@ -30,6 +30,7 @@ interface BlueprintItem {
+   title: string;
+   itemType: string;
+   priority: string;
++  releaseRule?: 'immediately' | 'date_time' | 'previous_complete' | 'supervisor';
+   openDayOffset?: number;
+   openTime?: string;
+   dayOffset: number;
+@@ -51,6 +52,7 @@ interface BlueprintPhase {
+   id: string;
+   phaseNumber: number;
+   name: string;
++  releaseRule?: 'immediately' | 'date_time' | 'previous_complete' | 'supervisor';
+   startDay: number;
+   endDay: number;
+   items: BlueprintItem[];
+@@ -537,14 +539,29 @@ export default function BlueprintEditor({
+                     />
+                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 shrink-0">
+                       <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+-                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Opens</span>
+-                        <input
+-                          type="date"
+-                          value={offsetToDateStr(phase.startDay)}
+-                          onChange={(e) => handleUpdatePhase(phase.id, { startDay: dateStrToOffset(e.target.value) })}
+-                          className={`${inputClass()} w-32 text-xs py-1 px-1.5`}
+-                        />
++                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Release</span>
++                        <select
++                          value={phase.releaseRule || 'previous_complete'}
++                          onChange={(e) => handleUpdatePhase(phase.id, { releaseRule: e.target.value as any })}
++                          className={`${inputClass()} w-36 text-xs py-1 px-1.5`}
++                        >
++                          <option value="immediately">Immediately</option>
++                          <option value="previous_complete">When previous complete</option>
++                          <option value="date_time">At date/time</option>
++                          <option value="supervisor">When supervisor releases</option>
++                        </select>
+                       </div>
++                      {(phase.releaseRule === 'date_time' || (!phase.releaseRule && phase.phaseNumber === 1)) && (
++                        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
++                          <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Date</span>
++                          <input
++                            type="date"
++                            value={offsetToDateStr(phase.startDay)}
++                            onChange={(e) => handleUpdatePhase(phase.id, { startDay: dateStrToOffset(e.target.value) })}
++                            className={`${inputClass()} w-32 text-xs py-1 px-1.5`}
++                          />
++                        </div>
++                      )}
+                       <div className="hidden sm:block text-xs text-slate-400">to</div>
+                       <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                         <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Due</span>
+@@ -645,25 +662,43 @@ export default function BlueprintEditor({
+                               </div>
+ 
+                               <div className="flex flex-col sm:flex-row sm:items-center shrink-0 bg-slate-100 dark:bg-slate-800/50 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 gap-1.5 sm:gap-0">
+-                                <div className="flex items-center gap-1.5 px-2 justify-between sm:justify-start">
+-                                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider w-10">Opens</span>
+-                                  <div className="flex items-center gap-1.5">
+-                                    <input
+-                                      type="date"
+-                                      value={offsetToDateStr(item.openDayOffset ?? 0)}
+-                                      onChange={(e) => handleUpdateItem(phase.id, item.id, { openDayOffset: dateStrToOffset(e.target.value) })}
+-                                      className={`${inputClass()} w-32 text-xs py-1 px-1.5`}
+-                                      title="Open Date"
+-                                    />
+-                                    <input
+-                                      type="time"
+-                                      value={item.openTime || '09:00'}
+-                                      onChange={(e) => handleUpdateItem(phase.id, item.id, { openTime: e.target.value })}
+-                                      className={`${inputClass()} w-[88px] text-xs py-1 px-1.5`}
+-                                      title="Open Time"
+-                                    />
+-                                  </div>
++                                <div className="flex items-center gap-1.5 px-2 justify-between sm:justify-start border-b sm:border-b-0 border-slate-200 dark:border-slate-700 pb-1.5 sm:pb-0 mb-1.5 sm:mb-0 sm:mr-1">
++                                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider w-14">Release</span>
++                                  <select
++                                    value={item.releaseRule || 'immediately'}
++                                    onChange={(e) => handleUpdateItem(phase.id, item.id, { releaseRule: e.target.value as any })}
++                                    className={`${inputClass()} w-[130px] text-xs py-1 px-1.5`}
++                                  >
++                                    <option value="immediately">Immediately</option>
++                                    <option value="previous_complete">When previous complete</option>
++                                    <option value="date_time">At date/time</option>
++                                    <option value="supervisor">When supervisor releases</option>
++                                  </select>
+                                 </div>
++                                {item.releaseRule === 'date_time' && (
++                                  <>
++                                    <div className="hidden sm:block w-px h-6 bg-slate-300 dark:bg-slate-600 mx-1"></div>
++                                    <div className="flex items-center gap-1.5 px-2 justify-between sm:justify-start">
++                                      <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider w-10">Date</span>
++                                      <div className="flex items-center gap-1.5">
++                                        <input
++                                          type="date"
++                                          value={offsetToDateStr(item.openDayOffset ?? 0)}
++                                          onChange={(e) => handleUpdateItem(phase.id, item.id, { openDayOffset: dateStrToOffset(e.target.value) })}
++                                          className={`${inputClass()} w-32 text-xs py-1 px-1.5`}
++                                          title="Open Date"
++                                        />
++                                        <input
++                                          type="time"
++                                          value={item.openTime || '09:00'}
++                                          onChange={(e) => handleUpdateItem(phase.id, item.id, { openTime: e.target.value })}
++                                          className={`${inputClass()} w-[88px] text-xs py-1 px-1.5`}
++                                          title="Open Time"
++                                        />
++                                      </div>
++                                    </div>
++                                  </>
++                                )}
+                                 <div className="hidden sm:block w-px h-6 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+                                 <div className="flex items-center gap-1.5 px-2 justify-between sm:justify-start pt-1.5 border-t border-slate-200 dark:border-slate-700 sm:pt-0 sm:border-t-0">
+                                   <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider w-10">Due</span>
+diff --git a/src/components/onboarding/MySignatureCard.tsx b/src/components/onboarding/MySignatureCard.tsx
+index 73b6fb9..07a41dd 100644
+--- a/src/components/onboarding/MySignatureCard.tsx
++++ b/src/components/onboarding/MySignatureCard.tsx
+@@ -84,6 +84,25 @@ export default function MySignatureCard({ isDarkMode, defaultName }: Props) {
+   const [busy, setBusy] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+ 
++  React.useEffect(() => {
++    try {
++      const stored = localStorage.getItem('onboarding_signature_card_open');
++      if (stored !== null) setOpen(stored === 'true');
++    } catch {
++      // ignore
++    }
++  }, []);
++
++  const toggleOpen = () => {
++    setOpen((prev) => {
++      const next = !prev;
++      try {
++        localStorage.setItem('onboarding_signature_card_open', String(next));
++      } catch {}
++      return next;
++    });
++  };
++
+   const sig = useSavedSignature(true, 'signature');
+   const ini = useSavedSignature(true, 'initials');
+ 
+@@ -115,7 +134,7 @@ export default function MySignatureCard({ isDarkMode, defaultName }: Props) {
+     <div className={`rounded-2xl border ${card}`}>
+       <button
+         type="button"
+-        onClick={() => setOpen((v) => !v)}
++        onClick={toggleOpen}
+         aria-expanded={open}
+         className="w-full flex items-center gap-3 px-4 py-3 text-left"
+       >
+diff --git a/src/components/onboarding/OnboardingHeader.tsx b/src/components/onboarding/OnboardingHeader.tsx
+index c794368..e2edb4c 100644
+--- a/src/components/onboarding/OnboardingHeader.tsx
++++ b/src/components/onboarding/OnboardingHeader.tsx
+@@ -3,12 +3,13 @@ import { useRouter } from 'next/navigation';
+ import { GraduationCap, Loader2, Users, Plus, ShieldCheck, ClipboardCheck, Bell, Sparkles } from 'lucide-react';
+ import { getAuthHeaders } from '@/lib/api-auth-client';
+ 
+-export type OnboardingTab = 'roadmaps' | 'blueprints' | 'vault' | 'reviews';
++export type OnboardingTab = 'my_roadmaps' | 'supervised' | 'blueprints' | 'vault' | 'reviews' | 'archive';
+ 
+ interface OnboardingHeaderProps {
+   orgId: string;
+   isDarkMode: boolean;
+   isAdmin: boolean;
++  hasSupervisedRoadmaps?: boolean;
+   activeTab: OnboardingTab;
+   onTabChange?: (tab: OnboardingTab) => void;
+   onOnboardNewHire?: () => void;
+@@ -20,6 +21,7 @@ export default function OnboardingHeader({
+   orgId,
+   isDarkMode,
+   isAdmin,
++  hasSupervisedRoadmaps = false,
+   activeTab,
+   onTabChange,
+   onOnboardNewHire,
+@@ -62,8 +64,8 @@ export default function OnboardingHeader({
+         router.push(`/portal/dashboard/${orgId}/onboarding/blueprints`);
+       } else if (tab === 'vault') {
+         router.push(`/portal/dashboard/${orgId}/onboarding/vault`);
+-      } else if (tab === 'roadmaps') {
+-        router.push(`/portal/dashboard/${orgId}/onboarding`);
++      } else if (tab === 'my_roadmaps' || tab === 'supervised' || tab === 'archive') {
++        router.push(`/portal/dashboard/${orgId}/onboarding?tab=${tab}`);
+       } else if (tab === 'reviews') {
+         router.push(`/portal/dashboard/${orgId}/onboarding?tab=reviews`);
+       }
+@@ -71,7 +73,7 @@ export default function OnboardingHeader({
+   };
+ 
+   const getHeaderContent = () => {
+-    if (!isAdmin) {
++    if (!isAdmin && !hasSupervisedRoadmaps) {
+       return {
+         title: 'Onboarding',
+         description: 'Complete your onboarding steps and get up to speed with your new role.'
+@@ -94,17 +96,43 @@ export default function OnboardingHeader({
+           title: 'Review Queue',
+           description: 'Review and verify document submissions from new hires.'
+         };
+-      case 'roadmaps':
++      case 'archive':
++        return {
++          title: 'Archive',
++          description: 'View deleted and archived onboarding roadmaps.'
++        };
++      case 'supervised':
++        return {
++          title: 'Supervised Roadmaps',
++          description: 'Track and manage new hire onboarding progress for your assigned employees.'
++        };
++      case 'my_roadmaps':
+       default:
+         return {
+-          title: 'Active Roadmaps',
+-          description: 'Track and manage new hire onboarding progress across your organization.'
++          title: 'My Roadmaps',
++          description: isAdmin ? 'Track and manage your personal onboarding progress.' : 'Complete your onboarding steps and get up to speed with your new role.'
+         };
+     }
+   };
+ 
+   const headerContent = getHeaderContent();
+ 
++  const showTabBar = isAdmin || hasSupervisedRoadmaps;
++
++  const tabs: { key: OnboardingTab; label: string; icon: React.ReactNode }[] = [
++    { key: 'my_roadmaps', label: 'My Roadmaps', icon: <Users className="w-3.5 h-3.5" /> },
++    { key: 'supervised', label: 'Supervised Roadmaps', icon: <Users className="w-3.5 h-3.5" /> },
++  ];
++
++  if (isAdmin) {
++    tabs.push(
++      { key: 'blueprints', label: 'Role Blueprints', icon: <GraduationCap className="w-3.5 h-3.5" /> },
++      { key: 'vault', label: 'Compliance Vault', icon: <ShieldCheck className="w-3.5 h-3.5" /> },
++      { key: 'reviews', label: 'Review Queue', icon: <ClipboardCheck className="w-3.5 h-3.5" /> },
++      { key: 'archive', label: 'Archive', icon: <Users className="w-3.5 h-3.5" /> }
++    );
++  }
++
+   return (
+     <div className={`shrink-0 px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200/80 bg-[#f5f1e8]'}`}>
+       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+@@ -167,16 +195,11 @@ export default function OnboardingHeader({
+         </div>
+       )}
+ 
+-      {/* Tab Bar (Admin Only) */}
+-      {isAdmin && (
++      {/* Tab Bar */}
++      {showTabBar && (
+         <div className="mt-3 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-hide">
+           <div className={`flex items-center gap-1 px-1 py-1 rounded-xl w-max ${isDarkMode ? 'bg-slate-800/60' : 'bg-slate-100/80'}`}>
+-            {([
+-              { key: 'roadmaps' as const, label: 'Active Roadmaps', icon: <Users className="w-3.5 h-3.5" /> },
+-              { key: 'blueprints' as const, label: 'Role Blueprints', icon: <GraduationCap className="w-3.5 h-3.5" /> },
+-              { key: 'vault' as const, label: 'Compliance Vault', icon: <ShieldCheck className="w-3.5 h-3.5" /> },
+-              { key: 'reviews' as const, label: 'Review Queue', icon: <ClipboardCheck className="w-3.5 h-3.5" /> },
+-            ]).map(tab => (
++            {tabs.map(tab => (
+               <button
+                 key={tab.key}
+                 onClick={() => handleTabClick(tab.key)}
+diff --git a/src/components/onboarding/OnboardingPhaseCard.tsx b/src/components/onboarding/OnboardingPhaseCard.tsx
+index f5b6ff9..72d8c52 100644
+--- a/src/components/onboarding/OnboardingPhaseCard.tsx
++++ b/src/components/onboarding/OnboardingPhaseCard.tsx
+@@ -18,6 +18,7 @@ interface TaskItem {
+   description?: string;
+   priority: 'High' | 'Medium' | 'Low';
+   column: 'todo' | 'doing' | 'done';
++  startDate?: any;
+   dueDate?: any;
+   completedAt?: any;
+   isLate?: boolean;
+@@ -27,6 +28,8 @@ interface TaskItem {
+     requiresDocumentUpload?: boolean;
+     documentCategory?: string;
+     sopUrl?: string;
++    releaseRule?: string;
++    supervisorReleased?: boolean;
+   };
+   attachments?: { url: string; name: string; type: string }[];
+ }
+@@ -41,6 +44,8 @@ interface OnboardingPhaseCardProps {
+   verificationMap: Record<string, 'pending_review' | 'verified' | 'rejected' | null>;
+   /** Whether this phase is locked (previous phase not yet complete). */
+   isLocked: boolean;
++  /** Optional lock reason text to show when locked. */
++  lockReason?: string;
+   /** Whether this card should start expanded. */
+   defaultOpen?: boolean;
+   /** Optional custom phase name (overrides default label for dynamic blueprints). */
+@@ -96,6 +101,7 @@ export default function OnboardingPhaseCard({
+   isAssignee,
+   verificationMap,
+   isLocked,
++  lockReason,
+   defaultOpen = false,
+   phaseName,
+   phaseTimeline: customTimeline,
+@@ -106,6 +112,25 @@ export default function OnboardingPhaseCard({
+ }: OnboardingPhaseCardProps) {
+   const [isOpen, setIsOpen] = useState(defaultOpen);
+ 
++  React.useEffect(() => {
++    try {
++      const stored = localStorage.getItem(`onboarding_phase_${phase}_open`);
++      if (stored !== null) setIsOpen(stored === 'true');
++    } catch {
++      // ignore
++    }
++  }, [phase]);
++
++  const toggleOpen = () => {
++    setIsOpen((prev) => {
++      const next = !prev;
++      try {
++        localStorage.setItem(`onboarding_phase_${phase}_open`, String(next));
++      } catch {}
++      return next;
++    });
++  };
++
+   const completedCount = tasks.filter(t => t.column === 'done').length;
+   const totalCount = tasks.length;
+   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+@@ -122,7 +147,7 @@ export default function OnboardingPhaseCard({
+     <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+       isDarkMode ? 'bg-slate-700/50 text-slate-500 border-slate-600/50' : 'bg-slate-100 text-slate-400 border-slate-200/60'
+     }`}>
+-      <Lock className="w-3 h-3" /> Locked
++      <Lock className="w-3 h-3" /> {lockReason || 'Locked'}
+     </span>
+   ) : isComplete ? (
+     <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+@@ -152,7 +177,7 @@ export default function OnboardingPhaseCard({
+     >
+       {/* Collapsible Header */}
+       <button
+-        onClick={() => !isLocked && setIsOpen(!isOpen)}
++        onClick={() => !isLocked && toggleOpen()}
+         disabled={isLocked}
+         className={`w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 text-left transition-colors ${
+           !isLocked ? 'cursor-pointer' : 'cursor-not-allowed'
+@@ -210,20 +235,51 @@ export default function OnboardingPhaseCard({
+                 const bMs = b.dueDate?.toMillis?.() ?? (b.dueDate ? new Date(b.dueDate).getTime() : 0);
+                 return aMs - bMs;
+               })
+-              .map(task => (
+-                <OnboardingTaskRow
+-                  key={task.id}
+-                  task={task}
+-                  isDarkMode={isDarkMode}
+-                  orgId={orgId}
+-                  isAssignee={isAssignee}
+-                  verificationStatus={verificationMap[task.id] ?? null}
+-                  onToggleComplete={onToggleComplete}
+-                  onUploadDocument={onUploadDocument}
+-                  onAskJarvis={onAskJarvis}
+-                  onTaskClick={onTaskClick}
+-                />
+-              ))}
++              .map((task, index, sortedTasks) => {
++                let taskIsLocked = false;
++                let taskLockReason = '';
++
++                const rule = task.metadata?.releaseRule || 'immediately';
++                if (rule === 'date_time' && task.startDate) {
++                  const unlockMs = task.startDate?.toMillis?.() ?? new Date(task.startDate).getTime();
++                  if (Date.now() < unlockMs) {
++                    taskIsLocked = true;
++                    taskLockReason = `Opens ${new Date(unlockMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
++                  }
++                } else if (rule === 'previous_complete') {
++                  // For items, "previous complete" means all preceding tasks in the rendered order must be done
++                  const previousTasks = sortedTasks.slice(0, index);
++                  const isPrevDone = previousTasks.length === 0 || previousTasks.every(t => t.column === 'done');
++                  if (!isPrevDone) {
++                    taskIsLocked = true;
++                    taskLockReason = 'Complete previous items';
++                  }
++                } else if (rule === 'supervisor') {
++                  // Wait, how do we know if it's supervisor-released?
++                  // Maybe the task has a field `metadata.supervisorReleased: boolean`. For now, just show it's locked.
++                  if (!task.metadata?.supervisorReleased) {
++                    taskIsLocked = true;
++                    taskLockReason = 'Awaiting Supervisor Release';
++                  }
++                }
++
++                return (
++                  <OnboardingTaskRow
++                    key={task.id}
++                    task={task}
++                    isDarkMode={isDarkMode}
++                    orgId={orgId}
++                    isAssignee={isAssignee}
++                    isLocked={taskIsLocked}
++                    lockReason={taskLockReason}
++                    verificationStatus={verificationMap[task.id] ?? null}
++                    onToggleComplete={onToggleComplete}
++                    onUploadDocument={onUploadDocument}
++                    onAskJarvis={onAskJarvis}
++                    onTaskClick={onTaskClick}
++                  />
++                );
++              })}
+           </div>
+         </div>
+       )}
+diff --git a/src/components/onboarding/OnboardingTaskRow.tsx b/src/components/onboarding/OnboardingTaskRow.tsx
+index cfa8474..0a7338e 100644
+--- a/src/components/onboarding/OnboardingTaskRow.tsx
++++ b/src/components/onboarding/OnboardingTaskRow.tsx
+@@ -19,6 +19,7 @@ import {
+   Video,
+   BookOpen,
+   ArrowRight,
++  Lock,
+ } from 'lucide-react';
+ import { safeExternalUrl } from '@/lib/utils';
+ 
+@@ -60,6 +61,10 @@ interface OnboardingTaskRowProps {
+   orgId: string;
+   /** Whether the current user can check off / interact with this task (the assignee). */
+   isAssignee: boolean;
++  /** Whether the task itself is locked according to its release rule. */
++  isLocked?: boolean;
++  /** The reason why the task is locked. */
++  lockReason?: string;
+   /** Compliance verification status from the vault (if applicable). */
+   verificationStatus?: 'pending_review' | 'verified' | 'rejected' | null;
+   onToggleComplete: (taskId: string, currentColumn: string) => void;
+@@ -103,6 +108,8 @@ export default function OnboardingTaskRow({
+   isDarkMode,
+   orgId,
+   isAssignee,
++  isLocked,
++  lockReason,
+   verificationStatus,
+   onToggleComplete,
+   onUploadDocument,
+@@ -296,15 +303,17 @@ export default function OnboardingTaskRow({
+       className={`group flex items-start gap-3 px-4 py-3 rounded-xl transition-all ${
+         isCompleted
+           ? (isDarkMode ? 'bg-slate-800/30 opacity-60' : 'bg-slate-50/50 opacity-60')
++          : isLocked
++          ? (isDarkMode ? 'bg-slate-800/20 opacity-50' : 'bg-slate-50/40 opacity-50')
+           : (isDarkMode ? 'bg-slate-800/50 hover:bg-slate-800/70' : 'bg-white/60 hover:bg-white/80')
+       } ${isDarkMode ? 'border border-slate-700/40' : 'border border-slate-200/60'}`}
+     >
+       {/* Checkbox */}
+       <button
+-        onClick={() => isAssignee && onToggleComplete(task.id, task.column)}
+-        disabled={!isAssignee}
+-        className={`mt-0.5 shrink-0 transition-all ${isAssignee ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
+-        title={isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
++        onClick={() => isAssignee && !isLocked && onToggleComplete(task.id, task.column)}
++        disabled={!isAssignee || isLocked}
++        className={`mt-0.5 shrink-0 transition-all ${isAssignee && !isLocked ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
++        title={isLocked ? 'Task is locked' : isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
+       >
+         {isCompleted ? (
+           <CheckCircle2 className={`w-5 h-5 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-500'}`} />
+@@ -318,8 +327,8 @@ export default function OnboardingTaskRow({
+         {/* Title row */}
+         <div className="flex items-center gap-2 flex-wrap">
+           <span
+-            onClick={() => onTaskClick?.(task)}
+-            className={`text-sm font-semibold transition-colors ${isCompleted ? 'line-through' : ''} ${isDarkMode ? 'text-white' : 'text-slate-900'} ${hasPopupContent && onTaskClick ? 'cursor-pointer hover:text-indigo-400' : ''}`}
++            onClick={() => !isLocked && onTaskClick?.(task)}
++            className={`text-sm font-semibold transition-colors ${isCompleted ? 'line-through' : ''} ${isDarkMode ? 'text-white' : 'text-slate-900'} ${hasPopupContent && onTaskClick && !isLocked ? 'cursor-pointer hover:text-indigo-400' : ''}`}
+           >
+             {task.title}
+           </span>
+@@ -332,6 +341,15 @@ export default function OnboardingTaskRow({
+             {task.priority}
+           </span>
+ 
++          {/* Lock badge */}
++          {isLocked && (
++            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
++              isDarkMode ? 'bg-slate-700/50 text-slate-500 border-slate-600/50' : 'bg-slate-100 text-slate-400 border-slate-200/60'
++            }`}>
++              <Lock className="w-3 h-3" /> {lockReason || 'Locked'}
++            </span>
++          )}
++
+           {/* Urgency pill */}
+           {urgency && urgencyConfig[urgency] && (
+             <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${isDarkMode ? urgencyConfig[urgency].dark : urgencyConfig[urgency].light}`}>
+diff --git a/src/components/onboarding/SupervisorProgressView.tsx b/src/components/onboarding/SupervisorProgressView.tsx
+index 4d2f7a7..393628b 100644
+--- a/src/components/onboarding/SupervisorProgressView.tsx
++++ b/src/components/onboarding/SupervisorProgressView.tsx
+@@ -53,9 +53,11 @@ interface OnboardingInstanceDoc {
+   userName: string;
+   templateId: string;
+   roleName: string;
+-  status: 'in_progress' | 'completed';
++  phaseDefinitions?: any[];
++  status: 'in_progress' | 'completed' | 'deleted';
+   startedAt: any;
+   completedAt: any;
++  deletedAt?: any;
+   overallProgress: number;
+   totalSteps: number;
+   completedSteps: number;
+@@ -125,7 +127,15 @@ interface SupervisorProgressViewProps {
+ function formatDate(ts: any): string {
+   if (!ts) return 'ΓÇö';
+   try {
+-    const d = ts?.toDate?.() || new Date(ts);
++    let d: Date;
++    if (typeof ts.toDate === 'function') {
++      d = ts.toDate();
++    } else if (ts && typeof ts === 'object' && 'seconds' in ts && typeof ts.seconds === 'number') {
++      d = new Date(ts.seconds * 1000);
++    } else {
++      d = new Date(ts);
++    }
++    if (isNaN(d.getTime())) return 'ΓÇö';
+     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+   } catch {
+     return 'ΓÇö';
+diff --git a/src/types/onboarding-templates.ts b/src/types/onboarding-templates.ts
+index 668186d..6fd6396 100644
+--- a/src/types/onboarding-templates.ts
++++ b/src/types/onboarding-templates.ts
+@@ -18,6 +18,8 @@ export interface OnboardingPhaseDefinition {
+   phaseNumber: number;
+   /** Custom name for this phase (e.g. 'Pre-boarding & Admin'). */
+   name: string;
++  /** Release rule for this phase. */
++  releaseRule?: 'immediately' | 'date_time' | 'previous_complete' | 'supervisor';
+   /** Day range start relative to onboarding start date. */
+   dayRangeStart: number;
+   /** Day range end relative to onboarding start date. */
+@@ -101,9 +103,14 @@ export interface OnboardingStep {
+   /** Task priority: High for compliance-critical, Medium for training, Low for optional. */
+   priority: 'High' | 'Medium' | 'Low';
+ 
++  /**
++   * Release rule dictating when this step unlocks.
++   */
++  releaseRule?: 'immediately' | 'date_time' | 'previous_complete' | 'supervisor';
++
+   /**
+    * Number of calendar days after the start date that this step opens/unlocks.
+-   * Examples: 0 = same day, 1 = next day.
++   * Only used if releaseRule is 'date_time'.
+    */
+   openDayOffset?: number;
+ 
+@@ -253,8 +260,11 @@ export interface OnboardingInstance {
+   /** The role name from the template (denormalized for quick display). */
+   roleName: string;
+ 
++  /** Custom phase definitions from the template, captured at instantiation. */
++  phaseDefinitions?: OnboardingPhaseDefinition[];
++
+   /** Current status. */
+-  status: 'in_progress' | 'completed';
++  status: 'in_progress' | 'completed' | 'deleted';
+ 
+   /** When the onboarding track was started. */
+   startedAt: Date | any; // Firestore Timestamp
