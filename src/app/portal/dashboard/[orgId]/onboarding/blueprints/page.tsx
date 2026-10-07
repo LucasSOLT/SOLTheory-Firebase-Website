@@ -169,6 +169,7 @@ export default function BlueprintsLibraryPage() {
               phaseDefinitions: blueprintData.phaseDefinitions,
             },
             applyToActive: blueprintData.applyToActive,
+            timezoneOffset: new Date().getTimezoneOffset(),
           }
         : { ...blueprintData, orgId };
 

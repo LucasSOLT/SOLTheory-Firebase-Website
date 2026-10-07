@@ -242,13 +242,15 @@ export async function POST(req: Request) {
         const taskId = taskRef.id;
         taskIds.push(taskId);
 
+        const tzOffset = body.timezoneOffset || 0;
+
         const [openHour, openMin] = (step.openTime || '09:00').split(':').map(Number);
         const itemStartDate = new Date(startDateMs + (step.openDayOffset ?? 0) * MS_PER_DAY);
-        itemStartDate.setHours(openHour, openMin, 0, 0);
+        itemStartDate.setUTCHours(openHour, openMin + tzOffset, 0, 0);
 
         const [dueHour, dueMin] = (step.dueTime || '17:00').split(':').map(Number);
         const dueDate = new Date(startDateMs + (step.dayOffset ?? 0) * MS_PER_DAY);
-        dueDate.setHours(dueHour, dueMin, 0, 0);
+        dueDate.setUTCHours(dueHour, dueMin + tzOffset, 0, 0);
 
         // ── Phase 3: multi-party signing session (server-only state) ──
         // Built BEFORE anything is committed so a bad signing order (e.g. a

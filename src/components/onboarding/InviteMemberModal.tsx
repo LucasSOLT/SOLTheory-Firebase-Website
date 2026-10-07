@@ -210,6 +210,7 @@ export default function InviteMemberModal({
           targetUserName: fullName.trim(),
           templateIds: selectedTemplateIds,
           startDate,
+          timezoneOffset: new Date().getTimezoneOffset(),
           // Supervisor assignment — maps to mentorUid/mentorEmail in the backend
           ...(supervisorUid ? { mentorUid: supervisorUid, mentorEmail: supervisorEmail } : {}),
         }),

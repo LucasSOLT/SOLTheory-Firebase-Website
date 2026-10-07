@@ -32,6 +32,7 @@ interface OnboardingTaskRowProps {
     description?: string;
     priority: 'High' | 'Medium' | 'Low';
     column: 'todo' | 'doing' | 'done';
+    startDate?: any;
     dueDate?: any;
     completedAt?: any;
     isLate?: boolean;
@@ -69,11 +70,11 @@ interface OnboardingTaskRowProps {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatDueDate(ts: any): string {
+function formatDateTime(ts: any): string {
   if (!ts) return '';
   try {
     const d = typeof ts.toDate === 'function' ? ts.toDate() : new Date(ts);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   } catch {
     return '';
   }
@@ -411,10 +412,12 @@ export default function OnboardingTaskRow({
             </button>
           )}
 
-          {/* Due date */}
-          {task.dueDate && (
+          {/* Schedule */}
+          {(task.startDate || task.dueDate) && (
             <span className={`text-[11px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-              Due {formatDueDate(task.dueDate)}
+              {task.startDate && `Opens ${formatDateTime(task.startDate)}`}
+              {task.startDate && task.dueDate && ' • '}
+              {task.dueDate && `Due ${formatDateTime(task.dueDate)}`}
             </span>
           )}
 

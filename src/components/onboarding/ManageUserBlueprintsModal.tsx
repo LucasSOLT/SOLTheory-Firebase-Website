@@ -128,6 +128,7 @@ export default function ManageUserBlueprintsModal({
           targetUserName: userName,
           templateIds: selectedNewIds,
           startDate: addStartDate,
+          timezoneOffset: new Date().getTimezoneOffset(),
         }),
       });
       const data = await res.json();

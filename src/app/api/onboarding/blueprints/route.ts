@@ -190,7 +190,16 @@ export async function PUT(req: NextRequest) {
               const taskId = taskRef.id;
               newTaskIds.push(taskId);
 
-              const dueDate = new Date(startDateMs + step.dayOffset * MS_PER_DAY);
+              const tzOffset = body.timezoneOffset || 0;
+              const MS_PER_DAY = 86_400_000;
+
+              const [openHour, openMin] = (step.openTime || '09:00').split(':').map(Number);
+              const itemStartDate = new Date(startDateMs + (step.openDayOffset ?? 0) * MS_PER_DAY);
+              itemStartDate.setUTCHours(openHour, openMin + tzOffset, 0, 0);
+
+              const [dueHour, dueMin] = (step.dueTime || '17:00').split(':').map(Number);
+              const dueDate = new Date(startDateMs + (step.dayOffset ?? 0) * MS_PER_DAY);
+              dueDate.setUTCHours(dueHour, dueMin + tzOffset, 0, 0);
 
               batch.set(taskRef, {
                 id: taskId,
@@ -209,7 +218,7 @@ export async function PUT(req: NextRequest) {
                 createdAt: FieldValue.serverTimestamp(),
                 updatedAt: FieldValue.serverTimestamp(),
                 dueDate,
-                startDate: new Date(startDateMs),
+                startDate: itemStartDate,
                 ...(step.estimatedMinutes ? { estimatedMinutes: step.estimatedMinutes } : {}),
                 category: 'onboarding',
                 metadata: {
