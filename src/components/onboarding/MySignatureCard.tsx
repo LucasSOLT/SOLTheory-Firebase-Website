@@ -84,6 +84,25 @@ export default function MySignatureCard({ isDarkMode, defaultName }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem('onboarding_signature_card_open');
+      if (stored !== null) setOpen(stored === 'true');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleOpen = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('onboarding_signature_card_open', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const sig = useSavedSignature(true, 'signature');
   const ini = useSavedSignature(true, 'initials');
 
@@ -115,7 +134,7 @@ export default function MySignatureCard({ isDarkMode, defaultName }: Props) {
     <div className={`rounded-2xl border ${card}`}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
         aria-expanded={open}
         className="w-full flex items-center gap-3 px-4 py-3 text-left"
       >

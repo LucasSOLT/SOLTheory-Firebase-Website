@@ -3,12 +3,13 @@ import { useRouter } from 'next/navigation';
 import { GraduationCap, Loader2, Users, Plus, ShieldCheck, ClipboardCheck, Bell, Sparkles } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 
-export type OnboardingTab = 'roadmaps' | 'blueprints' | 'vault' | 'reviews';
+export type OnboardingTab = 'my_roadmaps' | 'supervised' | 'blueprints' | 'vault' | 'reviews' | 'archive';
 
 interface OnboardingHeaderProps {
   orgId: string;
   isDarkMode: boolean;
   isAdmin: boolean;
+  hasSupervisedRoadmaps?: boolean;
   activeTab: OnboardingTab;
   onTabChange?: (tab: OnboardingTab) => void;
   onOnboardNewHire?: () => void;
@@ -20,6 +21,7 @@ export default function OnboardingHeader({
   orgId,
   isDarkMode,
   isAdmin,
+  hasSupervisedRoadmaps = false,
   activeTab,
   onTabChange,
   onOnboardNewHire,
@@ -62,8 +64,8 @@ export default function OnboardingHeader({
         router.push(`/portal/dashboard/${orgId}/onboarding/blueprints`);
       } else if (tab === 'vault') {
         router.push(`/portal/dashboard/${orgId}/onboarding/vault`);
-      } else if (tab === 'roadmaps') {
-        router.push(`/portal/dashboard/${orgId}/onboarding`);
+      } else if (tab === 'my_roadmaps' || tab === 'supervised' || tab === 'archive') {
+        router.push(`/portal/dashboard/${orgId}/onboarding?tab=${tab}`);
       } else if (tab === 'reviews') {
         router.push(`/portal/dashboard/${orgId}/onboarding?tab=reviews`);
       }
@@ -71,7 +73,7 @@ export default function OnboardingHeader({
   };
 
   const getHeaderContent = () => {
-    if (!isAdmin) {
+    if (!isAdmin && !hasSupervisedRoadmaps) {
       return {
         title: 'Onboarding',
         description: 'Complete your onboarding steps and get up to speed with your new role.'
@@ -94,16 +96,42 @@ export default function OnboardingHeader({
           title: 'Review Queue',
           description: 'Review and verify document submissions from new hires.'
         };
-      case 'roadmaps':
+      case 'archive':
+        return {
+          title: 'Archive',
+          description: 'View deleted and archived onboarding roadmaps.'
+        };
+      case 'supervised':
+        return {
+          title: 'Supervised Roadmaps',
+          description: 'Track and manage new hire onboarding progress for your assigned employees.'
+        };
+      case 'my_roadmaps':
       default:
         return {
-          title: 'Active Roadmaps',
-          description: 'Track and manage new hire onboarding progress across your organization.'
+          title: 'My Roadmaps',
+          description: isAdmin ? 'Track and manage your personal onboarding progress.' : 'Complete your onboarding steps and get up to speed with your new role.'
         };
     }
   };
 
   const headerContent = getHeaderContent();
+
+  const showTabBar = isAdmin || hasSupervisedRoadmaps;
+
+  const tabs: { key: OnboardingTab; label: string; icon: React.ReactNode }[] = [
+    { key: 'my_roadmaps', label: 'My Roadmaps', icon: <Users className="w-3.5 h-3.5" /> },
+    { key: 'supervised', label: 'Supervised Roadmaps', icon: <Users className="w-3.5 h-3.5" /> },
+  ];
+
+  if (isAdmin) {
+    tabs.push(
+      { key: 'blueprints', label: 'Role Blueprints', icon: <GraduationCap className="w-3.5 h-3.5" /> },
+      { key: 'vault', label: 'Compliance Vault', icon: <ShieldCheck className="w-3.5 h-3.5" /> },
+      { key: 'reviews', label: 'Review Queue', icon: <ClipboardCheck className="w-3.5 h-3.5" /> },
+      { key: 'archive', label: 'Archive', icon: <Users className="w-3.5 h-3.5" /> }
+    );
+  }
 
   return (
     <div className={`shrink-0 px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200/80 bg-[#f5f1e8]'}`}>
@@ -167,16 +195,11 @@ export default function OnboardingHeader({
         </div>
       )}
 
-      {/* Tab Bar (Admin Only) */}
-      {isAdmin && (
+      {/* Tab Bar */}
+      {showTabBar && (
         <div className="mt-3 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-hide">
           <div className={`flex items-center gap-1 px-1 py-1 rounded-xl w-max ${isDarkMode ? 'bg-slate-800/60' : 'bg-slate-100/80'}`}>
-            {([
-              { key: 'roadmaps' as const, label: 'Active Roadmaps', icon: <Users className="w-3.5 h-3.5" /> },
-              { key: 'blueprints' as const, label: 'Role Blueprints', icon: <GraduationCap className="w-3.5 h-3.5" /> },
-              { key: 'vault' as const, label: 'Compliance Vault', icon: <ShieldCheck className="w-3.5 h-3.5" /> },
-              { key: 'reviews' as const, label: 'Review Queue', icon: <ClipboardCheck className="w-3.5 h-3.5" /> },
-            ]).map(tab => (
+            {tabs.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => handleTabClick(tab.key)}

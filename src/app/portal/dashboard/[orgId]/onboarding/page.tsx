@@ -35,6 +35,7 @@ import {
   ClipboardCheck,
   FileText,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import OnboardingPhaseCard from '@/components/onboarding/OnboardingPhaseCard';
@@ -65,9 +66,11 @@ interface OnboardingInstanceDoc {
   userName: string;
   templateId: string;
   roleName: string;
-  status: 'in_progress' | 'completed';
+  phaseDefinitions?: any[];
+  status: 'in_progress' | 'completed' | 'deleted';
   startedAt: any;
   completedAt: any;
+  deletedAt?: any;
   overallProgress: number;
   totalSteps: number;
   completedSteps: number;
@@ -88,6 +91,7 @@ interface TaskDoc {
   description?: string;
   priority: 'High' | 'Medium' | 'Low';
   column: 'todo' | 'doing' | 'done';
+  startDate?: any;
   dueDate?: any;
   completedAt?: any;
   isLate?: boolean;
@@ -100,6 +104,8 @@ interface TaskDoc {
     stepId?: string;
     requiresDocumentUpload?: boolean;
     documentCategory?: string;
+    releaseRule?: string;
+    supervisorReleased?: boolean;
     sopUrl?: string;
     itemType?: string;
     completionGating?: string;
@@ -126,7 +132,15 @@ interface TaskDoc {
 function formatDate(ts: any): string {
   if (!ts) return '—';
   try {
-    const d = typeof ts.toDate === 'function' ? ts.toDate() : new Date(ts);
+    let d: Date;
+    if (typeof ts.toDate === 'function') {
+      d = ts.toDate();
+    } else if (ts && typeof ts === 'object' && 'seconds' in ts && typeof ts.seconds === 'number') {
+      d = new Date(ts.seconds * 1000);
+    } else {
+      d = new Date(ts);
+    }
+    if (isNaN(d.getTime())) return '—';
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   } catch {
     return '—';
@@ -165,15 +179,15 @@ export default function OnboardingPage() {
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'roadmaps' | 'blueprints' | 'vault' | 'reviews'>('roadmaps');
+  const [activeTab, setActiveTab] = useState<OnboardingTab>('my_roadmaps');
 
   // Sync tab from URL query param
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam === 'reviews') {
-      setActiveTab('reviews');
+    const tabParam = searchParams.get('tab') as OnboardingTab;
+    if (tabParam && ['my_roadmaps', 'supervised', 'archive', 'reviews', 'blueprints', 'vault'].includes(tabParam)) {
+      setActiveTab(tabParam);
     } else if (!tabParam) {
-      setActiveTab('roadmaps');
+      setActiveTab('my_roadmaps');
     }
   }, [searchParams]);
   const [selectedTaskForPopup, setSelectedTaskForPopup] = useState<TaskDoc | null>(null);
@@ -476,6 +490,7 @@ export default function OnboardingPage() {
     if (!isAdmin) return [];
     return instances
       .filter(inst => {
+        if (inst.status === 'deleted') return false;
         if (filterStatus !== 'all' && inst.status !== filterStatus) return false;
         if (searchQuery) {
           const q = searchQuery.toLowerCase();
@@ -516,6 +531,39 @@ export default function OnboardingPage() {
       });
   }, [instances, tasks, isAdmin, filterStatus, searchQuery]);
 
+  const archiveInstances = useMemo(() => {
+    if (!isAdmin) return [];
+    return instances
+      .filter(inst => {
+        if (inst.status !== 'deleted') return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          return (
+            inst.userName.toLowerCase().includes(q) ||
+            inst.userEmail.toLowerCase().includes(q) ||
+            inst.roleName.toLowerCase().includes(q)
+          );
+        }
+        return true;
+      })
+      .map(inst => {
+        const instTasks = tasks.filter(t => t.metadata?.onboardingInstanceId === inst.id);
+        const completedCount = instTasks.filter(t => t.column === 'done').length;
+        const totalCount = instTasks.length || inst.totalSteps;
+        return {
+          ...inst,
+          computedProgress: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0,
+          computedCompleted: completedCount,
+          computedTotal: totalCount,
+        };
+      })
+      .sort((a, b) => {
+        const aTime = a.deletedAt ? (typeof a.deletedAt === 'number' ? a.deletedAt : a.deletedAt?.toDate?.()?.getTime?.() || 0) : 0;
+        const bTime = b.deletedAt ? (typeof b.deletedAt === 'number' ? b.deletedAt : b.deletedAt?.toDate?.()?.getTime?.() || 0) : 0;
+        return bTime - aTime;
+      });
+  }, [instances, tasks, isAdmin, searchQuery]);
+
   // Count of new hires with OVERDUE compliance docs (past due date, nothing uploaded)
   const overdueDocsCount = useMemo(
     () => adminInstances.filter(i => i.overdueDocuments > 0 && i.status === 'in_progress').length,
@@ -529,6 +577,19 @@ export default function OnboardingPage() {
   );
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleDeleteRoadmap = async (instanceId: string) => {
+    if (!firestore || !confirm('Are you sure you want to permanently delete this roadmap? This will remove it for all parties involved and move it to the Archive.')) return;
+    try {
+      await updateDoc(doc(firestore, 'onboarding_instances', instanceId), {
+        status: 'deleted',
+        deletedAt: serverTimestamp(),
+      });
+      fetchServerData();
+    } catch (err) {
+      console.error('[Onboarding] Failed to delete roadmap:', err);
+    }
+  };
 
   const handleToggleComplete = useCallback(
     async (taskId: string, currentColumn: string) => {
@@ -607,6 +668,7 @@ export default function OnboardingPage() {
         orgId={orgId as string}
         isDarkMode={isDarkMode}
         isAdmin={isAdmin}
+        hasSupervisedRoadmaps={supervisedInstanceIds.length > 0}
         activeTab={activeTab}
         onTabChange={(tab) => {
           if (tab === 'blueprints') {
@@ -615,7 +677,7 @@ export default function OnboardingPage() {
             router.push(`/portal/dashboard/${orgId}/onboarding/vault`);
           } else {
             setActiveTab(tab);
-            if (tab !== 'roadmaps') setSelectedAdminInstance(null);
+            if (tab !== 'my_roadmaps' && tab !== 'supervised') setSelectedAdminInstance(null);
           }
         }}
         onOnboardNewHire={() => setIsInviteModalOpen(true)}
@@ -643,7 +705,7 @@ export default function OnboardingPage() {
         {/* ════════════════════════════════════════════════════════════════ */}
         {/* NEW HIRE VIEW — 4-Phase Onboarding Roadmap                     */}
         {/* ════════════════════════════════════════════════════════════════ */}
-        {myInstance && (
+        {myInstance && activeTab === 'my_roadmaps' && (
           <div className="space-y-6">
             {/* Welcome banner */}
             <div className={`rounded-2xl px-5 py-5 ${isDarkMode ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white/70 border border-slate-200/80 shadow-sm'}`}>
@@ -682,14 +744,47 @@ export default function OnboardingPage() {
 
               return phases.map(phase => {
                 const phaseTasks = myTasksByPhase[phase] || [];
-                // Phase is locked if any previous phase has incomplete tasks
                 const previousPhasesComplete = phases
                   .filter(p => p < phase)
                   .every(p => {
                     const prevTasks = myTasksByPhase[p] || [];
                     return prevTasks.length > 0 && prevTasks.every(t => t.column === 'done');
                   });
-                const isLocked = phase !== phases[0] && !previousPhasesComplete;
+
+                // Default logic (fallback)
+                let isLocked = phase !== phases[0] && !previousPhasesComplete;
+                let lockReason = 'Locked';
+
+                // Advanced I6 Release Rules
+                const phaseDef = myInstance?.phaseDefinitions?.find(p => p.phaseNumber === phase);
+                if (phaseDef) {
+                  const rule = phaseDef.releaseRule || 'previous_complete';
+                  if (rule === 'immediately') {
+                    isLocked = false;
+                  } else if (rule === 'previous_complete') {
+                    isLocked = !previousPhasesComplete;
+                    lockReason = 'Complete previous phase';
+                  } else if (rule === 'date_time') {
+                    const startedAtMs = myInstance?.startedAt?.toMillis?.() ?? (myInstance?.startedAt ? new Date(myInstance.startedAt).getTime() : Date.now());
+                    const unlockDate = new Date(startedAtMs + (phaseDef.startDay ?? 0) * 86400000);
+                    if (Date.now() < unlockDate.getTime()) {
+                      isLocked = true;
+                      lockReason = `Opens ${formatDate(unlockDate.toISOString())}`;
+                    } else {
+                      isLocked = false;
+                    }
+                  } else if (rule === 'supervisor') {
+                    // Check if supervisor has released this phase (using a custom property on the instance if available, otherwise just say 'Awaiting Supervisor')
+                    // For now, assume a field `releasedPhases: number[]` on the instance
+                    const releasedPhases: number[] = (myInstance as any)?.releasedPhases || [];
+                    if (!releasedPhases.includes(phase)) {
+                      isLocked = true;
+                      lockReason = 'Awaiting Supervisor Release';
+                    } else {
+                      isLocked = false;
+                    }
+                  }
+                }
 
                 return (
                   <OnboardingPhaseCard
@@ -701,11 +796,13 @@ export default function OnboardingPage() {
                     isAssignee={true}
                     verificationMap={verificationMap}
                     isLocked={isLocked}
+                    lockReason={lockReason}
                     defaultOpen={phase === phases[0] || (previousPhasesComplete && phaseTasks.some(t => t.column !== 'done'))}
                     onToggleComplete={handleToggleComplete}
                     onUploadDocument={handleUploadDocument}
                     onAskJarvis={handleAskJarvis}
                     onTaskClick={(task) => setSelectedTaskForPopup(task as any)}
+                    instanceId={myInstance.id}
                   />
                 );
               });
@@ -774,23 +871,30 @@ export default function OnboardingPage() {
         {/* SUPERVISOR VIEW — Monitor assigned employees (Phase 1)        */}
         {/* Shows for any user who is a mentor/supervisor for ≥1 instance */}
         {/* ════════════════════════════════════════════════════════════════ */}
-        {user?.uid && (
+        {((user?.uid && activeTab === 'supervised') || (isAdmin && activeTab === 'supervised')) && !selectedAdminInstance && (
           <SupervisorProgressView
-            supervisorUid={user.uid}
+            supervisorUid={user?.uid || ''}
             instances={instances}
             tasks={tasks}
             orgId={orgId}
             isDarkMode={isDarkMode}
             onTaskClick={(task) => setSelectedTaskForPopup(task as any)}
             onRefresh={fetchServerData}
+            isAdmin={isAdmin}
+            onAdminSelectInstance={isAdmin ? setSelectedAdminInstance : undefined}
+            onAdminDeleteInstance={isAdmin ? handleDeleteRoadmap : undefined}
+            onAdminScheduleCalendar={isAdmin ? setSelectedInstanceForCalendar : undefined}
+            onAdminNudge={isAdmin ? handleTriggerSingleNudge : undefined}
+            nudgeLoadingMap={nudgeLoadingMap}
+            nudgeStatusMap={nudgeStatusMap}
           />
         )}
 
         {/* ════════════════════════════════════════════════════════════════ */}
         {/* ADMIN / MANAGER VIEW — Organization Onboarding Overview        */}
         {/* ════════════════════════════════════════════════════════════════ */}
-        {isAdmin && activeTab === 'roadmaps' && !selectedAdminInstance && (
-          <div className="space-y-6">
+        {isAdmin && activeTab === 'supervised' && !selectedAdminInstance && (
+          <div className="space-y-6 mt-6">
 
             {/* Phase 6.5: documents waiting on a signer (nudge / change who signs) */}
             <StuckDocumentsPanel orgId={orgId} isDarkMode={isDarkMode} />
@@ -814,220 +918,6 @@ export default function OnboardingPage() {
               isDarkMode={isDarkMode}
               onRefresh={fetchServerData}
             />
-
-            {/* Summary stats row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-              {[
-                {
-                  label: 'Active Tracks',
-                  value: instances.filter(i => i.status === 'in_progress').length,
-                  icon: <Users className="w-4 h-4" />,
-                  accent: isDarkMode ? 'text-indigo-400 bg-indigo-900/40' : 'text-indigo-600 bg-indigo-50',
-                },
-                {
-                  label: 'Completed',
-                  value: instances.filter(i => i.status === 'completed').length,
-                  icon: <CheckCircle2 className="w-4 h-4" />,
-                  accent: isDarkMode ? 'text-emerald-400 bg-emerald-900/40' : 'text-emerald-600 bg-emerald-50',
-                },
-                {
-                  label: overdueDocsCount > 0 ? 'Overdue Docs' : 'Pending Uploads',
-                  value: overdueDocsCount > 0 ? overdueDocsCount : pendingDocsCount,
-                  icon: <AlertTriangle className="w-4 h-4" />,
-                  accent: overdueDocsCount > 0
-                    ? (isDarkMode ? 'text-rose-400 bg-rose-900/40' : 'text-rose-600 bg-rose-50')
-                    : (isDarkMode ? 'text-amber-400 bg-amber-900/40' : 'text-amber-600 bg-amber-50'),
-                },
-                {
-                  label: 'Avg. Progress',
-                  value: adminInstances.length > 0
-                    ? `${Math.round(adminInstances.reduce((sum, i) => sum + i.computedProgress, 0) / adminInstances.length)}%`
-                    : '—',
-                  icon: <BarChart3 className="w-4 h-4" />,
-                  accent: isDarkMode ? 'text-violet-400 bg-violet-900/40' : 'text-violet-600 bg-violet-50',
-                },
-              ].map((stat, idx) => (
-                <div
-                  key={idx}
-                  className={`rounded-xl px-4 py-3 ${isDarkMode ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white/70 border border-slate-200/80 shadow-sm'}`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${stat.accent}`}>
-                      {stat.icon}
-                    </div>
-                    <span className={`text-[11px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                      {stat.label}
-                    </span>
-                  </div>
-                  <div className={`text-xl font-extrabold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                    {stat.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
-                <input
-                  type="text"
-                  placeholder="Search by name, email, or role..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-sm font-medium border transition-colors ${
-                    isDarkMode
-                      ? 'bg-slate-800/60 border-slate-700/50 text-white placeholder:text-slate-500 focus:border-indigo-500/50'
-                      : 'bg-white/70 border-slate-200/80 text-slate-900 placeholder:text-slate-400 focus:border-indigo-400/50'
-                  } focus:outline-none focus:ring-2 focus:ring-indigo-500/20`}
-                />
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Filter className={`w-4 h-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`} />
-                {(['all', 'in_progress', 'completed'] as const).map(status => (
-                  <button
-                    key={status}
-                    onClick={() => setFilterStatus(status)}
-                    className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors ${
-                      filterStatus === status
-                        ? (isDarkMode ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-white')
-                        : (isDarkMode ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-white/80 text-slate-500 hover:bg-slate-100 border border-slate-200/60')
-                    }`}
-                  >
-                    {status === 'all' ? 'All' : status === 'in_progress' ? 'Active' : 'Completed'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Instance roster */}
-            {adminInstances.length === 0 ? (
-              <div className={`rounded-2xl border-2 border-dashed px-6 py-12 text-center ${
-                isDarkMode ? 'border-slate-700/50 bg-slate-800/20' : 'border-slate-200/60 bg-white/30'
-              }`}>
-                <GraduationCap className={`w-12 h-12 mx-auto mb-3 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
-                <h3 className={`text-lg font-bold mb-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  No onboarding tracks yet
-                </h3>
-                <p className={`text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Click &quot;Onboard New Hire&quot; to get started with your first onboarding track.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {adminInstances.map(inst => (
-                  <div
-                    key={inst.id}
-                    onClick={() => setSelectedAdminInstance(inst)}
-                    className={`rounded-xl px-5 py-4 transition-all cursor-pointer ${
-                      isDarkMode
-                        ? 'bg-slate-800/60 border border-slate-700/50 hover:bg-slate-800/80 hover:border-slate-600/60'
-                        : 'bg-white/70 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                      {/* Avatar */}
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-black uppercase ${
-                        isDarkMode ? 'bg-indigo-900/50 text-indigo-300' : 'bg-indigo-100 text-indigo-600'
-                      }`}>
-                        {inst.userName.charAt(0)}
-                      </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                            {inst.userName}
-                          </span>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
-                            inst.status === 'completed'
-                              ? (isDarkMode ? 'bg-emerald-950/50 text-emerald-400 border-emerald-800/60' : 'bg-emerald-50 text-emerald-600 border-emerald-200/60')
-                              : (isDarkMode ? 'bg-indigo-950/50 text-indigo-400 border-indigo-800/60' : 'bg-indigo-50 text-indigo-600 border-indigo-200/60')
-                          }`}>
-                            {inst.status === 'completed' ? 'Complete' : 'In Progress'}
-                          </span>
-                          {inst.overdueDocuments > 0 && (
-                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
-                              isDarkMode ? 'bg-rose-950/50 text-rose-400 border-rose-800/60' : 'bg-rose-50 text-rose-600 border-rose-200/60'
-                            }`}>
-                              <AlertTriangle className="w-3 h-3" />
-                              {inst.overdueDocuments} overdue doc{inst.overdueDocuments > 1 ? 's' : ''}
-                            </span>
-                          )}
-                        </div>
-                        <div className={`text-[11px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                          {(() => {
-                            // Show all role names for this user
-                            const userInstances = instances.filter(i => i.userId === inst.userId);
-                            const roleNames = [...new Set(userInstances.map(i => i.roleName))];
-                            return roleNames.join(' + ');
-                          })()} • Started {formatDate(inst.startedAt)} • {inst.userEmail}
-                        </div>
-                      </div>
-
-                      {/* Progress */}
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="text-right">
-                          <div className={`text-lg font-extrabold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                            {inst.computedProgress}%
-                          </div>
-                          <div className={`text-[10px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                            {inst.computedCompleted}/{inst.computedTotal}
-                          </div>
-                        </div>
-                        <div className="w-20">
-                          <Progress value={inst.computedProgress} className="h-2" />
-                        </div>
-                      </div>
-
-                      {/* Action buttons (Calendar & Bobby Nudge) */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedInstanceForCalendar(inst);
-                          }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                            inst.hasCalendarScheduled
-                              ? (isDarkMode ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-400 hover:bg-emerald-900/40' : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100')
-                              : (isDarkMode ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50')
-                          }`}
-                          title="Schedule Orientation & Milestones on Google Calendar"
-                        >
-                          <Calendar className="w-3.5 h-3.5 text-amber-500" />
-                          <span className="hidden md:inline">{inst.hasCalendarScheduled ? 'Calendar ✓' : 'Calendar'}</span>
-                        </button>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTriggerSingleNudge(inst.id);
-                          }}
-                          disabled={nudgeLoadingMap[inst.id]}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                            nudgeStatusMap[inst.id] === 'Sent! ✓'
-                              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-500'
-                              : isDarkMode
-                              ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white'
-                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                          }`}
-                          title="Trigger a friendly Bobby reminder email for approaching/overdue items"
-                        >
-                          {nudgeLoadingMap[inst.id] ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
-                          ) : (
-                            <Bell className="w-3.5 h-3.5 text-amber-500" />
-                          )}
-                          <span>{nudgeStatusMap[inst.id] || 'Nudge'}</span>
-                        </button>
-                      </div>
-
-                      <ArrowRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
@@ -1035,7 +925,7 @@ export default function OnboardingPage() {
         {/* ADMIN DRILL-DOWN — View an employee's tasks after clicking     */}
         {/* their instance card in the roster above                        */}
         {/* ════════════════════════════════════════════════════════════════ */}
-        {isAdmin && activeTab === 'roadmaps' && selectedAdminInstance && (
+        {isAdmin && (activeTab === 'supervised' || activeTab === 'archive') && selectedAdminInstance && (
           <div className="space-y-4">
             {/* Back bar */}
             <button
@@ -1193,6 +1083,90 @@ export default function OnboardingPage() {
                 );
               });
             })()}
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* ARCHIVE VIEW — Deleted and archived roadmaps                     */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {isAdmin && activeTab === 'archive' && !selectedAdminInstance && (
+          <div className="space-y-6">
+            <div className={`rounded-2xl px-5 py-5 ${isDarkMode ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white/70 border border-slate-200/80 shadow-sm'}`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-slate-700/50 text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
+                  <Users className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h2 className={`text-base font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                    Archived Roadmaps
+                  </h2>
+                  <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {archiveInstances.length} deleted roadmap{archiveInstances.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {archiveInstances.length === 0 ? (
+              <div className={`rounded-2xl border-2 border-dashed px-6 py-12 text-center ${
+                isDarkMode ? 'border-slate-700/50 bg-slate-800/20' : 'border-slate-200/60 bg-white/30'
+              }`}>
+                <h3 className={`text-lg font-bold mb-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Archive is empty
+                </h3>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {archiveInstances.map(inst => (
+                  <div
+                    key={inst.id}
+                    onClick={() => setSelectedAdminInstance(inst)}
+                    className={`rounded-xl px-5 py-4 transition-all cursor-pointer opacity-70 ${
+                      isDarkMode
+                        ? 'bg-slate-800/60 border border-slate-700/50 hover:bg-slate-800/80'
+                        : 'bg-white/70 border border-slate-200/80 hover:bg-slate-50/80'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                      {/* Avatar */}
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-black uppercase ${
+                        isDarkMode ? 'bg-slate-800 text-slate-500' : 'bg-slate-200 text-slate-500'
+                      }`}>
+                        {inst.userName.charAt(0)}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            {inst.userName}
+                          </span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                            isDarkMode ? 'bg-slate-800 text-slate-500 border-slate-700' : 'bg-slate-100 text-slate-500 border-slate-200'
+                          }`}>
+                            Deleted
+                          </span>
+                        </div>
+                        <div className={`text-[11px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                          {inst.roleName} • Deleted {inst.deletedAt ? formatDate(inst.deletedAt) : 'Unknown'}
+                        </div>
+                      </div>
+
+                      {/* Progress */}
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="text-right">
+                          <div className={`text-lg font-extrabold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            {inst.computedProgress}%
+                          </div>
+                        </div>
+                      </div>
+
+                      <ArrowRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

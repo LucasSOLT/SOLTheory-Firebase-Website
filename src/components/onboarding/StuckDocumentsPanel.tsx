@@ -52,6 +52,25 @@ export default function StuckDocumentsPanel({ orgId, isDarkMode, refreshKey = 0 
   const [reassignTask, setReassignTask] = useState<string | null>(null);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
 
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem('onboarding_stuck_docs_panel_open');
+      if (stored !== null) setOpen(stored === 'true');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleOpen = () => {
+    setOpen(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('onboarding_stuck_docs_panel_open', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const load = useCallback(async () => {
     try {
       const headers = await getAuthHeaders();
@@ -115,7 +134,7 @@ export default function StuckDocumentsPanel({ orgId, isDarkMode, refreshKey = 0 
     <div className={`rounded-2xl border ${shell}`}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
         className="w-full px-5 py-3.5 flex items-center gap-3 text-left cursor-pointer"
       >
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${stuckCount ? (isDarkMode ? 'bg-rose-900/40 text-rose-300' : 'bg-rose-100 text-rose-600') : (isDarkMode ? 'bg-amber-900/30 text-amber-300' : 'bg-amber-100 text-amber-600')}`}>

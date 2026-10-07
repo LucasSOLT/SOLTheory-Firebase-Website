@@ -37,6 +37,9 @@ import {
   MessageSquare,
   ExternalLink,
   X,
+  Trash2,
+  Calendar,
+  Bell,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { getAuthHeaders } from '@/lib/api-auth-client';
@@ -53,9 +56,11 @@ interface OnboardingInstanceDoc {
   userName: string;
   templateId: string;
   roleName: string;
-  status: 'in_progress' | 'completed';
+  phaseDefinitions?: any[];
+  status: 'in_progress' | 'completed' | 'deleted';
   startedAt: any;
   completedAt: any;
+  deletedAt?: any;
   overallProgress: number;
   totalSteps: number;
   completedSteps: number;
@@ -118,6 +123,13 @@ interface SupervisorProgressViewProps {
   isDarkMode: boolean;
   onTaskClick: (task: TaskDoc) => void;
   onRefresh: () => void;
+  isAdmin?: boolean;
+  onAdminSelectInstance?: (inst: OnboardingInstanceDoc) => void;
+  onAdminDeleteInstance?: (id: string) => void;
+  onAdminScheduleCalendar?: (inst: OnboardingInstanceDoc) => void;
+  onAdminNudge?: (id: string) => void;
+  nudgeLoadingMap?: Record<string, boolean>;
+  nudgeStatusMap?: Record<string, string>;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -125,7 +137,21 @@ interface SupervisorProgressViewProps {
 function formatDate(ts: any): string {
   if (!ts) return '—';
   try {
-    const d = ts?.toDate?.() || new Date(ts);
+    let d: Date;
+    if (typeof ts.toDate === 'function') {
+      d = ts.toDate();
+    } else if (ts && typeof ts === 'object') {
+      if ('seconds' in ts && typeof ts.seconds === 'number') {
+        d = new Date(ts.seconds * 1000);
+      } else if ('_seconds' in ts && typeof ts._seconds === 'number') {
+        d = new Date(ts._seconds * 1000);
+      } else {
+        d = new Date(ts);
+      }
+    } else {
+      d = new Date(ts);
+    }
+    if (isNaN(d.getTime())) return '—';
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   } catch {
     return '—';
@@ -156,18 +182,55 @@ export default function SupervisorProgressView({
   isDarkMode,
   onTaskClick,
   onRefresh,
+  isAdmin,
+  onAdminSelectInstance,
+  onAdminDeleteInstance,
+  onAdminScheduleCalendar,
+  onAdminNudge,
+  nudgeLoadingMap = {},
+  nudgeStatusMap = {},
 }: SupervisorProgressViewProps) {
-  const [expandedInstanceId, setExpandedInstanceId] = useState<string | null>(null);
-  const [expandedPhases, setExpandedPhases] = useState<Record<string, boolean>>({});
+  const [expandedInstanceId, setExpandedInstanceIdState] = useState<string | null>(null);
+  const [expandedPhases, setExpandedPhasesState] = useState<Record<string, boolean>>({});
+
+  React.useEffect(() => {
+    try {
+      const storedInstance = localStorage.getItem('onboarding_supervisor_expanded_instance');
+      if (storedInstance !== null) setExpandedInstanceIdState(storedInstance);
+      const storedPhases = localStorage.getItem('onboarding_supervisor_expanded_phases');
+      if (storedPhases !== null) setExpandedPhasesState(JSON.parse(storedPhases));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const setExpandedInstanceId = (val: string | null) => {
+    setExpandedInstanceIdState(val);
+    try {
+      if (val === null) localStorage.removeItem('onboarding_supervisor_expanded_instance');
+      else localStorage.setItem('onboarding_supervisor_expanded_instance', val);
+    } catch {}
+  };
+
+  const setExpandedPhases = (updater: (prev: Record<string, boolean>) => Record<string, boolean>) => {
+    setExpandedPhasesState(prev => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem('onboarding_supervisor_expanded_phases', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
   const [reRequestingTaskId, setReRequestingTaskId] = useState<string | null>(null);
   const [reRequestNotes, setReRequestNotes] = useState('');
   const [isSubmittingReRequest, setIsSubmittingReRequest] = useState(false);
   const [inspectingTask, setInspectingTask] = useState<TaskDoc | null>(null);
 
-  // Filter instances where this user is the assigned supervisor (mentorUid)
+  // Filter instances where this user is the assigned supervisor (mentorUid) or all if admin
   const supervisorInstances = useMemo(() => {
-    return instances.filter(i => i.mentorUid === supervisorUid);
-  }, [instances, supervisorUid]);
+    if (isAdmin) return instances.filter(i => i.status !== 'deleted');
+    return instances.filter(i => i.mentorUid === supervisorUid && i.status !== 'deleted');
+  }, [instances, supervisorUid, isAdmin]);
 
   // Calculate progress per instance
   const instanceProgress = useMemo(() => {
@@ -333,6 +396,66 @@ export default function SupervisorProgressView({
             {/* Expanded Phase Breakdown */}
             {isExpanded && (
               <div className={`border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/60'}`}>
+                {isAdmin && (onAdminSelectInstance || onAdminDeleteInstance || onAdminScheduleCalendar || onAdminNudge) && (
+                  <div className={`px-5 py-3 border-b flex justify-end gap-2 ${isDarkMode ? 'border-slate-700/30 bg-slate-800/30' : 'border-slate-200/40 bg-slate-50/50'}`}>
+                    {onAdminScheduleCalendar && (
+                      <button
+                        onClick={() => onAdminScheduleCalendar(inst)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                          (inst as any).hasCalendarScheduled
+                            ? (isDarkMode ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-400 hover:bg-emerald-900/40' : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100')
+                            : (isDarkMode ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50')
+                        }`}
+                        title="Schedule Orientation & Milestones on Google Calendar"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="hidden md:inline">{(inst as any).hasCalendarScheduled ? 'Calendar ✓' : 'Calendar'}</span>
+                      </button>
+                    )}
+                    {onAdminNudge && (
+                      <button
+                        onClick={() => onAdminNudge(inst.id)}
+                        disabled={nudgeLoadingMap[inst.id]}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                          nudgeStatusMap[inst.id] === 'Sent! ✓'
+                            ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-500'
+                            : isDarkMode
+                            ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                        title="Trigger a friendly Bobby reminder email for approaching/overdue items"
+                      >
+                        {nudgeLoadingMap[inst.id] ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                        ) : (
+                          <Bell className="w-3.5 h-3.5 text-amber-500" />
+                        )}
+                        <span>{nudgeStatusMap[inst.id] || 'Nudge'}</span>
+                      </button>
+                    )}
+                    {onAdminSelectInstance && (
+                      <button
+                        onClick={() => onAdminSelectInstance(inst)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          isDarkMode ? 'bg-indigo-900/40 text-indigo-300 hover:bg-indigo-900/60' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+                        }`}
+                      >
+                        <Shield className="w-3.5 h-3.5" /> Admin Options
+                      </button>
+                    )}
+                    {onAdminDeleteInstance && (
+                      <button
+                        onClick={() => onAdminDeleteInstance(inst.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          isDarkMode ? 'bg-rose-900/40 text-rose-300 hover:bg-rose-900/60' : 'bg-rose-50 text-rose-600 hover:bg-rose-100'
+                        }`}
+                        title="Permanently Delete Roadmap"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </button>
+                    )}
+                  </div>
+                )}
                 {phaseNumbers.length === 0 ? (
                   <div className={`px-5 py-6 text-center text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                     No tasks found for this onboarding track.

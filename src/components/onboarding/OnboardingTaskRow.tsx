@@ -19,6 +19,7 @@ import {
   Video,
   BookOpen,
   ArrowRight,
+  Lock,
 } from 'lucide-react';
 import { safeExternalUrl } from '@/lib/utils';
 
@@ -60,6 +61,10 @@ interface OnboardingTaskRowProps {
   orgId: string;
   /** Whether the current user can check off / interact with this task (the assignee). */
   isAssignee: boolean;
+  /** Whether the task itself is locked according to its release rule. */
+  isLocked?: boolean;
+  /** The reason why the task is locked. */
+  lockReason?: string;
   /** Compliance verification status from the vault (if applicable). */
   verificationStatus?: 'pending_review' | 'verified' | 'rejected' | null;
   onToggleComplete: (taskId: string, currentColumn: string) => void;
@@ -103,6 +108,8 @@ export default function OnboardingTaskRow({
   isDarkMode,
   orgId,
   isAssignee,
+  isLocked,
+  lockReason,
   verificationStatus,
   onToggleComplete,
   onUploadDocument,
@@ -296,15 +303,17 @@ export default function OnboardingTaskRow({
       className={`group flex items-start gap-3 px-4 py-3 rounded-xl transition-all ${
         isCompleted
           ? (isDarkMode ? 'bg-slate-800/30 opacity-60' : 'bg-slate-50/50 opacity-60')
+          : isLocked
+          ? (isDarkMode ? 'bg-slate-800/20 opacity-50' : 'bg-slate-50/40 opacity-50')
           : (isDarkMode ? 'bg-slate-800/50 hover:bg-slate-800/70' : 'bg-white/60 hover:bg-white/80')
       } ${isDarkMode ? 'border border-slate-700/40' : 'border border-slate-200/60'}`}
     >
       {/* Checkbox */}
       <button
-        onClick={() => isAssignee && onToggleComplete(task.id, task.column)}
-        disabled={!isAssignee}
-        className={`mt-0.5 shrink-0 transition-all ${isAssignee ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
-        title={isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
+        onClick={() => isAssignee && !isLocked && onToggleComplete(task.id, task.column)}
+        disabled={!isAssignee || isLocked}
+        className={`mt-0.5 shrink-0 transition-all ${isAssignee && !isLocked ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
+        title={isLocked ? 'Task is locked' : isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
       >
         {isCompleted ? (
           <CheckCircle2 className={`w-5 h-5 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-500'}`} />
@@ -318,8 +327,8 @@ export default function OnboardingTaskRow({
         {/* Title row */}
         <div className="flex items-center gap-2 flex-wrap">
           <span
-            onClick={() => onTaskClick?.(task)}
-            className={`text-sm font-semibold transition-colors ${isCompleted ? 'line-through' : ''} ${isDarkMode ? 'text-white' : 'text-slate-900'} ${hasPopupContent && onTaskClick ? 'cursor-pointer hover:text-indigo-400' : ''}`}
+            onClick={() => !isLocked && onTaskClick?.(task)}
+            className={`text-sm font-semibold transition-colors ${isCompleted ? 'line-through' : ''} ${isDarkMode ? 'text-white' : 'text-slate-900'} ${hasPopupContent && onTaskClick && !isLocked ? 'cursor-pointer hover:text-indigo-400' : ''}`}
           >
             {task.title}
           </span>
@@ -331,6 +340,15 @@ export default function OnboardingTaskRow({
           <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${isDarkMode ? prio.dark : prio.light}`}>
             {task.priority}
           </span>
+
+          {/* Lock badge */}
+          {isLocked && (
+            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+              isDarkMode ? 'bg-slate-700/50 text-slate-500 border-slate-600/50' : 'bg-slate-100 text-slate-400 border-slate-200/60'
+            }`}>
+              <Lock className="w-3 h-3" /> {lockReason || 'Locked'}
+            </span>
+          )}
 
           {/* Urgency pill */}
           {urgency && urgencyConfig[urgency] && (

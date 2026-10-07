@@ -18,6 +18,8 @@ export interface OnboardingPhaseDefinition {
   phaseNumber: number;
   /** Custom name for this phase (e.g. 'Pre-boarding & Admin'). */
   name: string;
+  /** Release rule for this phase. */
+  releaseRule?: 'immediately' | 'date_time' | 'previous_complete' | 'supervisor';
   /** Day range start relative to onboarding start date. */
   dayRangeStart: number;
   /** Day range end relative to onboarding start date. */
@@ -102,8 +104,13 @@ export interface OnboardingStep {
   priority: 'High' | 'Medium' | 'Low';
 
   /**
+   * Release rule dictating when this step unlocks.
+   */
+  releaseRule?: 'immediately' | 'date_time' | 'previous_complete' | 'supervisor';
+
+  /**
    * Number of calendar days after the start date that this step opens/unlocks.
-   * Examples: 0 = same day, 1 = next day.
+   * Only used if releaseRule is 'date_time'.
    */
   openDayOffset?: number;
 
@@ -253,8 +260,11 @@ export interface OnboardingInstance {
   /** The role name from the template (denormalized for quick display). */
   roleName: string;
 
+  /** Custom phase definitions from the template, captured at instantiation. */
+  phaseDefinitions?: OnboardingPhaseDefinition[];
+
   /** Current status. */
-  status: 'in_progress' | 'completed';
+  status: 'in_progress' | 'completed' | 'deleted';
 
   /** When the onboarding track was started. */
   startedAt: Date | any; // Firestore Timestamp

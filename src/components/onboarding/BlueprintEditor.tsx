@@ -30,6 +30,7 @@ interface BlueprintItem {
   title: string;
   itemType: string;
   priority: string;
+  releaseRule?: 'immediately' | 'date_time' | 'previous_complete' | 'supervisor';
   openDayOffset?: number;
   openTime?: string;
   dayOffset: number;
@@ -51,6 +52,7 @@ interface BlueprintPhase {
   id: string;
   phaseNumber: number;
   name: string;
+  releaseRule?: 'immediately' | 'date_time' | 'previous_complete' | 'supervisor';
   startDay: number;
   endDay: number;
   items: BlueprintItem[];
@@ -537,14 +539,29 @@ export default function BlueprintEditor({
                     />
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 shrink-0">
                       <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Opens</span>
-                        <input
-                          type="date"
-                          value={offsetToDateStr(phase.startDay)}
-                          onChange={(e) => handleUpdatePhase(phase.id, { startDay: dateStrToOffset(e.target.value) })}
-                          className={`${inputClass()} w-32 text-xs py-1 px-1.5`}
-                        />
+                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Release</span>
+                        <select
+                          value={phase.releaseRule || 'previous_complete'}
+                          onChange={(e) => handleUpdatePhase(phase.id, { releaseRule: e.target.value as any })}
+                          className={`${inputClass()} w-36 text-xs py-1 px-1.5`}
+                        >
+                          <option value="immediately">Immediately</option>
+                          <option value="previous_complete">When previous complete</option>
+                          <option value="date_time">At date/time</option>
+                          <option value="supervisor">When supervisor releases</option>
+                        </select>
                       </div>
+                      {(phase.releaseRule === 'date_time' || (!phase.releaseRule && phase.phaseNumber === 1)) && (
+                        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Date</span>
+                          <input
+                            type="date"
+                            value={offsetToDateStr(phase.startDay)}
+                            onChange={(e) => handleUpdatePhase(phase.id, { startDay: dateStrToOffset(e.target.value) })}
+                            className={`${inputClass()} w-32 text-xs py-1 px-1.5`}
+                          />
+                        </div>
+                      )}
                       <div className="hidden sm:block text-xs text-slate-400">to</div>
                       <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
                         <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider px-1">Due</span>
@@ -645,25 +662,43 @@ export default function BlueprintEditor({
                               </div>
 
                               <div className="flex flex-col sm:flex-row sm:items-center shrink-0 bg-slate-100 dark:bg-slate-800/50 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 gap-1.5 sm:gap-0">
-                                <div className="flex items-center gap-1.5 px-2 justify-between sm:justify-start">
-                                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider w-10">Opens</span>
-                                  <div className="flex items-center gap-1.5">
-                                    <input
-                                      type="date"
-                                      value={offsetToDateStr(item.openDayOffset ?? 0)}
-                                      onChange={(e) => handleUpdateItem(phase.id, item.id, { openDayOffset: dateStrToOffset(e.target.value) })}
-                                      className={`${inputClass()} w-32 text-xs py-1 px-1.5`}
-                                      title="Open Date"
-                                    />
-                                    <input
-                                      type="time"
-                                      value={item.openTime || '09:00'}
-                                      onChange={(e) => handleUpdateItem(phase.id, item.id, { openTime: e.target.value })}
-                                      className={`${inputClass()} w-[88px] text-xs py-1 px-1.5`}
-                                      title="Open Time"
-                                    />
-                                  </div>
+                                <div className="flex items-center gap-1.5 px-2 justify-between sm:justify-start border-b sm:border-b-0 border-slate-200 dark:border-slate-700 pb-1.5 sm:pb-0 mb-1.5 sm:mb-0 sm:mr-1">
+                                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider w-14">Release</span>
+                                  <select
+                                    value={item.releaseRule || 'immediately'}
+                                    onChange={(e) => handleUpdateItem(phase.id, item.id, { releaseRule: e.target.value as any })}
+                                    className={`${inputClass()} w-[130px] text-xs py-1 px-1.5`}
+                                  >
+                                    <option value="immediately">Immediately</option>
+                                    <option value="previous_complete">When previous complete</option>
+                                    <option value="date_time">At date/time</option>
+                                    <option value="supervisor">When supervisor releases</option>
+                                  </select>
                                 </div>
+                                {item.releaseRule === 'date_time' && (
+                                  <>
+                                    <div className="hidden sm:block w-px h-6 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+                                    <div className="flex items-center gap-1.5 px-2 justify-between sm:justify-start">
+                                      <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider w-10">Date</span>
+                                      <div className="flex items-center gap-1.5">
+                                        <input
+                                          type="date"
+                                          value={offsetToDateStr(item.openDayOffset ?? 0)}
+                                          onChange={(e) => handleUpdateItem(phase.id, item.id, { openDayOffset: dateStrToOffset(e.target.value) })}
+                                          className={`${inputClass()} w-32 text-xs py-1 px-1.5`}
+                                          title="Open Date"
+                                        />
+                                        <input
+                                          type="time"
+                                          value={item.openTime || '09:00'}
+                                          onChange={(e) => handleUpdateItem(phase.id, item.id, { openTime: e.target.value })}
+                                          className={`${inputClass()} w-[88px] text-xs py-1 px-1.5`}
+                                          title="Open Time"
+                                        />
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
                                 <div className="hidden sm:block w-px h-6 bg-slate-300 dark:bg-slate-600 mx-1"></div>
                                 <div className="flex items-center gap-1.5 px-2 justify-between sm:justify-start pt-1.5 border-t border-slate-200 dark:border-slate-700 sm:pt-0 sm:border-t-0">
                                   <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider w-10">Due</span>

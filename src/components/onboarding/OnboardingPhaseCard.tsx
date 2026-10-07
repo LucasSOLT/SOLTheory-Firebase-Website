@@ -18,6 +18,7 @@ interface TaskItem {
   description?: string;
   priority: 'High' | 'Medium' | 'Low';
   column: 'todo' | 'doing' | 'done';
+  startDate?: any;
   dueDate?: any;
   completedAt?: any;
   isLate?: boolean;
@@ -27,6 +28,8 @@ interface TaskItem {
     requiresDocumentUpload?: boolean;
     documentCategory?: string;
     sopUrl?: string;
+    releaseRule?: string;
+    supervisorReleased?: boolean;
   };
   attachments?: { url: string; name: string; type: string }[];
 }
@@ -41,6 +44,8 @@ interface OnboardingPhaseCardProps {
   verificationMap: Record<string, 'pending_review' | 'verified' | 'rejected' | null>;
   /** Whether this phase is locked (previous phase not yet complete). */
   isLocked: boolean;
+  /** Optional lock reason text to show when locked. */
+  lockReason?: string;
   /** Whether this card should start expanded. */
   defaultOpen?: boolean;
   /** Optional custom phase name (overrides default label for dynamic blueprints). */
@@ -52,6 +57,8 @@ interface OnboardingPhaseCardProps {
   onAskJarvis: (question: string) => void;
   /** Optional callback when a task row is clicked (opens item popup). */
   onTaskClick?: (task: TaskItem) => void;
+  /** Optional instance ID for unique localStorage persistence */
+  instanceId?: string;
 }
 
 // ── Phase Icons ─────────────────────────────────────────────────────────────
@@ -96,6 +103,7 @@ export default function OnboardingPhaseCard({
   isAssignee,
   verificationMap,
   isLocked,
+  lockReason,
   defaultOpen = false,
   phaseName,
   phaseTimeline: customTimeline,
@@ -103,8 +111,32 @@ export default function OnboardingPhaseCard({
   onUploadDocument,
   onAskJarvis,
   onTaskClick,
+  instanceId,
 }: OnboardingPhaseCardProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  const storageKey = instanceId 
+    ? `onboarding_phase_${instanceId}_${phase}_open` 
+    : `onboarding_phase_${phase}_open`;
+
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored !== null) setIsOpen(stored === 'true');
+    } catch {
+      // ignore
+    }
+  }, [storageKey]);
+
+  const toggleOpen = () => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(storageKey, String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const completedCount = tasks.filter(t => t.column === 'done').length;
   const totalCount = tasks.length;
@@ -122,7 +154,7 @@ export default function OnboardingPhaseCard({
     <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
       isDarkMode ? 'bg-slate-700/50 text-slate-500 border-slate-600/50' : 'bg-slate-100 text-slate-400 border-slate-200/60'
     }`}>
-      <Lock className="w-3 h-3" /> Locked
+      <Lock className="w-3 h-3" /> {lockReason || 'Locked'}
     </span>
   ) : isComplete ? (
     <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
@@ -152,7 +184,7 @@ export default function OnboardingPhaseCard({
     >
       {/* Collapsible Header */}
       <button
-        onClick={() => !isLocked && setIsOpen(!isOpen)}
+        onClick={() => !isLocked && toggleOpen()}
         disabled={isLocked}
         className={`w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 text-left transition-colors ${
           !isLocked ? 'cursor-pointer' : 'cursor-not-allowed'
@@ -210,20 +242,51 @@ export default function OnboardingPhaseCard({
                 const bMs = b.dueDate?.toMillis?.() ?? (b.dueDate ? new Date(b.dueDate).getTime() : 0);
                 return aMs - bMs;
               })
-              .map(task => (
-                <OnboardingTaskRow
-                  key={task.id}
-                  task={task}
-                  isDarkMode={isDarkMode}
-                  orgId={orgId}
-                  isAssignee={isAssignee}
-                  verificationStatus={verificationMap[task.id] ?? null}
-                  onToggleComplete={onToggleComplete}
-                  onUploadDocument={onUploadDocument}
-                  onAskJarvis={onAskJarvis}
-                  onTaskClick={onTaskClick}
-                />
-              ))}
+              .map((task, index, sortedTasks) => {
+                let taskIsLocked = false;
+                let taskLockReason = '';
+
+                const rule = task.metadata?.releaseRule || 'immediately';
+                if (rule === 'date_time' && task.startDate) {
+                  const unlockMs = task.startDate?.toMillis?.() ?? new Date(task.startDate).getTime();
+                  if (Date.now() < unlockMs) {
+                    taskIsLocked = true;
+                    taskLockReason = `Opens ${new Date(unlockMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                  }
+                } else if (rule === 'previous_complete') {
+                  // For items, "previous complete" means all preceding tasks in the rendered order must be done
+                  const previousTasks = sortedTasks.slice(0, index);
+                  const isPrevDone = previousTasks.length === 0 || previousTasks.every(t => t.column === 'done');
+                  if (!isPrevDone) {
+                    taskIsLocked = true;
+                    taskLockReason = 'Complete previous items';
+                  }
+                } else if (rule === 'supervisor') {
+                  // Wait, how do we know if it's supervisor-released?
+                  // Maybe the task has a field `metadata.supervisorReleased: boolean`. For now, just show it's locked.
+                  if (!task.metadata?.supervisorReleased) {
+                    taskIsLocked = true;
+                    taskLockReason = 'Awaiting Supervisor Release';
+                  }
+                }
+
+                return (
+                  <OnboardingTaskRow
+                    key={task.id}
+                    task={task}
+                    isDarkMode={isDarkMode}
+                    orgId={orgId}
+                    isAssignee={isAssignee}
+                    isLocked={taskIsLocked}
+                    lockReason={taskLockReason}
+                    verificationStatus={verificationMap[task.id] ?? null}
+                    onToggleComplete={onToggleComplete}
+                    onUploadDocument={onUploadDocument}
+                    onAskJarvis={onAskJarvis}
+                    onTaskClick={onTaskClick}
+                  />
+                );
+              })}
           </div>
         </div>
       )}
