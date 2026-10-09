@@ -1622,6 +1622,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           stream: true,
           userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           chatScope,
+          sessionId: currentSessionId,
         }),
       });
       console.log(`%c[JARVIS] Model: ${selectedModel} | Provider: ${OPENROUTER_MODEL_IDS.includes(selectedModel) ? 'OpenRouter' : 'Groq'} | Lite: ${isLiteModel}`, 'color: #10b981; font-weight: bold; font-size: 12px');

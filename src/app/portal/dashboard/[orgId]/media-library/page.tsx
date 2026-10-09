@@ -141,6 +141,12 @@ const PRESENTATION_EXTENSIONS = new Set(["ppt", "pptx", "odp"]);
 const ARCHIVE_EXTENSIONS = new Set(["zip", "rar", "7z", "tar", "gz", "bz2"]);
 const CODE_EXTENSIONS = new Set(["js", "ts", "jsx", "tsx", "py", "html", "css", "json", "xml", "yaml", "yml", "sh", "sql"]);
 
+const ALLOWED_AI_BRAIN_EXTENSIONS = new Set([
+  "pdf", "docx", "doc", "txt", "md", "csv", "json", "xml", "html", "css",
+  "js", "ts", "tsx", "jsx", "py", "rb", "go", "rs", "java", "c", "cpp", "h",
+  "yaml", "yml", "toml", "ini", "log", "env", "sh", "bat", "ps1", "sql",
+  "jpg", "jpeg", "png", "webp", "gif", "bmp"
+]);
 function isImageFile(ext: string): boolean {
   return IMAGE_EXTENSIONS.has(ext.toLowerCase());
 }
@@ -817,6 +823,19 @@ export default function MediaLibraryPage() {
     const filesArray = Array.from(fileList);
     if (filesArray.length === 0) return;
 
+    if (filesArray.length > 5) {
+      showToast("You can only upload up to 5 documents at a time.");
+      return;
+    }
+
+    const invalidFiles = filesArray.filter(f => {
+      const ext = f.name.split(".").pop()?.toLowerCase() || "";
+      return !ALLOWED_AI_BRAIN_EXTENSIONS.has(ext);
+    });
+    if (invalidFiles.length > 0) {
+      showToast(`Unsupported file type: ${invalidFiles.map(f => f.name).join(", ")}`);
+      return;
+    }
     for (const file of filesArray) {
       if (file.size > 50 * 1024 * 1024) {
         showToast(`File too large: ${file.name} (max 50MB)`);
@@ -1054,6 +1073,19 @@ export default function MediaLibraryPage() {
     const filesArray = Array.from(fileList);
     if (filesArray.length === 0) return;
 
+    if (filesArray.length > 5) {
+      showToast("You can only upload up to 5 documents at a time.");
+      return;
+    }
+
+    const invalidFiles = filesArray.filter(f => {
+      const ext = f.name.split(".").pop()?.toLowerCase() || "";
+      return !ALLOWED_AI_BRAIN_EXTENSIONS.has(ext);
+    });
+    if (invalidFiles.length > 0) {
+      showToast(`Unsupported file type: ${invalidFiles.map(f => f.name).join(", ")}. Please upload only supported types.`);
+      return;
+    }
     for (const file of filesArray) {
       if (file.size > 50 * 1024 * 1024) {
         showToast(`File too large: ${file.name} (max 50MB)`);
@@ -2324,7 +2356,8 @@ export default function MediaLibraryPage() {
               }`}>
                 <Upload className={`w-8 h-8 mb-2 ${isDark ? "text-indigo-400" : "text-indigo-500"}`} />
                 <p className={`text-sm font-semibold ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>Drop files to upload to AI Brain</p>
-                <p className={`text-[11px] mt-1 ${isDark ? "text-indigo-400/70" : "text-indigo-500"}`}>PDF, DOCX, TXT, images, code files</p>
+                <p className={`text-[11px] mt-1 ${isDark ? "text-indigo-400/70" : "text-indigo-500"}`}>Supports: PDF, DOCX, TXT, Images (JPG, PNG, WebP), Code files (max 5 per upload)</p>
+                <p className={`text-[11px] mt-1 font-semibold text-rose-500`}>NOT supported: Video (.mp4, .mov), Audio, Zip files</p>
               </div>
             )}
 
@@ -2354,7 +2387,10 @@ export default function MediaLibraryPage() {
                     <Upload className="w-4 h-4" />
                     Upload to AI Brain
                   </button>
-                  <p className={`text-[11px] mt-3 ${isDark ? "text-slate-500" : "text-slate-400"}`}>Supports PDF, DOCX, TXT, JPG, PNG, WebP, and code files</p>
+                  <div className="flex flex-col items-center gap-1 mt-3">
+                    <p className={`text-[11px] font-semibold text-emerald-500`}>✓ Supports (max 5 at a time): PDF, DOCX, TXT, Images, Code files</p>
+                    <p className={`text-[11px] font-semibold text-rose-500`}>✕ NOT supported: Video (.mp4, .mov), Audio, Zip files</p>
+                  </div>
                 </div>
               ) : (
                 /* Document Grid */
@@ -2669,7 +2705,8 @@ export default function MediaLibraryPage() {
               }`}>
                 <Upload className={`w-8 h-8 mb-2 ${isDark ? "text-blue-400" : "text-blue-500"}`} />
                 <p className={`text-sm font-semibold ${isDark ? "text-blue-300" : "text-blue-700"}`}>Drop files to upload to Org Brain</p>
-                <p className={`text-[11px] mt-1 ${isDark ? "text-blue-400/70" : "text-blue-500"}`}>PDF, DOCX, TXT, images, code files</p>
+                <p className={`text-[11px] mt-1 ${isDark ? "text-blue-400/70" : "text-blue-500"}`}>Supports: PDF, DOCX, TXT, Images (JPG, PNG, WebP), Code files (max 5 per upload)</p>
+                <p className={`text-[11px] mt-1 font-semibold text-rose-500`}>NOT supported: Video (.mp4, .mov), Audio, Zip files</p>
               </div>
             )}
 
@@ -2701,7 +2738,10 @@ export default function MediaLibraryPage() {
                       Upload to Org Brain
                     </button>
                   )}
-                  <p className={`text-[11px] mt-3 ${isDark ? "text-slate-500" : "text-slate-400"}`}>Supports PDF, DOCX, TXT, JPG, PNG, WebP, and code files</p>
+                  <div className="flex flex-col items-center gap-1 mt-3">
+                    <p className={`text-[11px] font-semibold text-emerald-500`}>✓ Supports (max 5 at a time): PDF, DOCX, TXT, Images, Code files</p>
+                    <p className={`text-[11px] font-semibold text-rose-500`}>✕ NOT supported: Video (.mp4, .mov), Audio, Zip files</p>
+                  </div>
                 </div>
               ) : (
                 /* Document Grid */

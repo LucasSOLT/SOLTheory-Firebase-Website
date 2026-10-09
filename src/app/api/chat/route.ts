@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 import { google } from "googleapis";
 import { verifyRequest, verifyOrgMember } from "@/lib/api-auth";
 
@@ -213,10 +214,74 @@ const textOf = (content: any): string => {
 // Increase serverless function timeout for multi-step orchestration with premium models
 export const maxDuration = 60; // seconds (Pro plan supports up to 300s)
 
+function backgroundSaveSessionMessage(sessionId: string, text: string, fullHistory: any[]) {
+  if (!sessionId || !text) return;
+  waitUntil((async () => {
+    try {
+      const sb = createServiceClient();
+      // Delay to give the client's standard PUT a chance to finish if they are still connected
+      await new Promise(r => setTimeout(r, 3000));
+      
+      // Check if the client already saved this response (or if we already background-saved it)
+      const { data: latestMsgs } = await sb
+        .from('messages')
+        .select('id, content, role')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: false })
+        .limit(3);
+        
+      if (latestMsgs && latestMsgs.some(m => m.role === 'assistant' && m.content === text)) {
+        return; // Already saved
+      }
+      
+      // Determine the user's text for this turn
+      const lastUserMsg = (fullHistory || []).filter(m => m.role === 'user').pop();
+      let userText = "";
+      if (lastUserMsg) {
+        if (Array.isArray(lastUserMsg.content)) {
+          userText = lastUserMsg.content.find((c: any) => c.type === 'text')?.text || "";
+        } else {
+          userText = lastUserMsg.content || "";
+        }
+      }
+      
+      const inserts = [];
+      const alreadyHasUserMsg = latestMsgs && latestMsgs.some(m => m.role === 'user' && m.content === userText);
+      
+      if (userText && !alreadyHasUserMsg) {
+        inserts.push({
+          id: crypto.randomUUID(),
+          session_id: sessionId,
+          role: 'user',
+          content: userText,
+          created_at: new Date(Date.now() - 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+      
+      inserts.push({
+        id: crypto.randomUUID(),
+        session_id: sessionId,
+        role: 'assistant',
+        content: text,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      
+      if (inserts.length > 0) {
+        await sb.from('messages').insert(inserts);
+      }
+      await sb.from('chat_sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId);
+    } catch (e) {
+      console.warn('[Background Save] Failed:', (e as any)?.message);
+    }
+  })());
+}
+
 export async function POST(req: Request) {
   // Clone request for body reading before auth (verifyOrgMember also reads headers)
   const body = await req.json();
-  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, personalBrainText, stream: wantStream, crmData, crmInstanceId, crmInstances, userTimezone, chatScope } = body;
+  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, personalBrainText, stream: wantStream, crmData, crmInstanceId, crmInstances, userTimezone, chatScope, sessionId } = body;
 
   // Determine org from agentId prefix and enforce org membership
   const requestOrg = (rawAgentId || "").includes("nxtchapter") ? "nxtchapter"
@@ -1144,6 +1209,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
       });
 
       // Fire-and-forget PACT extraction
+      backgroundSaveSessionMessage(sessionId, fullResponse, messages);
       if (uid && userName && fullResponse.length > 20) {
         const lastUserMsg = textOf(messages.filter((m: any) => m.role === "user").pop()?.content);
         if (lastUserMsg.length > 5) {
@@ -1284,6 +1350,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
       }
 
       // Fire-and-forget server-side PACT extraction — writes to Supabase working_memories (scope-aware)
+      backgroundSaveSessionMessage(sessionId, responseText, messages);
       if (uid && userName && responseText.length > 20) {
         const lastUserMsg = textOf(messages.filter((m: any) => m.role === "user").pop()?.content);
         if (lastUserMsg.length > 5) {
@@ -2506,6 +2573,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
     }
 
     let finalResponse = sanitizeResponse(finalResponseText);
+    backgroundSaveSessionMessage(sessionId, finalResponse, messages);
 
     // Quality guardrail removed for speed — openai/gpt-oss-120b is fast enough
     // that a single LLM call is preferable to the latency of a retry.
