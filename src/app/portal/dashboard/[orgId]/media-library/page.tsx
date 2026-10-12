@@ -51,6 +51,7 @@ import MediaGridCard from "@/components/media-library/MediaGridCard";
 import type { MediaCardItem } from "@/components/media-library/MediaGridCard";
 import PactMemoryView from "@/components/media-library/PactMemoryView";
 import { getAuthHeaders } from "@/lib/api-auth-client";
+import { capUploadBatch, AI_BRAIN_UPLOAD_CAP_WARNING, MAX_AI_BRAIN_UPLOAD_FILES } from "@/lib/upload-batch-cap";
 import { ADMIN_EMAILS } from "@/lib/admin";
 import { useOrgRole, isProtectedAdmin } from "@/hooks/useOrgRole";
 import { hasPermission } from "@/lib/rbac";
@@ -716,10 +717,10 @@ export default function MediaLibraryPage() {
   // ─── Toast State (hoisted before AI Brain for dependency ordering) ───
   const [toast, setToast] = useState<string | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showToast = useCallback((msg: string) => {
+  const showToast = useCallback((msg: string, durationMs: number = 2500) => {
     setToast(msg);
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    toastTimeoutRef.current = setTimeout(() => setToast(null), 2500);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), durationMs);
   }, []);
 
   // ─── AI Brain State ───
@@ -820,12 +821,11 @@ export default function MediaLibraryPage() {
       showToast("Not authenticated");
       return;
     }
-    const filesArray = Array.from(fileList);
+    const { accepted: filesArray, dropped: droppedFiles } = capUploadBatch(Array.from(fileList));
     if (filesArray.length === 0) return;
 
-    if (filesArray.length > 5) {
-      showToast("You can only upload up to 5 documents at a time.");
-      return;
+    if (droppedFiles.length > 0) {
+      showToast(AI_BRAIN_UPLOAD_CAP_WARNING, 5000);
     }
 
     const invalidFiles = filesArray.filter(f => {
@@ -940,6 +940,9 @@ export default function MediaLibraryPage() {
 
     setAiBrainUploading(false);
     setAiBrainUploadProgress("");
+    if (droppedFiles.length > 0) {
+      showToast(`Only the first ${MAX_AI_BRAIN_UPLOAD_FILES} files were sent. ${droppedFiles.length} skipped (max ${MAX_AI_BRAIN_UPLOAD_FILES} per upload): ${droppedFiles.map(f => f.name).join(", ")}`, 6000);
+    }
   }, [user?.uid, showToast]);
 
   // ─── AI Brain Delete Handler ───
@@ -1070,12 +1073,11 @@ export default function MediaLibraryPage() {
       showToast("Only admins can upload to the Organization AI Brain");
       return;
     }
-    const filesArray = Array.from(fileList);
+    const { accepted: filesArray, dropped: droppedFiles } = capUploadBatch(Array.from(fileList));
     if (filesArray.length === 0) return;
 
-    if (filesArray.length > 5) {
-      showToast("You can only upload up to 5 documents at a time.");
-      return;
+    if (droppedFiles.length > 0) {
+      showToast(AI_BRAIN_UPLOAD_CAP_WARNING, 5000);
     }
 
     const invalidFiles = filesArray.filter(f => {
@@ -1190,6 +1192,9 @@ export default function MediaLibraryPage() {
 
     setOrgBrainUploading(false);
     setOrgBrainUploadProgress("");
+    if (droppedFiles.length > 0) {
+      showToast(`Only the first ${MAX_AI_BRAIN_UPLOAD_FILES} files were sent. ${droppedFiles.length} skipped (max ${MAX_AI_BRAIN_UPLOAD_FILES} per upload): ${droppedFiles.map(f => f.name).join(", ")}`, 6000);
+    }
   }, [user?.uid, orgId, isOrgAdmin, showToast]);
 
   // ─── Org AI Brain Delete Handler (admin only) ───
@@ -2009,23 +2014,24 @@ export default function MediaLibraryPage() {
   };
 
   // ─── Theme Classes ───
-  const bg = isDark ? "bg-slate-950" : "bg-[#fefdfb]";
-  const bgSidebar = isDark ? "bg-slate-900" : "bg-[#f8f6f0]";
-  const borderColor = isDark ? "border-slate-700" : "border-[#ede8da]";
-  const textPrimary = isDark ? "text-slate-200" : "text-slate-800";
-  const textSecondary = isDark ? "text-slate-300" : "text-slate-700";
-  const textTertiary = isDark ? "text-slate-400" : "text-slate-500";
-  const textMuted = isDark ? "text-slate-500" : "text-slate-400";
-  const hoverBg = isDark ? "hover:bg-slate-800" : "hover:bg-stone-100";
-  const activeBg = isDark ? "bg-slate-800" : "bg-stone-200/60";
-  const cardBg = isDark ? "bg-slate-900" : "bg-white";
-  const cardBorder = isDark ? "border-slate-700" : "border-[#ede8da]";
-  const rowHover = isDark ? "hover:bg-slate-800/60" : "hover:bg-stone-50";
-  const tableHeaderBg = isDark ? "bg-slate-800" : "bg-[#f5f1e8]";
-  const contextBg = isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-200";
-  const contextHover = isDark ? "hover:bg-slate-700" : "hover:bg-slate-50";
-  const inputBg = isDark ? "bg-slate-800 border-slate-600 text-slate-200" : "bg-white border-slate-200 text-slate-700";
-  const thumbnailBg = isDark ? "bg-slate-800" : "bg-slate-100";
+  // Palette aligned with the Agent Manager (ai-agents/[agentId]) screen.
+  const bg = isDark ? "bg-[#212121]" : "bg-[#FAF9F5]";
+  const bgSidebar = isDark ? "bg-[#171717]" : "bg-[#F3F2EC]";
+  const borderColor = isDark ? "border-[#383838]" : "border-[#E5E4DE]";
+  const textPrimary = isDark ? "text-[#ECECEC]" : "text-[#1F1E1D]";
+  const textSecondary = isDark ? "text-[#D4D4D4]" : "text-[#3D3B37]";
+  const textTertiary = isDark ? "text-[#B4B4B4]" : "text-[#6B6860]";
+  const textMuted = isDark ? "text-[#737373]" : "text-[#9C978D]";
+  const hoverBg = isDark ? "hover:bg-[#2F2F2F]" : "hover:bg-[#EAE7DF]";
+  const activeBg = isDark ? "bg-[#2F2F2F]" : "bg-[#EAE7DF]";
+  const cardBg = isDark ? "bg-[#2F2F2F]" : "bg-white";
+  const cardBorder = isDark ? "border-[#383838]" : "border-[#E5E4DE]";
+  const rowHover = isDark ? "hover:bg-[#2F2F2F]" : "hover:bg-[#F3F2EC]";
+  const tableHeaderBg = isDark ? "bg-[#2A2A2A]" : "bg-[#F3F2EC]";
+  const contextBg = isDark ? "bg-[#2F2F2F] border-[#383838]" : "bg-white border-[#E5E4DE]";
+  const contextHover = isDark ? "hover:bg-[#383838]" : "hover:bg-[#F3F2EC]";
+  const inputBg = isDark ? "bg-[#2F2F2F] border-[#383838] text-[#ECECEC]" : "bg-white border-[#E5E4DE] text-[#1F1E1D]";
+  const thumbnailBg = isDark ? "bg-[#383838]" : "bg-[#F3F2EC]";
 
   const isCurrentFolderEmpty = childFolders.length === 0 && sortedFiles.length === 0 && !searchQuery;
 
@@ -2135,9 +2141,9 @@ export default function MediaLibraryPage() {
      ═══════════════════════════════════════════════════════════════ */
 
   return (
-    <div className={`mx-0 mb-0 md:-mx-10 md:-mb-10 flex flex-col h-full w-full ${bg} overflow-hidden rounded-xl border ${borderColor}`}>
+    <div className={`mx-0 mb-0 md:-mx-10 md:-mb-10 flex flex-col h-full w-full ${bg} ${textPrimary} overflow-hidden`}>
       {/* ───── TAB SELECTOR BAR ───── */}
-      <div className={`flex items-center gap-1.5 px-4 pt-3 pb-0 shrink-0 overflow-x-auto`}>
+      <div className={`flex items-end gap-1 px-3 sm:px-6 pt-2 sm:pt-3 shrink-0 overflow-x-auto border-b ${borderColor}`}>
         {/* ── AI Intelligence Group (AI Brain, Org Brain, P.A.C.T.) ── */}
         {([
           { key: "ai-brain" as MediaTab, label: "AI Brain", icon: <Brain className="w-4 h-4" />, color: "indigo", desc: "Personal — Jarvis can read & quote" },
@@ -2146,20 +2152,22 @@ export default function MediaLibraryPage() {
         ]).map((tab) => {
           const isActive = mediaTab === tab.key;
           const isLockedForDemo = isDemoUser && tab.key === "org-brain";
-          const activeStyles = {
-            "indigo": isDark ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-300" : "bg-indigo-50 border-indigo-300 text-indigo-700",
-            "blue": isDark ? "bg-blue-500/15 border-blue-500/40 text-blue-300" : "bg-blue-50 border-blue-300 text-blue-700",
-            "emerald": isDark ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300" : "bg-emerald-50 border-emerald-300 text-emerald-700",
+          const accentBar = {
+            "indigo": "bg-indigo-500",
+            "blue": "bg-blue-500",
+            "emerald": "bg-emerald-500",
           }[tab.color];
+          const activeStyles = isDark ? "text-[#ECECEC]" : "text-[#1F1E1D]";
           const inactiveStyles = isDark
-            ? "bg-transparent border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
-            : "bg-transparent border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50";
+            ? "text-[#737373] hover:text-[#ECECEC]"
+            : "text-[#9C978D] hover:text-[#1F1E1D]";
           return (
             <button
               key={tab.key}
               disabled={isLockedForDemo}
+              title={tab.desc}
               onClick={() => { if (!isLockedForDemo) setMediaTab(tab.key); }}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-[13px] font-semibold border border-b-0 transition-all ${isLockedForDemo ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${
+              className={`relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2.5 text-[13px] font-semibold whitespace-nowrap transition-colors ${isLockedForDemo ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${
                 isActive ? activeStyles : inactiveStyles
               }`}
             >
@@ -2167,9 +2175,7 @@ export default function MediaLibraryPage() {
               <span className={isLockedForDemo ? 'line-through' : ''}>{tab.label}</span>
               {isLockedForDemo && <span className="text-[9px] ml-1">🔒</span>}
               {isActive && !isLockedForDemo && (
-                <span className={`text-[10px] font-medium ml-1 hidden lg:inline ${isDark ? "opacity-60" : "opacity-50"}`}>
-                  — {tab.desc}
-                </span>
+                <span className={`absolute left-2 right-2 bottom-0 h-0.5 rounded-full ${accentBar}`} />
               )}
             </button>
           );
@@ -2178,14 +2184,14 @@ export default function MediaLibraryPage() {
       </div>
 
       {/* ───── TAB CONTENT AREA ───── */}
-      <div className={`flex flex-1 overflow-hidden border-t ${borderColor}`}>
+      <div className={`flex flex-1 overflow-hidden`}>
 
         {/* ───── AI BRAIN TAB ───── */}
         {mediaTab === "ai-brain" && (
           <div
             className={`flex-1 flex flex-col overflow-hidden transition-colors ${
               aiBrainDragOver
-                ? isDark ? "bg-indigo-950/30" : "bg-indigo-50/60"
+                ? isDark ? "bg-[#262626]" : "bg-[#F3F2EC]"
                 : ""
             }`}
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setAiBrainDragOver(true); }}
@@ -2198,28 +2204,30 @@ export default function MediaLibraryPage() {
             }}
           >
             {/* Sub-view toggle: Documents vs. Guided Profile */}
-            <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+            <div className="flex items-center px-3 sm:px-6 pt-3 pb-1">
+              <div className={`inline-flex items-center p-0.5 rounded-lg ${isDark ? "bg-[#2F2F2F]" : "bg-[#EAE7DF]"}`}>
               <button
                 disabled={isDemoUser}
                 onClick={() => { if (!isDemoUser) setAiBrainSubView("documents"); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isDemoUser ? 'opacity-40 cursor-not-allowed' : ''} ${
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${isDemoUser ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${
                   aiBrainSubView === "documents"
-                    ? isDark ? "bg-indigo-600 text-white shadow-sm" : "bg-indigo-600 text-white shadow-sm"
-                    : isDark ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-500 hover:text-slate-700"
+                    ? isDark ? "bg-[#424242] text-[#ECECEC] shadow-sm" : "bg-white text-[#1F1E1D] shadow-sm"
+                    : isDark ? "text-[#B4B4B4] hover:text-[#ECECEC]" : "text-[#6B6860] hover:text-[#1F1E1D]"
                 }`}
               >
-                {isDemoUser ? '🔒' : '📄'} <span className={isDemoUser ? 'line-through' : ''}>Documents</span>
+                {isDemoUser && '🔒 '}<span className={isDemoUser ? 'line-through' : ''}>Documents</span>
               </button>
               <button
                 onClick={() => setAiBrainSubView("profile")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
                   aiBrainSubView === "profile"
-                    ? isDark ? "bg-indigo-600 text-white shadow-sm" : "bg-indigo-600 text-white shadow-sm"
-                    : isDark ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-500 hover:text-slate-700"
+                    ? isDark ? "bg-[#424242] text-[#ECECEC] shadow-sm" : "bg-white text-[#1F1E1D] shadow-sm"
+                    : isDark ? "text-[#B4B4B4] hover:text-[#ECECEC]" : "text-[#6B6860] hover:text-[#1F1E1D]"
                 }`}
               >
-                🧠 Guided Profile
+                Guided Profile
               </button>
+              </div>
             </div>
 
             {/* Guided Profile sub-view */}
@@ -2243,16 +2251,14 @@ export default function MediaLibraryPage() {
             />
 
             {/* Header bar */}
-            <div className={`flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b shrink-0 gap-3 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
+            <div className="flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3 shrink-0 gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? "bg-indigo-500/20" : "bg-indigo-50"}`}>
-                  <Brain className={`w-4 h-4 ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
-                </div>
-                <div>
-                  <h3 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Personal AI Brain</h3>
-                  <p className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                <div className="min-w-0">
+                  <h3 className={`text-sm sm:text-base font-semibold truncate ${textPrimary}`}>Personal AI Brain</h3>
+                  <p className={`text-[11px] ${textMuted}`}>
                     {aiBrainDocs.length} document{aiBrainDocs.length !== 1 ? "s" : ""}
                     {aiBrainDocs.some((d) => d.status === "processing") && " · Processing..."}
+                    <span className="hidden sm:inline"> · up to {MAX_AI_BRAIN_UPLOAD_FILES} files per upload</span>
                   </p>
                 </div>
               </div>
@@ -2260,8 +2266,8 @@ export default function MediaLibraryPage() {
               {/* Action Buttons & Multi-Select Toolbar */}
               <div className="flex items-center gap-2 shrink-0">
                 {selectedFileIds.size > 0 && (
-                  <div className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 rounded-xl border shadow-sm animate-in fade-in slide-in-from-right-2 duration-150 ${
-                    isDark ? "bg-slate-800/95 border-slate-700 text-slate-200" : "bg-white border-slate-200 text-slate-800"
+                  <div className={`flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 rounded-xl border animate-in fade-in slide-in-from-right-2 duration-150 ${
+                    isDark ? "bg-[#2F2F2F] border-[#383838] text-[#ECECEC]" : "bg-white border-[#E5E4DE] text-[#1F1E1D]"
                   }`}>
                     {/* Selected Count Badge */}
                     <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-500/15 text-orange-500 font-bold text-xs">
@@ -2274,7 +2280,7 @@ export default function MediaLibraryPage() {
                       type="button"
                       onClick={() => setBatchMoveConfirm(true)}
                       className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                        isDark ? "hover:bg-slate-700 text-slate-300 hover:text-white" : "hover:bg-slate-100 text-slate-700"
+                        isDark ? "hover:bg-[#383838] text-[#B4B4B4] hover:text-[#ECECEC]" : "hover:bg-[#F3F2EC] text-[#3D3B37]"
                       }`}
                       title="Move selected documents to Org AI Brain"
                     >
@@ -2294,14 +2300,14 @@ export default function MediaLibraryPage() {
                       <span className="hidden sm:inline">Delete</span>
                     </button>
 
-                    <div className={`h-4 w-px mx-0.5 ${isDark ? "bg-slate-700" : "bg-slate-200"}`} />
+                    <div className={`h-4 w-px mx-0.5 ${isDark ? "bg-[#383838]" : "bg-[#E5E4DE]"}`} />
 
                     {/* Deselect / Cancel Button */}
                     <button
                       type="button"
                       onClick={() => setSelectedFileIds(new Set())}
                       className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                        isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                        isDark ? "text-[#B4B4B4] hover:text-[#ECECEC] hover:bg-[#383838]" : "text-[#6B6860] hover:text-[#1F1E1D] hover:bg-[#F3F2EC]"
                       }`}
                       title="Deselect all items"
                     >
@@ -2314,14 +2320,15 @@ export default function MediaLibraryPage() {
                 <button
                   disabled={aiBrainUploading}
                   onClick={() => aiBrainFileRef.current?.click()}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                  title={`Upload up to ${MAX_AI_BRAIN_UPLOAD_FILES} files at a time`}
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
                     aiBrainUploading
-                      ? isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-500"
-                      : "bg-indigo-600 text-white hover:bg-indigo-700"
+                      ? isDark ? "bg-[#2F2F2F] text-[#B4B4B4]" : "bg-[#EAE7DF] text-[#6B6860]"
+                      : isDark ? "bg-[#ECECEC] text-[#212121] hover:bg-white" : "bg-[#1F1E1D] text-white hover:bg-[#3D3B37]"
                   }`}
                 >
                   {aiBrainUploading ? (
-                    <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Uploading...</>
+                    <><span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" /> Uploading...</>
                   ) : (
                     <><Upload className="w-4 h-4" /> Upload</>
                   )}
@@ -2331,70 +2338,65 @@ export default function MediaLibraryPage() {
 
             {/* Upload progress banner */}
             {aiBrainUploading && aiBrainUploadProgress && (
-              <div className={`px-6 py-2.5 text-xs font-medium flex items-center justify-between gap-2 border-b ${
-                isDark ? "bg-indigo-950/30 border-indigo-900/50 text-indigo-300" : "bg-indigo-50 border-indigo-100 text-indigo-700"
+              <div className={`mx-3 sm:mx-6 mb-2 px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-between gap-2 ${
+                isDark ? "bg-[#2F2F2F] text-[#ECECEC]" : "bg-[#F3F2EC] text-[#1F1E1D]"
               }`}>
-                <div className="flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                  <span>{aiBrainUploadProgress}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-3.5 h-3.5 shrink-0 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                  <span className="truncate">{aiBrainUploadProgress}</span>
                 </div>
                 <button
                   type="button"
                   onClick={handleCancelActiveUpload}
-                  className="flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:text-rose-600 px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                  className="flex items-center gap-1 shrink-0 text-[11px] font-bold text-rose-500 hover:text-rose-600 px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 transition-colors cursor-pointer"
                 >
                   <X className="w-3 h-3" />
-                  Cancel Upload
+                  Cancel
                 </button>
               </div>
             )}
 
             {/* Drag overlay */}
             {aiBrainDragOver && (
-              <div className={`mx-6 mt-4 mb-2 p-8 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center ${
-                isDark ? "border-indigo-500 bg-indigo-950/40" : "border-indigo-400 bg-indigo-50"
+              <div className={`mx-3 sm:mx-6 mt-2 mb-2 p-6 sm:p-8 rounded-xl border border-dashed flex flex-col items-center justify-center text-center ${
+                isDark ? "border-[#525252] bg-[#2F2F2F]" : "border-[#C9C5BA] bg-white"
               }`}>
-                <Upload className={`w-8 h-8 mb-2 ${isDark ? "text-indigo-400" : "text-indigo-500"}`} />
-                <p className={`text-sm font-semibold ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>Drop files to upload to AI Brain</p>
-                <p className={`text-[11px] mt-1 ${isDark ? "text-indigo-400/70" : "text-indigo-500"}`}>Supports: PDF, DOCX, TXT, Images (JPG, PNG, WebP), Code files (max 5 per upload)</p>
-                <p className={`text-[11px] mt-1 font-semibold text-rose-500`}>NOT supported: Video (.mp4, .mov), Audio, Zip files</p>
+                <Upload className={`w-6 h-6 mb-2 ${textTertiary}`} />
+                <p className={`text-sm font-semibold ${textPrimary}`}>Drop to add to AI Brain</p>
+                <p className={`text-[11px] mt-1 ${textMuted}`}>Docs, images & code · up to {MAX_AI_BRAIN_UPLOAD_FILES} files · no video, audio or zip</p>
               </div>
             )}
 
             {/* Content area */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className="flex-1 overflow-y-auto px-3 pb-3 pt-1 sm:px-6 sm:pb-6 sm:pt-2">
               {!aiBrainLoaded ? (
                 <div className="flex items-center justify-center h-48">
-                  <span className="w-6 h-6 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+                  <span className={`w-6 h-6 border-2 rounded-full animate-spin ${isDark ? "border-[#525252] border-t-[#ECECEC]" : "border-[#E5E4DE] border-t-[#1F1E1D]"}`} />
                 </div>
               ) : aiBrainDocs.length === 0 && !aiBrainDragOver ? (
                 /* Empty state */
-                <div className="flex-1 flex flex-col items-center justify-center py-12 sm:py-20 px-4">
-                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDark ? "bg-indigo-500/15" : "bg-indigo-50"}`}>
-                    <Brain className={`w-10 h-10 ${isDark ? "text-indigo-400" : "text-indigo-500"}`} />
-                  </div>
-                  <h2 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>Personal AI Brain</h2>
-                  <p className={`text-sm text-center max-w-md mb-1 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                    Upload documents, images, and files here for Jarvis to read, reference, and quote from.
-                  </p>
-                  <p className={`text-xs text-center max-w-md mb-6 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                    Jarvis will search these documents when you ask questions and cite specific sources in responses.
+                <div className="flex-1 flex flex-col items-center justify-center py-12 sm:py-20 px-4 text-center">
+                  <Brain className={`w-8 h-8 mb-4 ${textMuted}`} />
+                  <h2 className={`text-base sm:text-lg font-semibold mb-1 ${textPrimary}`}>Your AI Brain is empty</h2>
+                  <p className={`text-sm max-w-sm mb-5 ${textTertiary}`}>
+                    Add documents, images, and files for Jarvis to read, reference, and quote from.
                   </p>
                   <button
                     onClick={() => aiBrainFileRef.current?.click()}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+                      isDark ? "bg-[#ECECEC] text-[#212121] hover:bg-white" : "bg-[#1F1E1D] text-white hover:bg-[#3D3B37]"
+                    }`}
                   >
                     <Upload className="w-4 h-4" />
-                    Upload to AI Brain
+                    Upload files
                   </button>
-                  <div className="flex flex-col items-center gap-1 mt-3">
-                    <p className={`text-[11px] font-semibold text-emerald-500`}>✓ Supports (max 5 at a time): PDF, DOCX, TXT, Images, Code files</p>
-                    <p className={`text-[11px] font-semibold text-rose-500`}>✕ NOT supported: Video (.mp4, .mov), Audio, Zip files</p>
-                  </div>
+                  <p className={`text-[11px] mt-3 ${textMuted}`}>
+                    PDF, DOCX, TXT, images & code · up to {MAX_AI_BRAIN_UPLOAD_FILES} at a time · no video, audio or zip
+                  </p>
                 </div>
               ) : (
                 /* Document Grid */
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
                   {aiBrainDocs.map((brainDoc) => (
                     <MediaGridCard
                       key={brainDoc.id}
@@ -2529,7 +2531,7 @@ export default function MediaLibraryPage() {
           <div
             className={`flex-1 flex flex-col overflow-hidden transition-colors ${
               orgBrainDragOver && isOrgAdmin
-                ? isDark ? "bg-blue-950/30" : "bg-blue-50/60"
+                ? isDark ? "bg-[#262626]" : "bg-[#F3F2EC]"
                 : ""
             }`}
             onDragOver={(e) => { if (isOrgAdmin) { e.preventDefault(); e.stopPropagation(); setOrgBrainDragOver(true); } }}
@@ -2542,27 +2544,29 @@ export default function MediaLibraryPage() {
             }}
           >
             {/* Sub-view toggle: Documents vs. Guided Profile */}
-            <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+            <div className="flex items-center px-3 sm:px-6 pt-3 pb-1">
+              <div className={`inline-flex items-center p-0.5 rounded-lg ${isDark ? "bg-[#2F2F2F]" : "bg-[#EAE7DF]"}`}>
               <button
                 onClick={() => setOrgBrainSubView("documents")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
                   orgBrainSubView === "documents"
-                    ? isDark ? "bg-blue-600 text-white shadow-sm" : "bg-blue-600 text-white shadow-sm"
-                    : isDark ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-500 hover:text-slate-700"
+                    ? isDark ? "bg-[#424242] text-[#ECECEC] shadow-sm" : "bg-white text-[#1F1E1D] shadow-sm"
+                    : isDark ? "text-[#B4B4B4] hover:text-[#ECECEC]" : "text-[#6B6860] hover:text-[#1F1E1D]"
                 }`}
               >
-                📄 Documents
+                Documents
               </button>
               <button
                 onClick={() => setOrgBrainSubView("profile")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
                   orgBrainSubView === "profile"
-                    ? isDark ? "bg-blue-600 text-white shadow-sm" : "bg-blue-600 text-white shadow-sm"
-                    : isDark ? "bg-slate-800 text-slate-400 hover:text-white" : "bg-slate-100 text-slate-500 hover:text-slate-700"
+                    ? isDark ? "bg-[#424242] text-[#ECECEC] shadow-sm" : "bg-white text-[#1F1E1D] shadow-sm"
+                    : isDark ? "text-[#B4B4B4] hover:text-[#ECECEC]" : "text-[#6B6860] hover:text-[#1F1E1D]"
                 }`}
               >
-                🏢 Guided Profile
+                Guided Profile
               </button>
+              </div>
             </div>
 
             {/* Guided Profile sub-view */}
@@ -2588,16 +2592,14 @@ export default function MediaLibraryPage() {
             )}
 
             {/* Header bar */}
-            <div className={`flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b shrink-0 gap-3 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
+            <div className="flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3 shrink-0 gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? "bg-blue-500/20" : "bg-blue-50"}`}>
-                  <Building2 className={`w-4 h-4 ${isDark ? "text-blue-400" : "text-blue-600"}`} />
-                </div>
-                <div>
-                  <h3 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Organization AI Brain</h3>
-                  <p className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                    {orgBrainDocs.length} document{orgBrainDocs.length !== 1 ? "s" : ""} · Shared with all members
+                <div className="min-w-0">
+                  <h3 className={`text-sm sm:text-base font-semibold truncate ${textPrimary}`}>Organization AI Brain</h3>
+                  <p className={`text-[11px] ${textMuted}`}>
+                    {orgBrainDocs.length} document{orgBrainDocs.length !== 1 ? "s" : ""}<span className="hidden sm:inline"> · Shared with all members</span>
                     {orgBrainDocs.some((d) => d.status === "processing") && " · Processing..."}
+                    {isOrgAdmin && <span className="hidden sm:inline"> · up to {MAX_AI_BRAIN_UPLOAD_FILES} files per upload</span>}
                   </p>
                 </div>
               </div>
@@ -2605,8 +2607,8 @@ export default function MediaLibraryPage() {
               {/* Action Buttons & Multi-Select Toolbar */}
               <div className="flex items-center gap-2 shrink-0">
                 {selectedFileIds.size > 0 && (
-                  <div className={`flex items-center gap-1 sm:gap-1.5 px-2 py-1 rounded-xl border shadow-sm animate-in fade-in slide-in-from-right-2 duration-150 ${
-                    isDark ? "bg-slate-800/95 border-slate-700 text-slate-200" : "bg-white border-slate-200 text-slate-800"
+                  <div className={`flex items-center gap-1 sm:gap-1.5 px-1.5 py-1 rounded-xl border animate-in fade-in slide-in-from-right-2 duration-150 ${
+                    isDark ? "bg-[#2F2F2F] border-[#383838] text-[#ECECEC]" : "bg-white border-[#E5E4DE] text-[#1F1E1D]"
                   }`}>
                     {/* Selected Count Badge */}
                     <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-500/15 text-orange-500 font-bold text-xs">
@@ -2619,7 +2621,7 @@ export default function MediaLibraryPage() {
                       type="button"
                       onClick={() => setBatchMoveConfirm(true)}
                       className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                        isDark ? "hover:bg-slate-700 text-slate-300 hover:text-white" : "hover:bg-slate-100 text-slate-700"
+                        isDark ? "hover:bg-[#383838] text-[#B4B4B4] hover:text-[#ECECEC]" : "hover:bg-[#F3F2EC] text-[#3D3B37]"
                       }`}
                       title="Move selected documents to Personal AI Brain"
                     >
@@ -2641,14 +2643,14 @@ export default function MediaLibraryPage() {
                       </button>
                     )}
 
-                    <div className={`h-4 w-px mx-0.5 ${isDark ? "bg-slate-700" : "bg-slate-200"}`} />
+                    <div className={`h-4 w-px mx-0.5 ${isDark ? "bg-[#383838]" : "bg-[#E5E4DE]"}`} />
 
                     {/* Deselect / Cancel Button */}
                     <button
                       type="button"
                       onClick={() => setSelectedFileIds(new Set())}
                       className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                        isDark ? "text-slate-400 hover:text-white hover:bg-slate-700" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                        isDark ? "text-[#B4B4B4] hover:text-[#ECECEC] hover:bg-[#383838]" : "text-[#6B6860] hover:text-[#1F1E1D] hover:bg-[#F3F2EC]"
                       }`}
                       title="Deselect all items"
                     >
@@ -2662,14 +2664,15 @@ export default function MediaLibraryPage() {
                   <button
                     disabled={orgBrainUploading}
                     onClick={() => orgBrainFileRef.current?.click()}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                    title={`Upload up to ${MAX_AI_BRAIN_UPLOAD_FILES} files at a time`}
+                    className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
                       orgBrainUploading
-                        ? isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-500"
-                        : "bg-blue-600 text-white hover:bg-blue-700"
+                        ? isDark ? "bg-[#2F2F2F] text-[#B4B4B4]" : "bg-[#EAE7DF] text-[#6B6860]"
+                        : isDark ? "bg-[#ECECEC] text-[#212121] hover:bg-white" : "bg-[#1F1E1D] text-white hover:bg-[#3D3B37]"
                     }`}
                   >
                     {orgBrainUploading ? (
-                      <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Uploading...</>
+                      <><span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" /> Uploading...</>
                     ) : (
                       <><Upload className="w-4 h-4" /> Upload</>
                     )}
@@ -2680,72 +2683,71 @@ export default function MediaLibraryPage() {
 
             {/* Upload progress banner */}
             {orgBrainUploading && orgBrainUploadProgress && (
-              <div className={`px-6 py-2.5 text-xs font-medium flex items-center justify-between gap-2 border-b ${
-                isDark ? "bg-blue-950/30 border-blue-900/50 text-blue-300" : "bg-blue-50 border-blue-100 text-blue-700"
+              <div className={`mx-3 sm:mx-6 mb-2 px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-between gap-2 ${
+                isDark ? "bg-[#2F2F2F] text-[#ECECEC]" : "bg-[#F3F2EC] text-[#1F1E1D]"
               }`}>
-                <div className="flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                  <span>{orgBrainUploadProgress}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-3.5 h-3.5 shrink-0 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                  <span className="truncate">{orgBrainUploadProgress}</span>
                 </div>
                 <button
                   type="button"
                   onClick={handleCancelActiveUpload}
-                  className="flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:text-rose-600 px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                  className="flex items-center gap-1 shrink-0 text-[11px] font-bold text-rose-500 hover:text-rose-600 px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 transition-colors cursor-pointer"
                 >
                   <X className="w-3 h-3" />
-                  Cancel Upload
+                  Cancel
                 </button>
               </div>
             )}
 
             {/* Drag overlay (admin only) */}
             {orgBrainDragOver && isOrgAdmin && (
-              <div className={`mx-6 mt-4 mb-2 p-8 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center ${
-                isDark ? "border-blue-500 bg-blue-950/40" : "border-blue-400 bg-blue-50"
+              <div className={`mx-3 sm:mx-6 mt-2 mb-2 p-6 sm:p-8 rounded-xl border border-dashed flex flex-col items-center justify-center text-center ${
+                isDark ? "border-[#525252] bg-[#2F2F2F]" : "border-[#C9C5BA] bg-white"
               }`}>
-                <Upload className={`w-8 h-8 mb-2 ${isDark ? "text-blue-400" : "text-blue-500"}`} />
-                <p className={`text-sm font-semibold ${isDark ? "text-blue-300" : "text-blue-700"}`}>Drop files to upload to Org Brain</p>
-                <p className={`text-[11px] mt-1 ${isDark ? "text-blue-400/70" : "text-blue-500"}`}>Supports: PDF, DOCX, TXT, Images (JPG, PNG, WebP), Code files (max 5 per upload)</p>
-                <p className={`text-[11px] mt-1 font-semibold text-rose-500`}>NOT supported: Video (.mp4, .mov), Audio, Zip files</p>
+                <Upload className={`w-6 h-6 mb-2 ${textTertiary}`} />
+                <p className={`text-sm font-semibold ${textPrimary}`}>Drop to add to Org Brain</p>
+                <p className={`text-[11px] mt-1 ${textMuted}`}>Docs, images & code · up to {MAX_AI_BRAIN_UPLOAD_FILES} files · no video, audio or zip</p>
               </div>
             )}
 
             {/* Content area */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className="flex-1 overflow-y-auto px-3 pb-3 pt-1 sm:px-6 sm:pb-6 sm:pt-2">
               {!orgBrainLoaded ? (
                 <div className="flex items-center justify-center h-48">
-                  <span className="w-6 h-6 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                  <span className={`w-6 h-6 border-2 rounded-full animate-spin ${isDark ? "border-[#525252] border-t-[#ECECEC]" : "border-[#E5E4DE] border-t-[#1F1E1D]"}`} />
                 </div>
               ) : orgBrainDocs.length === 0 && !orgBrainDragOver ? (
                 /* Empty state */
-                <div className="flex-1 flex flex-col items-center justify-center py-12 sm:py-20 px-4">
-                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${isDark ? "bg-blue-500/15" : "bg-blue-50"}`}>
-                    <Building2 className={`w-10 h-10 ${isDark ? "text-blue-400" : "text-blue-500"}`} />
-                  </div>
-                  <h2 className={`text-xl font-bold mb-2 ${isDark ? "text-white" : "text-slate-900"}`}>Organization AI Brain</h2>
-                  <p className={`text-sm text-center max-w-md mb-1 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                    Shared knowledge base for your organization. All team members&apos; Jarvis instances can read and reference these documents.
-                  </p>
-                  <p className={`text-xs text-center max-w-md mb-6 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                    {isOrgAdmin ? "Upload documents that all org members can search." : "Admins can upload documents. All org members can view and search."}
+                <div className="flex-1 flex flex-col items-center justify-center py-12 sm:py-20 px-4 text-center">
+                  <Building2 className={`w-8 h-8 mb-4 ${textMuted}`} />
+                  <h2 className={`text-base sm:text-lg font-semibold mb-1 ${textPrimary}`}>Org AI Brain is empty</h2>
+                  <p className={`text-sm max-w-sm mb-5 ${textTertiary}`}>
+                    {isOrgAdmin
+                      ? "Shared knowledge every member's Jarvis can search and quote."
+                      : "Shared knowledge every member's Jarvis can search. Admins can add documents."}
                   </p>
                   {isOrgAdmin && (
                     <button
                       onClick={() => orgBrainFileRef.current?.click()}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+                        isDark ? "bg-[#ECECEC] text-[#212121] hover:bg-white" : "bg-[#1F1E1D] text-white hover:bg-[#3D3B37]"
+                      }`}
                     >
                       <Upload className="w-4 h-4" />
-                      Upload to Org Brain
+                      Upload files
                     </button>
                   )}
-                  <div className="flex flex-col items-center gap-1 mt-3">
-                    <p className={`text-[11px] font-semibold text-emerald-500`}>✓ Supports (max 5 at a time): PDF, DOCX, TXT, Images, Code files</p>
-                    <p className={`text-[11px] font-semibold text-rose-500`}>✕ NOT supported: Video (.mp4, .mov), Audio, Zip files</p>
-                  </div>
+                  {isOrgAdmin && (
+                    <p className={`text-[11px] mt-3 ${textMuted}`}>
+                      PDF, DOCX, TXT, images & code · up to {MAX_AI_BRAIN_UPLOAD_FILES} at a time · no video, audio or zip
+                    </p>
+                  )}
                 </div>
               ) : (
                 /* Document Grid */
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-4">
                   {orgBrainDocs.map((brainDoc) => (
                     <MediaGridCard
                       key={brainDoc.id}

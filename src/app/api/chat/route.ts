@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { waitUntil } from "@vercel/functions";
+import { createChatTurnPersister, createBackgroundSSEStream } from "@/lib/chat-session-persist";
 import { google } from "googleapis";
 import { verifyRequest, verifyOrgMember } from "@/lib/api-auth";
 
@@ -17,6 +17,7 @@ import { routeIntent, type JarvisDomain } from "@/lib/jarvis-router";
 import { filterToolsForDomain, getDomainPrompt } from "@/lib/jarvis-agents";
 import { ORG_BRAIN_TOOL_DEFINITIONS, PERSONAL_BRAIN_TOOL_DEFINITIONS, executeSearchOrgBrain, executeSearchPersonalBrain, isDocumentListRequest } from "@/lib/jarvis-org-brain-tools";
 import { orchestrateMultiStep } from "@/lib/jarvis-orchestrator";
+import { isBrainImageRequest, fetchBrainImageDescriptions } from "@/lib/ai-brain-images";
 import type { AgentEvent } from "@/lib/agent-events";
 const tools: any = [
   {
@@ -214,88 +215,44 @@ const textOf = (content: any): string => {
 // Increase serverless function timeout for multi-step orchestration with premium models
 export const maxDuration = 60; // seconds (Pro plan supports up to 300s)
 
-function backgroundSaveSessionMessage(sessionId: string, text: string, fullHistory: any[]) {
-  if (!sessionId || !text) return;
-  waitUntil((async () => {
-    try {
-      const sb = createServiceClient();
-      // Delay to give the client's standard PUT a chance to finish if they are still connected
-      await new Promise(r => setTimeout(r, 3000));
-      
-      // Check if the client already saved this response (or if we already background-saved it)
-      const { data: latestMsgs } = await sb
-        .from('messages')
-        .select('id, content, role')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: false })
-        .limit(3);
-        
-      if (latestMsgs && latestMsgs.some(m => m.role === 'assistant' && m.content === text)) {
-        return; // Already saved
-      }
-      
-      // Determine the user's text for this turn
-      const lastUserMsg = (fullHistory || []).filter(m => m.role === 'user').pop();
-      let userText = "";
-      if (lastUserMsg) {
-        if (Array.isArray(lastUserMsg.content)) {
-          userText = lastUserMsg.content.find((c: any) => c.type === 'text')?.text || "";
-        } else {
-          userText = lastUserMsg.content || "";
-        }
-      }
-      
-      const inserts = [];
-      const alreadyHasUserMsg = latestMsgs && latestMsgs.some(m => m.role === 'user' && m.content === userText);
-      
-      if (userText && !alreadyHasUserMsg) {
-        inserts.push({
-          id: crypto.randomUUID(),
-          session_id: sessionId,
-          role: 'user',
-          content: userText,
-          created_at: new Date(Date.now() - 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-      }
-      
-      inserts.push({
-        id: crypto.randomUUID(),
-        session_id: sessionId,
-        role: 'assistant',
-        content: text,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-      
-      if (inserts.length > 0) {
-        await sb.from('messages').insert(inserts);
-      }
-      await sb.from('chat_sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId);
-    } catch (e) {
-      console.warn('[Background Save] Failed:', (e as any)?.message);
-    }
-  })());
-}
+// Chat-turn persistence (prompt + final answer) lives in @/lib/chat-session-persist.
+// The previous inline background save never worked: it wrote a non-existent
+// `messages.updated_at` column (PostgREST rejected every insert silently), ran
+// before the native stream had produced any text, and was missing from the tool paths.
 
 export async function POST(req: Request) {
   // Clone request for body reading before auth (verifyOrgMember also reads headers)
   const body = await req.json();
-  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, personalBrainText, stream: wantStream, crmData, crmInstanceId, crmInstances, userTimezone, chatScope, sessionId } = body;
+  const { messages, agentId: rawAgentId, soul, brain, uid, refreshToken, contacts, knowledgeBaseText, videoUrl, pactText, userName, model: requestedModel, orgBrainText, personalBrainText, stream: wantStream, crmData, crmInstanceId, crmInstances, userTimezone, chatScope, sessionId, userMessageIds, assistantMessageId } = body;
 
   // Determine org from agentId prefix and enforce org membership
   const requestOrg = (rawAgentId || "").includes("nxtchapter") ? "nxtchapter"
     : (rawAgentId || "").includes("soltheory") ? "soltheory"
     : null;
 
+  let authUid: string | null = null;
   if (requestOrg) {
     const auth = await verifyOrgMember(req, requestOrg);
     if (!auth.ok) return auth.response;
+    authUid = auth.uid;
   } else {
     // Fallback: at minimum verify the user is authenticated
     const auth = await verifyRequest(req);
     if (!auth.ok) return auth.response;
+    authUid = auth.uid;
   }
+
+  // ── Server-side chat persistence ──
+  // The server writes the user's prompt now and the AI's final answer when it is ready,
+  // so a reply is never lost if the user leaves the page mid-generation. Uses the
+  // authenticated uid (never the body's `uid`) for the session access check.
+  const turnPersister = createChatTurnPersister({
+    sessionId,
+    firebaseUid: authUid,
+    apiMessages: messages,
+    userMessageIds,
+    assistantMessageId,
+  });
 
   try {
     // Validate model against registry, default to gemini-2.5-flash (cheapest, most reliable)
@@ -763,7 +720,7 @@ The current date/time for the user is: ${monicaTime}.`;
     // --- PERSONA BOOKEND (recency position — reinforces identity right before generation) ---
     groqMessages.push({
       role: "system",
-      content: `[REMINDER] You are J.A.R.V.I.S. First person only. No meta-commentary. Maintain your configured voice and strictly observe all operational rules. Use ## headers, short paragraphs, **bold** lead-ins on bullets. Answer directly.\n\n[IMAGE RULES]\n1. You do NOT have image generation permissions. If the user asks you to generate, create, draw, design, render, or edit an image, picture, logo, illustration, artwork, or graphic, do not attempt it and do not describe an image as if you made one. Reply that image generation is only available through Iris, and that they can switch by selecting Iris from the agent selector.\n2. When the user attaches an image, analyze only what you can actually see in it. If no image content is visible to you, say plainly that the image did not come through and ask them to re-upload it. Never guess, assume, or invent what an image shows.`
+      content: `[REMINDER] You are J.A.R.V.I.S. First person only. No meta-commentary. Maintain your configured voice and strictly observe all operational rules. Use ## headers, short paragraphs, **bold** lead-ins on bullets. Answer directly.\n\n[IMAGE RULES]\n1. You do NOT have image generation permissions. If the user asks you to generate, create, draw, design, render, or edit an image, picture, logo, illustration, artwork, or graphic, do not attempt it and do not describe an image as if you made one. Reply that image generation is only available through Iris, and that they can switch by selecting Iris from the agent selector.\n2. When the user attaches an image to THIS chat message, analyze only what you can actually see in it. If an image was attached but no image content is visible to you, say plainly that the image did not come through and ask them to re-upload it. Never guess, assume, or invent what an image shows.\n3. Photos/images the user uploaded to their AI Brain are NOT chat attachments — never ask them to re-upload those. They are stored as AI-written visual descriptions (text) that you read with the AI Brain search tool or from an [AI BRAIN — IMAGES] block. Describe them from those stored descriptions and say that is what you are doing.`
     });
 
     // --- STRUCTURED REASONING ENGINE ---
@@ -873,10 +830,12 @@ The current date/time for the user is: ${monicaTime}.`;
       'list_calendar_events', 'create_calendar_event', 'delete_calendar_event', 'update_calendar_event',
       'web_search',
     ]);
-    // Build scope-aware master tools: personal brain only in personal scope
+    // Build scope-aware master tools: personal brain only in personal scope.
+    // NOTE: the master `tools` array already contains PERSONAL_BRAIN_TOOL_DEFINITIONS — appending
+    // them again sent a duplicate `search_personal_brain` declaration to the model.
     const scopedTools = chatScope !== 'org'
-      ? [...tools, ...PERSONAL_BRAIN_TOOL_DEFINITIONS]
-      : tools;
+      ? tools
+      : tools.filter((t: any) => t.function?.name !== 'search_personal_brain');
     const domainTools = isLiteMode
       ? scopedTools.filter((t: any) => LITE_TOOL_NAMES.has(t.function?.name))
       : forceTools ? scopedTools : filterToolsForDomain(scopedTools, routedDomain);
@@ -919,9 +878,32 @@ You have access to the user's Personal AI Brain documents via the search_persona
 Use it when the user asks about documents they uploaded to their AI Brain, or when they ask you to read, summarize, analyze, or quote from a personal document.
 You can search by document name or by content query. This searches ONLY the user's private documents — NEVER use this in organization scope conversations.
 If the user mentions a specific document by name (e.g. "the Kyle Jenkins peer review"), call search_personal_brain with document_name set to that name.
-To LIST or COUNT the user's documents ("how many documents do I have", "what files are in my AI brain"), call search_personal_brain with list_only=true and an EMPTY query. The result starts with "TOTAL DOCUMENTS: N" followed by every document name — report exactly that N and list every name.`,
+To LIST or COUNT the user's documents ("how many documents do I have", "what files are in my AI brain"), call search_personal_brain with list_only=true and an EMPTY query. The result starts with "TOTAL DOCUMENTS: N" followed by every document name — report exactly that N and list every name.
+PHOTOS / IMAGES: the user can upload photos to their AI Brain. Each one is converted at upload time into a detailed AI-written visual description (text) stored with the file (names like IMG_1234.jpg, photo.png). When the user asks you to describe, count or find photos in their AI Brain, read those stored descriptions (from an [AI BRAIN — IMAGES] block if present, otherwise call search_personal_brain with document_name set to the image file name) — NEVER say you can't see images or ask them to re-upload them.`,
         });
       }
+    }
+
+    // --- AI BRAIN AWARENESS: always on for brain-enabled agents ---
+    // Jarvis must never deny that the AI Brain exists. If it cannot reach it on this turn
+    // (no tools for this message, budget model) or a lookup fails, it should say exactly that.
+    if (agentId === "jarvis" || agentId === "bobby" || agentId === "monica") {
+      const brainLabel = chatScope === 'org' ? "Organization AI Brain" : "Personal AI Brain";
+      const brainToolName = chatScope === 'org' ? "search_org_brain" : "search_personal_brain";
+      const brainToolLoaded = useTools && domainTools.some((t: any) => t.function?.name === brainToolName);
+      const reachability = brainToolLoaded
+        ? `You CAN search it on this turn with the ${brainToolName} tool.`
+        : isLiteMode
+          ? `You CANNOT search it on this turn: the selected budget model has no AI Brain access. If the user asks about their AI Brain, say so plainly and suggest switching to a standard model (e.g. Gemini 2.5 Flash).`
+          : `The AI Brain search tool is not loaded for this particular message. If the user asks about their AI Brain, say you couldn't reach it on this message and ask them to rephrase mentioning their "AI Brain" (e.g. "search my AI Brain for …").`;
+      groqMessages.push({
+        role: "system",
+        content: `[AI BRAIN — ALWAYS AVAILABLE CONTEXT]
+You have a ${brainLabel}: the ${chatScope === 'org' ? "organization's shared" : "user's private"} uploaded files (PDFs, Word docs, text files and PHOTOS/IMAGES), uploaded on the AI Brain page. ${reachability}
+- Text documents are stored as extracted text. Photos/images are stored as AI-written visual descriptions (you read the description, not the pixels).
+- Never claim you have no AI Brain, that you "don't retain" files, or that the user must attach files to the chat to use them.
+- If a lookup fails or returns an error, tell the user it failed and give the reason (e.g. "the AI Brain search timed out", "no images are stored in your AI Brain", "that file has no extracted description yet"). If something can't be answered from stored text (e.g. exact pixel details beyond the description), say that the AI Brain only keeps text and descriptions.`,
+      });
     }
 
     // --- AI BRAIN DOCUMENT LIST: deterministic answer for "how many / what are the names" questions ---
@@ -931,11 +913,11 @@ To LIST or COUNT the user's documents ("how many documents do I have", "what fil
     // Org scope only ever receives the org list; the personal list is only fetched in personal scope.
     if ((agentId === "jarvis" || agentId === "bobby" || agentId === "monica") && isDocumentListRequest(lastUserText2)) {
       const mentionsOrg = /\b(org|orgs|organi[sz]ation(al)?|company|team|shared)\b/i.test(lastUserText2);
-      const wantPersonal = chatScope !== 'org' && !!uid && !mentionsOrg;
+      const wantPersonal = chatScope !== 'org' && !!authUid && !mentionsOrg;
       try {
         const listJson = await Promise.race([
           wantPersonal
-            ? executeSearchPersonalBrain(uid, { list_only: true })
+            ? executeSearchPersonalBrain(authUid as string, { list_only: true })
             : executeSearchOrgBrain(orgId, { list_only: true }),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Document list timeout")), 5000)),
         ]);
@@ -949,6 +931,35 @@ To LIST or COUNT the user's documents ("how many documents do I have", "what fil
         }
       } catch (listErr: any) {
         console.warn("[AI BRAIN LIST] Could not prefetch document list:", listErr?.message);
+      }
+    }
+
+    // --- AI BRAIN IMAGES: "describe / count the photos in my AI brain" ---
+    // Images live in the brain as AI-written descriptions. Fetch them server-side so the answer
+    // never depends on the model choosing the right tool call. Same scope rule as the list above:
+    // personal brain only in personal scope (and only for the authenticated user).
+    if ((agentId === "jarvis" || agentId === "bobby" || agentId === "monica") && isBrainImageRequest(lastUserText2)) {
+      const mentionsOrg = /\b(org|orgs|organi[sz]ation(al)?|company|team|shared)\b/i.test(lastUserText2);
+      const wantPersonal = chatScope !== 'org' && !!authUid && !mentionsOrg;
+      const label = wantPersonal ? "PERSONAL" : "ORGANIZATION";
+      try {
+        const lookup = await Promise.race([
+          wantPersonal
+            ? fetchBrainImageDescriptions({ scope: "personal", uid: authUid as string })
+            : fetchBrainImageDescriptions({ scope: "org", orgId }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("the AI Brain image lookup timed out")), 6000)),
+        ]);
+        groqMessages.push({
+          role: "system",
+          content: `[AI BRAIN — IMAGES (${label}, fetched live for this question)]\nThe user is asking about photos/images stored in their ${wantPersonal ? "Personal" : "Organization"} AI Brain. Below is every image file with the visual description that was generated when it was uploaded. Answer from these descriptions: give the exact image count (IMAGE FILES), then describe each image by file name. Mention briefly that you're working from the stored descriptions. Do NOT say the images didn't come through and do NOT ask for a re-upload.\n\n${lookup.text}`,
+        });
+        console.log(`[AI BRAIN IMAGES] Injected ${label.toLowerCase()} image descriptions (${lookup.total} images)`);
+      } catch (imgErr: any) {
+        console.warn("[AI BRAIN IMAGES] Lookup failed:", imgErr?.message);
+        groqMessages.push({
+          role: "system",
+          content: `[AI BRAIN — IMAGES LOOKUP FAILED]\nI tried to load the photo descriptions from the user's ${wantPersonal ? "Personal" : "Organization"} AI Brain but it failed (${imgErr?.message || "unknown error"}). Tell the user plainly that the AI Brain image lookup failed and why, and suggest trying again in a moment. Do NOT claim the AI Brain doesn't exist or that they must re-upload the images.`,
+        });
       }
     }
 
@@ -1079,7 +1090,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
       let insideThinkBlock = false;
       let thinkBuffer = '';
 
-      const readableStream = new ReadableStream({
+      const readableStream = createBackgroundSSEStream({
         async start(controller) {
           try {
             // Send server-side metadata so client can verify actual provider in F12
@@ -1193,7 +1204,8 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
               citations: citations.length > 0 ? citations : undefined,
             })}\n\n`));
             controller.close();
-            console.log(`[PERF] Native stream completed in ${Date.now() - t0}ms | ${fullResponse.length} chars`);
+            console.log(`[PERF] Native stream completed in ${Date.now() - t0}ms | ${fullResponse.length} chars${controller.clientGone ? ' (client gone — background)' : ''}`);
+            await turnPersister.saveAssistant(fullResponse.trim() ? fullResponse : "I completed the task but wasn't able to generate a summary. Please check the results, or try asking me again.", { citations });
             
             // Detect failed tool invocation in streaming response
             if (fullResponse.match(/<invoke|<tool_call|<function_call|```json\s*\{[\s\S]*?"name":/)) {
@@ -1204,12 +1216,12 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
             console.error('[STREAM] Native stream error:', streamErr?.message || streamErr);
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream error' })}\n\n`));
             controller.close();
+            await turnPersister.saveAssistant(`${fullResponse}\n\nI had a momentary hiccup. Could you try asking me that again?`.trim());
           }
         }
       });
 
       // Fire-and-forget PACT extraction
-      backgroundSaveSessionMessage(sessionId, fullResponse, messages);
       if (uid && userName && fullResponse.length > 20) {
         const lastUserMsg = textOf(messages.filter((m: any) => m.role === "user").pop()?.content);
         if (lastUserMsg.length > 5) {
@@ -1300,7 +1312,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
           })
         : [];
 
-      const readableStream = new ReadableStream({
+      const readableStream = createBackgroundSSEStream({
         async start(controller) {
           try {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'routing', domain: routedDomain, timestamp: Date.now() })}\n\n`));
@@ -1349,8 +1361,9 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
         console.warn('[AI Usage] Logging failed (non-fatal):', (logErr as any)?.message);
       }
 
+      // Persist the complete answer server-side (survives the user leaving the page)
+      void turnPersister.saveAssistant(responseText, { citations });
       // Fire-and-forget server-side PACT extraction — writes to Supabase working_memories (scope-aware)
-      backgroundSaveSessionMessage(sessionId, responseText, messages);
       if (uid && userName && responseText.length > 20) {
         const lastUserMsg = textOf(messages.filter((m: any) => m.role === "user").pop()?.content);
         if (lastUserMsg.length > 5) {
@@ -2116,11 +2129,14 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
 
           // ── Personal AI Brain Tool ──
           } else if (functionName === "search_personal_brain") {
-            console.log("[PERSONAL BRAIN] Searching personal brain for:", args.query || args.document_name || "(all docs)", "uid:", uid);
-            if (!uid) {
+            console.log("[PERSONAL BRAIN] Searching personal brain for:", args.query || args.document_name || "(all docs)", "uid:", authUid);
+            if (!authUid) {
               functionResult = JSON.stringify({ error: "No authenticated user — cannot search personal AI brain." });
+            } else if (chatScope === 'org') {
+              functionResult = JSON.stringify({ error: "The Personal AI Brain is private and is not available in organization chats. Use search_org_brain for organization documents." });
             } else {
-              functionResult = await executeSearchPersonalBrain(uid, args);
+              // Verified token uid only — never the request body's `uid`
+              functionResult = await executeSearchPersonalBrain(authUid, args);
             }
 
           } else {
@@ -2145,7 +2161,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
         .join('\n');
 
       const encoder = new TextEncoder();
-      const readableStream = new ReadableStream({
+      const readableStream = createBackgroundSSEStream({
         async start(controller) {
           try {
             // Emit routing event
@@ -2207,10 +2223,12 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
             })}\n\n`));
             
             controller.close();
+            await turnPersister.saveAssistant(responseText, { citations: citationsLocal });
           } catch (err: any) {
             console.error(`[ORCHESTRATOR] Orchestration failed:`, err?.message);
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Orchestrator error: ' + (err?.message || 'unknown') })}\n\n`));
             controller.close();
+            await turnPersister.saveAssistant('I had a momentary hiccup. Could you try asking me that again?');
           }
         }
       });
@@ -2235,7 +2253,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
     // When we have stream + tools, restructure to stream events during execution
     if (wantStream && responseMessage?.tool_calls && (gmail || calendar || uid)) {
       const encoder = new TextEncoder();
-      const readableStream = new ReadableStream({
+      const readableStream = createBackgroundSSEStream({
         async start(controller) {
           try {
             // 1. Emit routing event immediately
@@ -2345,10 +2363,12 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
             })}\n\n`));
             
             controller.close();
+            await turnPersister.saveAssistant(finalText, { citations: citationsLocal });
           } catch (streamErr: any) {
             console.error('[STREAM] Error during live tool streaming:', streamErr);
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream error' })}\n\n`));
             controller.close();
+            await turnPersister.saveAssistant('I had a momentary hiccup. Could you try asking me that again?');
           }
         }
       });
@@ -2573,7 +2593,6 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
     }
 
     let finalResponse = sanitizeResponse(finalResponseText);
-    backgroundSaveSessionMessage(sessionId, finalResponse, messages);
 
     // Quality guardrail removed for speed — openai/gpt-oss-120b is fast enough
     // that a single LLM call is preferable to the latency of a retry.
@@ -2591,6 +2610,9 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
         })
       : [];
 
+    // Persist the final answer server-side (no-op unless the client sent session/message ids)
+    void turnPersister.saveAssistant(finalResponse || "I'm here and ready to help! Could you try asking me that again?", { citations });
+
     // --- RESPONSE: SSE Streaming or JSON ---
     if (wantStream) {
       // SSE streaming path for tool-call responses — re-stream the final response
@@ -2607,7 +2629,7 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
       // For post-tool, we already have the final text, so stream it efficiently
       // using real Groq streaming for the synthesis pass
       const responseText = finalResponse || "I'm here and ready to help! Could you try asking me that again?";
-      const readableStream = new ReadableStream({
+      const readableStream = createBackgroundSSEStream({
         async start(controller) {
           try {
             // Emit agent events before streaming text
@@ -2753,6 +2775,9 @@ NEVER show contacts as bullet points or unnumbered lists. ALWAYS preserve the nu
       : "I had a momentary hiccup. Could you try asking me that again? I'm ready to help!";
 
     const statusCode = isAuth ? 401 : isRateLimit ? 429 : isBilling ? 402 : 500;
+    // If the user already left, they should find an explanation instead of a blank turn.
+    // (If they are still here the client retries and its answer overwrites this row.)
+    void turnPersister.saveAssistant(friendlyMsg);
     return NextResponse.json({ response: friendlyMsg, error: errMsg }, { status: statusCode });
   }
 }

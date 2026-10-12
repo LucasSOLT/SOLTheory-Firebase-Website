@@ -37,6 +37,29 @@ async function resolveOrgId(orgSlug: string) {
   return data?.id as string | null;
 }
 
+/**
+ * Sessions that contain an AI reply the chat route saved while the user was away
+ * (metadata.serverSaved stays true until the user's browser syncs that message).
+ * Best effort — returns an empty set on error.
+ */
+async function findUnreadSessionIds(sb: ReturnType<typeof createServiceClient>, sessionIds: string[]) {
+  const unread = new Set<string>();
+  if (sessionIds.length === 0) return unread;
+  const { data, error } = await sb
+    .from("messages")
+    .select("session_id")
+    .in("session_id", sessionIds)
+    .eq("role", "assistant")
+    .eq("metadata->>serverSaved", "true")
+    .limit(500);
+  if (error) {
+    console.warn("[Sessions API] Unread lookup failed:", error.message);
+    return unread;
+  }
+  for (const r of data || []) unread.add(r.session_id as string);
+  return unread;
+}
+
 export async function GET(req: NextRequest) {
   const auth = await verifyRequest(req);
   if (!auth.ok) return auth.response;
@@ -81,6 +104,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const unreadIds = await findUnreadSessionIds(sb, sessionIds);
+
     const result = (sessions || []).map((s) => ({
       id: s.id,
       title: s.session_name || "New Chat",
@@ -88,6 +113,7 @@ export async function GET(req: NextRequest) {
       scope: s.scope as "user" | "org",
       messageCount: statsMap.get(s.id)?.count || 0,
       lastPreview: statsMap.get(s.id)?.preview || "",
+      hasUnread: unreadIds.has(s.id),
     }));
 
     return NextResponse.json({ sessions: result });
@@ -123,6 +149,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const orgUnreadIds = await findUnreadSessionIds(sb, (sessions || []).map((s) => s.id));
+
     const result = (sessions || []).map((s) => ({
       id: s.id,
       title: s.session_name || "New Chat",
@@ -130,6 +158,7 @@ export async function GET(req: NextRequest) {
       scope: s.scope as "user" | "org",
       messageCount: 0,
       lastPreview: "",
+      hasUnread: orgUnreadIds.has(s.id),
     }));
 
     return NextResponse.json({ sessions: result });

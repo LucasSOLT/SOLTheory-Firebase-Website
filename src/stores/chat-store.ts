@@ -71,6 +71,112 @@ interface ChatStore {
 
   /** Mark a session as read/idle (user viewed the response) */
   setSessionRead: (sessionId: string) => void;
+
+  /**
+   * Poll the server for an assistant reply (by client message id) that /api/chat saves
+   * itself. Used when this tab lost the stream (phone locked, tab backgrounded).
+   */
+  waitForServerReply: (sessionId: string, messageId: string, timeoutMs: number) => Promise<Message | null>;
+}
+
+// ── Sync helpers (module scope: shared by every store consumer) ──
+
+/** A reply bubble that is still being produced in this tab (streaming text or pending image). */
+export function isInFlightReply(m: Message): boolean {
+  if (m.isSelf) return false;
+  if (m.isPendingImage) return true;
+  return Array.isArray(m.agentEvents) && m.agentEvents.length > 0 && !m.agentEvents.some((e) => e.type === 'done');
+}
+
+/** Last PUT payload per session (skip identical re-sends) + a one-at-a-time queue per session */
+const lastSavedPayload = new Map<string, string>();
+const pendingPayload = new Map<string, string>();
+const inFlightSave = new Set<string>();
+
+/** /api/chat may run up to 60s; allow slack before giving up on a pending reply */
+const PENDING_REPLY_WINDOW_MS = 3 * 60 * 1000;
+const activeReplyPolls = new Set<string>();
+
+async function fetchSessionDetail(sessionId: string): Promise<{ messages: Message[]; title: string | null } | null> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`/api/chat/sessions/${sessionId}`, { headers });
+  if (!res.ok) {
+    console.error("[ChatStore] Failed to load messages:", res.status);
+    return null;
+  }
+  const data = await res.json();
+  return { messages: data.session?.messages || [], title: data.session?.title || null };
+}
+
+async function fetchSessionMessages(sessionId: string): Promise<Message[] | null> {
+  return (await fetchSessionDetail(sessionId))?.messages ?? null;
+}
+
+/** Apply a server title only over the local "New Chat" placeholder (never over a real title). */
+function withServerTitle(s: Session, serverTitle: string | null): Session {
+  if (serverTitle && serverTitle !== "New Chat" && (!s.title || s.title === "New Chat")) {
+    return { ...s, title: serverTitle };
+  }
+  return s;
+}
+
+/**
+ * The user came back while the server was still answering their last prompt: show the
+ * spinner in the sidebar and poll until the reply lands, then show it (or a blue dot if the
+ * user is looking at another chat). Stops if the user sends something new in that chat.
+ */
+function pollForPendingReply(
+  sessionId: string,
+  lastUserMsgId: string,
+  sentAt: number,
+  get: () => ChatStore,
+  set: (partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)) => void,
+) {
+  if (activeReplyPolls.has(sessionId)) return;
+  activeReplyPolls.add(sessionId);
+  set((state) => ({ sessionStatuses: { ...state.sessionStatuses, [sessionId]: 'thinking' as const } }));
+
+  const stillWaiting = () => {
+    const s = get().sessions.find((x) => x.id === sessionId);
+    const last = s?.messages[s.messages.length - 1];
+    return !!s && last?.id === lastUserMsgId; // nothing new happened locally in that chat
+  };
+
+  (async () => {
+    let finished = false;
+    let abandoned = false;
+    try {
+      while (Date.now() - sentAt < PENDING_REPLY_WINDOW_MS) {
+        await new Promise((r) => setTimeout(r, 4000));
+        if (!stillWaiting()) { abandoned = true; return; }
+        const detail = await fetchSessionDetail(sessionId).catch(() => null);
+        if (!detail) continue;
+        const msgs = detail.messages;
+        const idx = msgs.findIndex((m) => m.id === lastUserMsgId);
+        if (idx >= 0 && msgs.slice(idx + 1).some((m) => !m.isSelf)) {
+          if (!stillWaiting()) { abandoned = true; return; }
+          set((state) => ({
+            ...(state.activeSessionId === sessionId ? { messages: msgs } : {}),
+            sessions: state.sessions.map((s) => (s.id === sessionId ? withServerTitle({ ...s, messages: msgs }, detail.title) : s)),
+          }));
+          finished = true;
+          return;
+        }
+      }
+    } finally {
+      activeReplyPolls.delete(sessionId);
+      // If the user started a new turn in this chat, its own request owns the status now
+      const { activeSessionId, sessionStatuses } = get();
+      if (!abandoned && sessionStatuses[sessionId] === 'thinking') {
+        set((state) => ({
+          sessionStatuses: {
+            ...state.sessionStatuses,
+            [sessionId]: finished && activeSessionId !== sessionId ? 'unread' as const : 'idle' as const,
+          },
+        }));
+      }
+    }
+  })();
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -128,7 +234,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         }
       }
 
-      set({ sessions, sessionsLoaded: true, sessionsLoading: false, activeSessionId: restoredSessionId, messages: [] });
+      // Replies the server saved while the user was away → blue dot (unless we reopen that chat now)
+      const unreadStatuses: Record<string, 'unread'> = {};
+      for (const s of (data.sessions || []) as SessionListItem[]) {
+        if (s.hasUnread && s.id !== restoredSessionId) unreadStatuses[s.id] = 'unread';
+      }
+
+      set((state) => ({
+        sessions,
+        sessionsLoaded: true,
+        sessionsLoading: false,
+        activeSessionId: restoredSessionId,
+        messages: [],
+        sessionStatuses: { ...unreadStatuses, ...state.sessionStatuses },
+      }));
 
       // If we restored a session, load its messages
       if (restoredSessionId) {
@@ -234,6 +353,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     // If session already has messages loaded, use them; otherwise fetch
     if (session.messages.length > 0) {
       set({ messages: session.messages });
+      // The cached copy may hold a reply bubble that never finished in this tab (e.g. the user
+      // switched chats mid-answer). If no request is running for it any more, the server has
+      // the authoritative copy — reload it.
+      if (currentStatus !== 'thinking' && session.messages.some(isInFlightReply)) {
+        get().loadSessionMessages(sessionId);
+      }
     } else {
       get().loadSessionMessages(sessionId);
     }
@@ -241,27 +366,39 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   loadSessionMessages: async (sessionId: string) => {
     try {
-      const headers = await getAuthHeaders();
-      const res = await fetch(`/api/chat/sessions/${sessionId}`, { headers });
-
-      if (!res.ok) {
-        console.error("[ChatStore] Failed to load messages:", res.status);
-        return;
-      }
-
-      const data = await res.json();
-      const msgs: Message[] = data.session?.messages || [];
+      const detail = await fetchSessionDetail(sessionId);
+      if (!detail) return;
+      const msgs = detail.messages;
 
       // Update session in the list and set active messages
       set((state) => ({
-        messages: msgs,
+        ...(state.activeSessionId === sessionId ? { messages: msgs } : {}),
         sessions: state.sessions.map((s) =>
-          s.id === sessionId ? { ...s, messages: msgs } : s
+          s.id === sessionId ? withServerTitle({ ...s, messages: msgs }, detail.title) : s
         ),
       }));
+
+      // A reply may still be generating on the server (the user left and came back quickly)
+      const last = msgs[msgs.length - 1];
+      if (last?.isSelf && typeof last.createdAt === "number" && Date.now() - last.createdAt < PENDING_REPLY_WINDOW_MS) {
+        pollForPendingReply(sessionId, last.id, last.createdAt, get, set);
+      }
     } catch (err) {
       console.error("[ChatStore] Load messages error:", err);
     }
+  },
+
+  waitForServerReply: async (sessionId: string, messageId: string, timeoutMs: number) => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      try {
+        const msgs = await fetchSessionMessages(sessionId);
+        const found = msgs?.find((m) => m.id === messageId && !m.isSelf && (m.text || "").trim());
+        if (found) return found;
+      } catch { /* keep polling */ }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    return null;
   },
 
   // ── Messages ──
@@ -282,27 +419,52 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const hasUserMessages = messages.some((m) => m.isSelf);
     if (!hasUserMessages) return;
 
+    // Strip non-serializable fields from messages. A reply that is still streaming is NOT
+    // synced: the server saves it when it is complete (even if this tab closes), and syncing
+    // the empty/partial bubble is what used to leave a blank answer under the prompt.
+    const cleanMessages = messages.filter((m) => !isInFlightReply(m)).map((m) => {
+      const clean: Record<string, unknown> = { id: m.id, text: m.text, isSelf: m.isSelf };
+      if (m.hiddenContext !== undefined) clean.hiddenContext = m.hiddenContext;
+      if (m.imageUrl !== undefined) clean.imageUrl = m.imageUrl;
+      if (m.citations !== undefined) clean.citations = m.citations;
+      return clean;
+    });
+
+    const body: Record<string, unknown> = { messages: cleanMessages };
+    if (title) body.title = title;
+    const payload = JSON.stringify(body);
+
+    // Skip if identical to the last payload sent for this session (this effect fires on every
+    // streamed token batch)
+    if (lastSavedPayload.get(targetId) === payload) return;
+    lastSavedPayload.set(targetId, payload);
+
+    // One request in flight per session; if more changes arrive meanwhile, send only the latest
+    pendingPayload.set(targetId, payload);
+    if (inFlightSave.has(targetId)) return;
+    inFlightSave.add(targetId);
     try {
-      const headers = await getAuthHeaders();
-      // Strip non-serializable fields from messages
-      const cleanMessages = messages.map((m) => {
-        const clean: Record<string, unknown> = { id: m.id, text: m.text, isSelf: m.isSelf };
-        if (m.hiddenContext !== undefined) clean.hiddenContext = m.hiddenContext;
-        if (m.imageUrl !== undefined) clean.imageUrl = m.imageUrl;
-        if (m.citations !== undefined) clean.citations = m.citations;
-        return clean;
-      });
-
-      const body: Record<string, unknown> = { messages: cleanMessages };
-      if (title) body.title = title;
-
-      fetch(`/api/chat/sessions/${targetId}`, {
-        method: "PUT",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }).catch(console.error);
-    } catch (err) {
-      console.error("[ChatStore] Save messages error:", err);
+      while (pendingPayload.has(targetId)) {
+        const next = pendingPayload.get(targetId)!;
+        pendingPayload.delete(targetId);
+        try {
+          const headers = await getAuthHeaders();
+          const res = await fetch(`/api/chat/sessions/${targetId}`, {
+            method: "PUT",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: next,
+          });
+          if (!res.ok) {
+            console.error("[ChatStore] Save messages failed:", res.status);
+            if (lastSavedPayload.get(targetId) === next) lastSavedPayload.delete(targetId); // allow retry
+          }
+        } catch (err) {
+          console.error("[ChatStore] Save messages error:", err);
+          if (lastSavedPayload.get(targetId) === next) lastSavedPayload.delete(targetId);
+        }
+      }
+    } finally {
+      inFlightSave.delete(targetId);
     }
   },
 

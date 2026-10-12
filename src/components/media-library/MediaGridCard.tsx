@@ -156,13 +156,13 @@ export default function MediaGridCard({
   const cardBorder = isSelected
     ? "ring-2 ring-orange-500 border-orange-500 shadow-md shadow-orange-500/10"
     : isDark
-    ? "border-slate-800 hover:border-slate-600 hover:shadow-lg hover:shadow-black/40"
-    : "border-[#ede8da] hover:border-indigo-300 hover:shadow-md hover:shadow-slate-200/60";
+    ? "border-[#383838] hover:border-[#525252] hover:shadow-lg hover:shadow-black/30"
+    : "border-[#E5E4DE] hover:border-[#C9C5BA] hover:shadow-sm";
 
-  const cardBg = isDark ? "bg-slate-900" : "bg-white";
-  const previewBg = isDark ? "bg-slate-950/60" : "bg-slate-100/70";
-  const textTitle = isDark ? "text-slate-200" : "text-slate-800";
-  const textMeta = isDark ? "text-slate-400" : "text-slate-500";
+  const cardBg = isDark ? "bg-[#2F2F2F]" : "bg-white";
+  const previewBg = isDark ? "bg-[#262626]" : "bg-[#F3F2EC]";
+  const textTitle = isDark ? "text-[#ECECEC]" : "text-[#1F1E1D]";
+  const textMeta = isDark ? "text-[#B4B4B4]" : "text-[#6B6860]";
 
   return (
     <div
@@ -395,7 +395,7 @@ export default function MediaGridCard({
       </div>
 
       {/* ───── METADATA FOOTER (Bottom Info Area) ───── */}
-      <div className={`px-3 py-2.5 flex flex-col gap-1 border-t transition-colors ${isDark ? "border-slate-800/80 bg-slate-900" : "border-slate-100 bg-white"}`}>
+      <div className={`px-2.5 py-2 sm:px-3 sm:py-2.5 flex flex-col gap-1 border-t transition-colors ${isDark ? "border-[#383838] bg-[#2F2F2F]" : "border-[#EFEDE6] bg-white"}`}>
         {/* Row 1: File Name */}
         <div className="flex items-center justify-between gap-1.5">
           <span
@@ -413,7 +413,7 @@ export default function MediaGridCard({
               onContextMenu?.(item, e);
             }}
             className={`opacity-80 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-0.5 rounded transition-opacity ${
-              isDark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800" : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              isDark ? "text-[#B4B4B4] hover:text-[#ECECEC] hover:bg-[#383838]" : "text-[#9C978D] hover:text-[#1F1E1D] hover:bg-[#F3F2EC]"
             }`}
             title="Options"
           >

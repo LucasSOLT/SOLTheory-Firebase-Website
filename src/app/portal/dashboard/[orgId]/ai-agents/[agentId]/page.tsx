@@ -1560,6 +1560,10 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
     let rToken: string | null = null;
     let kbText = "";
+    // Set once /api/chat accepted the request; from then on the server finishes and saves the
+    // reply itself even if this tab loses the stream.
+    let streamAccepted = false;
+    let streamFinished = false;
 
     try {
       // Fetch refresh token and knowledge base in parallel for speed
@@ -1623,8 +1627,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
           userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           chatScope,
           sessionId: currentSessionId,
+          // Server-side persistence: same ids the client syncs, so the reply survives the user
+          // leaving the page and never shows up twice
+          userMessageIds: [userMsg.id, ...extraUserMessages.map(m => m.id)],
+          assistantMessageId: botMsgIdEarly,
         }),
       });
+      streamAccepted = res.ok;
       console.log(`%c[JARVIS] Model: ${selectedModel} | Provider: ${OPENROUTER_MODEL_IDS.includes(selectedModel) ? 'OpenRouter' : 'Groq'} | Lite: ${isLiteModel}`, 'color: #10b981; font-weight: bold; font-size: 12px');
       if (!res.ok) {
         const errData = await res.json().catch(() => ({ error: 'Unknown error' }));
@@ -1640,6 +1649,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         // Streaming mode — render tokens as they arrive
         const botMsgId = botMsgIdEarly; // Reuse the placeholder created before the fetch
         let fullText = '';
+        let sawFinalPayload = false;
         // Bot placeholder already in messages — just ensure isTyping is off
         setIsTyping(false); // Hide spinner immediately — text is arriving
 
@@ -1690,6 +1700,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 throttle.appendText(payload.token);
               }
               if (payload.done) {
+                sawFinalPayload = true;
                 // Final metadata event — capture citations, tools, enrichment, usage
                 data = {
                   response: fullText,
@@ -1704,6 +1715,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 }
               }
               if (payload.error) {
+                sawFinalPayload = true;
                 fullText += '\n\nI had a momentary hiccup. Could you try asking me that again?';
                 throttle.appendError('\n\nI had a momentary hiccup. Could you try asking me that again?');
               }
@@ -1724,6 +1736,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                 throttle.appendText(payload.token);
               }
               if (payload.done) {
+                sawFinalPayload = true;
                 // Process done event from remaining buffer
                 if (payload.usage) data.usage = payload.usage;
                 if (payload.citations) {
@@ -1731,6 +1744,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                   throttle.setCitations(payload.citations);
                 }
               }
+              if (payload.error) sawFinalPayload = true;
             } catch (e) { /* ignore parse errors in trailing buffer */ }
           }
         }
@@ -1738,6 +1752,13 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
         // Synchronously flush any remaining throttled updates before post-stream processing
         throttle.flush();
         throttle.dispose();
+        // Every server stream ends with a `done` (or `error`) payload. Without one the connection
+        // dropped mid-answer (phone locked, tab backgrounded): the server is still finishing and
+        // saving the full reply — recover it in the catch below instead of saving partial text.
+        if (!sawFinalPayload) {
+          throw new Error("Stream ended before the final event");
+        }
+        streamFinished = true;
 
         // If the stream ended with no text tokens (e.g., orchestration completed but synthesis was empty),
         // ensure the user always sees a response
@@ -1886,6 +1907,34 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
 
     } catch (error: any) {
       console.error("[handleSendMessage] Error:", error?.message || error);
+
+      // The server accepted the request but this tab lost the stream (phone locked, tab
+      // backgrounded, network blip). /api/chat keeps going and saves the reply under this
+      // bubble's id — wait for it rather than showing an error or generating a second answer.
+      if (streamAccepted && !streamFinished && currentSessionId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentSessionId)) {
+        try {
+          const recovered = await chatStore.waitForServerReply(currentSessionId, botMsgIdEarly, 75_000);
+          if (recovered) {
+            setMessages(prev => prev.map(m => m.id === botMsgIdEarly
+              ? { ...m, text: recovered.text, citations: recovered.citations, agentEvents: [...(m.agentEvents || []), { type: 'done' as const, timestamp: Date.now() }] }
+              : m));
+            // The AI title generator below is skipped on this path — use the same first-words
+            // fallback the server stored so the chat doesn't stay "New Chat"
+            const fallbackTitle = msgText.split(' ').slice(0, 6).join(' ').replace(/["']/g, '').substring(0, 60).trim();
+            if (fallbackTitle) {
+              useChatStore.setState(state => ({
+                sessions: state.sessions.map(s =>
+                  s.id === currentSessionId && (!s.title || s.title === 'New Chat') ? { ...s, title: fallbackTitle } : s
+                ),
+              }));
+            }
+            return; // finally{} still clears the thinking state
+          }
+        } catch (recoverErr) {
+          console.warn("[handleSendMessage] Could not recover server-saved reply:", recoverErr);
+        }
+      }
+
       const errorMsg = error?.message || "";
       // Provide user-friendly error messages
       let friendlyError = "Hmm, something went wrong on my end. Let me try that again...";

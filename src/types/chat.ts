@@ -26,6 +26,8 @@ export type Message = {
   sendTimestamp?: number;
   isPendingImage?: boolean;
   emailPreview?: EmailPreviewData;
+  /** Server timestamp (ms) — present on messages loaded from Supabase */
+  createdAt?: number;
 };
 
 export type Session = {
@@ -46,4 +48,6 @@ export type SessionListItem = {
   scope: ChatScope;
   messageCount: number;
   lastPreview: string;
+  /** An AI reply was saved while the user was away and hasn't been viewed yet */
+  hasUnread?: boolean;
 };
