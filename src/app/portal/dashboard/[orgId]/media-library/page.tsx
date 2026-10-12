@@ -3275,13 +3275,18 @@ export default function MediaLibraryPage() {
 
       {/* ───── TOAST ───── */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-[200] animate-in fade-in slide-in-from-bottom-4">
-          <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg border text-[13px] font-semibold ${
-            isDark ? "bg-slate-800 border-slate-600 text-slate-200" : "bg-white border-slate-200 text-slate-700"
+        <div className="fixed bottom-6 inset-x-0 z-[200] flex justify-center pointer-events-none px-4 animate-in fade-in slide-in-from-bottom-4">
+          <div className={`pointer-events-auto max-w-full sm:max-w-xl flex items-center justify-between gap-3 px-4 py-3 rounded-xl shadow-2xl border text-[13px] font-semibold break-words transition-all ${
+            isDark ? "bg-slate-800/95 border-slate-700 text-slate-100 backdrop-blur-md" : "bg-white/95 border-slate-200 text-slate-800 backdrop-blur-md"
           }`}>
-            <span>{toast}</span>
-            <button onClick={() => setToast(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-              <X className="w-3.5 h-3.5" />
+            <span className="min-w-0 break-words [overflow-wrap:anywhere] leading-snug">{toast}</span>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 -mr-1 rounded-md transition-colors cursor-pointer"
+              aria-label="Dismiss notification"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>

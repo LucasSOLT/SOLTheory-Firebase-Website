@@ -404,12 +404,12 @@ export default function PactMemoryView({ orgId, isDark = false }: { orgId: strin
   return (
     <div className={`flex flex-col gap-6 animate-in fade-in duration-300 relative rounded-2xl p-6 border ${cardBg}`}>
       {toasts.length > 0 && (
-        <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2">
+        <div className="fixed bottom-6 inset-x-0 z-[100] flex flex-col items-center gap-2 pointer-events-none px-4">
           {toasts.map((toast) => (
-            <div key={toast.id} className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-xs font-semibold border backdrop-blur-md ${
+            <div key={toast.id} className={`pointer-events-auto max-w-full sm:max-w-md flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-xs font-semibold border backdrop-blur-md break-words ${
               isDark ? "bg-slate-800 text-white border-slate-700" : "bg-white text-black border-slate-200"
             }`}>
-              {toast.text}
+              <span className="min-w-0 break-words [overflow-wrap:anywhere] leading-snug">{toast.text}</span>
             </div>
           ))}
         </div>

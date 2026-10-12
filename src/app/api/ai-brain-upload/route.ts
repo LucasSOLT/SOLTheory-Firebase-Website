@@ -103,37 +103,111 @@ async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
 }
 
 /**
- * Use Gemini Vision to describe/OCR an image for searchability.
+ * Use Gemini Vision to describe/OCR an image for searchability (with OpenRouter fallback).
  */
-async function extractTextFromImage(buffer: Buffer, mimeType: string): Promise<string> {
-  try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.warn("[AI Brain Upload] GEMINI_API_KEY not found in environment for image OCR");
-      return "Uploaded image file (no text extracted - missing Gemini API key)";
-    }
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-    const base64 = buffer.toString("base64");
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: base64,
-          mimeType,
-        },
-      },
-      "Describe this image in detail. If it contains text, extract all visible text content verbatim. " +
-      "If it's a diagram or chart, describe its structure, labels, and data. " +
-      "If it's a photo, describe what is shown including any notable details. " +
-      "Be thorough, factual, and organized.",
-    ]);
-
-    return result.response.text();
-  } catch (err: any) {
-    console.error("[AI Brain Upload] extractTextFromImage failed:", err);
-    return `Uploaded image file. Visual extraction notice: ${err.message || "Could not extract visual details"}`;
+async function extractTextFromImage(buffer: Buffer, mimeType: string, extension: string = ""): Promise<string> {
+  const mimeMap: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    gif: "image/gif",
+    bmp: "image/bmp",
+  };
+  let effectiveMime = mimeType;
+  if (!effectiveMime || effectiveMime === "application/octet-stream" || !effectiveMime.startsWith("image/")) {
+    effectiveMime = mimeMap[extension.toLowerCase()] || "image/png";
   }
+
+  const prompt =
+    "Describe this image in detail. If it contains text, extract all visible text content verbatim. " +
+    "If it's a diagram or chart, describe its structure, labels, and data. " +
+    "If it's a photo, describe what is shown including any notable details. " +
+    "Be thorough, factual, and organized.";
+
+  const base64 = buffer.toString("base64");
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+
+  // Primary: Google Gemini Direct with active model gemini-2.5-flash
+  if (geminiApiKey) {
+    try {
+      const genAI = new GoogleGenerativeAI(geminiApiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+      const result = await model.generateContent([
+        {
+          inlineData: {
+            data: base64,
+            mimeType: effectiveMime,
+          },
+        },
+        prompt,
+      ]);
+
+      const text = result.response.text();
+      if (text && text.trim()) return text;
+    } catch (err: any) {
+      console.warn("[AI Brain Upload] Direct Gemini vision extraction failed, trying OpenRouter fallback:", err?.message || err);
+    }
+  }
+
+  // Fallback: OpenRouter Vision (google/gemini-2.5-flash, secondary: openai/gpt-4o-mini)
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  if (openRouterApiKey) {
+    const candidateModels = ["google/gemini-2.5-flash", "openai/gpt-4o-mini"];
+    for (const modelId of candidateModels) {
+      try {
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openRouterApiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://soltheory.com",
+            "X-Title": "SOL Theory AI Brain",
+          },
+          body: JSON.stringify({
+            model: modelId,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:${effectiveMime};base64,${base64}`,
+                    },
+                  },
+                ],
+              },
+            ],
+            max_tokens: 2000,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const content = data.choices?.[0]?.message?.content;
+          if (content && typeof content === "string" && content.trim()) {
+            console.log(`[AI Brain Upload] OpenRouter vision fallback (${modelId}) succeeded`);
+            return content;
+          }
+        } else {
+          const errText = await res.text().catch(() => "");
+          console.warn(`[AI Brain Upload] OpenRouter vision fallback (${modelId}) returned status ${res.status}:`, errText.substring(0, 200));
+        }
+      } catch (openRouterErr: any) {
+        console.error(`[AI Brain Upload] OpenRouter vision fallback (${modelId}) failed:`, openRouterErr?.message || openRouterErr);
+      }
+    }
+  }
+
+  if (!geminiApiKey && !openRouterApiKey) {
+    console.warn("[AI Brain Upload] Neither GEMINI_API_KEY nor OPENROUTER_API_KEY found in environment for image OCR");
+    return "Uploaded image file (no text extracted - missing Gemini API key)";
+  }
+
+  return "Uploaded image file. Visual extraction notice: could not extract visual details";
 }
 
 // ─── Chunking (same algorithm as knowledge-base/process) ─────────────────
@@ -253,12 +327,20 @@ export async function POST(req: Request) {
       const cleanedLength = plaintext.replace(/\s+/g, " ").trim().length;
       if (cleanedLength < 50) {
         console.log(`[AI Brain Upload] PDF text too short (${cleanedLength} chars), falling back to Gemini Vision OCR...`);
+        const pdfPrompt =
+          "Extract ALL text content from this PDF document verbatim. " +
+          "Preserve the original structure, headings, bullet points, and formatting as closely as possible. " +
+          "If there are tables, reproduce them in a readable format. " +
+          "If there are handwritten notes, transcribe them. " +
+          "Be thorough — capture every piece of text visible in the document.";
+        const base64 = buffer.toString("base64");
+
+        // Primary: Direct Gemini
         try {
           const apiKey = process.env.GEMINI_API_KEY;
           if (apiKey) {
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-            const base64 = buffer.toString("base64");
+            const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
             const result = await model.generateContent([
               {
                 inlineData: {
@@ -266,11 +348,7 @@ export async function POST(req: Request) {
                   mimeType: "application/pdf",
                 },
               },
-              "Extract ALL text content from this PDF document verbatim. " +
-              "Preserve the original structure, headings, bullet points, and formatting as closely as possible. " +
-              "If there are tables, reproduce them in a readable format. " +
-              "If there are handwritten notes, transcribe them. " +
-              "Be thorough — capture every piece of text visible in the document.",
+              pdfPrompt,
             ]);
             const ocrText = result.response.text();
             if (ocrText && ocrText.trim().length > cleanedLength) {
@@ -281,7 +359,50 @@ export async function POST(req: Request) {
             console.warn("[AI Brain Upload] GEMINI_API_KEY not found; cannot OCR scanned PDF");
           }
         } catch (ocrErr: any) {
-          console.error("[AI Brain Upload] Gemini Vision OCR fallback failed:", ocrErr.message);
+          console.warn("[AI Brain Upload] Gemini Vision OCR direct failed, trying OpenRouter:", ocrErr.message);
+        }
+
+        // Fallback: OpenRouter Vision for PDF (if direct Gemini failed or quota exceeded)
+        if (plaintext.replace(/\s+/g, " ").trim().length < 50 && process.env.OPENROUTER_API_KEY) {
+          try {
+            const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://soltheory.com",
+                "X-Title": "SOL Theory AI Brain",
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  {
+                    role: "user",
+                    content: [
+                      { type: "text", text: pdfPrompt },
+                      {
+                        type: "image_url",
+                        image_url: {
+                          url: `data:application/pdf;base64,${base64}`,
+                        },
+                      },
+                    ],
+                  },
+                ],
+                max_tokens: 4000,
+              }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              const content = data.choices?.[0]?.message?.content;
+              if (content && typeof content === "string" && content.trim().length > cleanedLength) {
+                plaintext = content;
+                console.log(`[AI Brain Upload] OpenRouter OCR extracted ${plaintext.length} chars from PDF`);
+              }
+            }
+          } catch (openRouterPdfErr: any) {
+            console.warn("[AI Brain Upload] OpenRouter OCR failed for PDF:", openRouterPdfErr.message);
+          }
         }
 
         // If still empty after OCR attempt, set a descriptive placeholder
@@ -308,7 +429,7 @@ export async function POST(req: Request) {
     } else if (IMAGE_EXTENSIONS.has(extension)) {
       docType = "image";
       try {
-        plaintext = await extractTextFromImage(buffer, mimeType);
+        plaintext = await extractTextFromImage(buffer, mimeType, extension);
         console.log(`[AI Brain Upload] Image described: ${plaintext.length} chars`);
       } catch (err: any) {
         console.error(`[AI Brain Upload] Image description failed:`, err.message);
