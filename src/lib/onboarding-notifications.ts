@@ -24,6 +24,7 @@ import { initAdmin, getFirestore } from "@/firebase/admin";
 import { createNotification, getOrgAdminUids, dashboardPath } from "@/lib/notifications";
 import { getSystemTemplateById } from "@/lib/onboarding-templates-registry";
 import { ONBOARDING_PHASE_LABELS } from "@/types/onboarding-templates";
+import { shouldMarkCompletedLate } from "@/lib/onboarding-overdue";
 
 const LOG_PREFIX = "[onboarding-notifications]";
 
@@ -154,6 +155,18 @@ export async function notifyOnboardingTaskCompleted(params: NotifyOnboardingTask
     const isDone = task.column === "done";
     const isPendingReview = meta.reviewStatus === "pending_review";
     const isDocument = isDocumentTask(task);
+
+    // Ensure late completion is recorded even if the task was toggled to 'done' client-side
+    if (isDone && meta.completedLate !== true && shouldMarkCompletedLate(task, toMillis(task.completedAt) || Date.now())) {
+      await taskSnap.ref
+        .update({
+          isLate: true,
+          "metadata.completedLate": true,
+          "metadata.completedLateAt": new Date().toISOString(),
+        })
+        .catch(() => undefined);
+    }
+
     if (!isDone && !(isPendingReview && isDocument)) return 0;
 
     const instanceSnap = await firestore.collection("onboarding_instances").doc(instanceId).get();

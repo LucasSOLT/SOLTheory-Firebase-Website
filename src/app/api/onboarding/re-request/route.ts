@@ -131,9 +131,35 @@ export async function POST(req: Request) {
     }
 
     // Reset the task back to 'todo' with re-request notes
+    const rawDue: any = taskData.dueDate;
+    const dueMs = rawDue
+      ? typeof rawDue === 'number'
+        ? rawDue
+        : typeof rawDue?.toMillis === 'function'
+          ? rawDue.toMillis()
+          : typeof rawDue?.toDate === 'function'
+            ? rawDue.toDate().getTime()
+            : typeof rawDue?.seconds === 'number'
+              ? rawDue.seconds * 1000
+              : typeof rawDue?._seconds === 'number'
+                ? rawDue._seconds * 1000
+                : new Date(rawDue).getTime() || 0
+      : 0;
+    const isCurrentlyPastDue = dueMs > 0 && Date.now() > dueMs;
+
     await taskRef.update({
       column: 'todo',
       completedAt: null,
+      'metadata.completedLate': false,
+      'metadata.completedLateAt': null,
+      'metadata.submittedAt': null,
+      ...(!isCurrentlyPastDue
+        ? {
+            isLate: false,
+            'metadata.overdue': false,
+            'metadata.overdueAt': null,
+          }
+        : {}),
       'metadata.reviewStatus': 'rejected',
       'metadata.reviewNotes': notes.trim(),
       'metadata.reviewedBy': auth.uid,

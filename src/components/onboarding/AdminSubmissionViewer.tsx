@@ -39,6 +39,9 @@ interface AdminSubmissionViewerProps {
     title: string;
     description?: string;
     column: string;
+    dueDate?: any;
+    completedAt?: any;
+    isLate?: boolean;
     assignedTo?: string;
     assignedToEmail?: string;
     metadata?: {
@@ -51,6 +54,11 @@ interface AdminSubmissionViewerProps {
       reviewedByEmail?: string;
       reviewedAt?: any;
       onboardingInstanceId?: string;
+      overdue?: boolean;
+      overdueAt?: any;
+      completedLate?: boolean;
+      completedLateAt?: any;
+      submittedAt?: any;
     };
   };
   employeeName?: string;
@@ -605,6 +613,57 @@ export default function AdminSubmissionViewer({
                 {getTypeIcon(responseType)}
                 {getTypeLabel(responseType)}
               </span>
+              {/* Completed late / Overdue badge */}
+              {(() => {
+                const toMs = (v: any): number => {
+                  if (!v) return 0;
+                  if (typeof v === 'number') return v;
+                  if (typeof v.toMillis === 'function') return v.toMillis();
+                  if (typeof v.toDate === 'function') return v.toDate().getTime();
+                  if (typeof v.seconds === 'number') return v.seconds * 1000;
+                  if (typeof v._seconds === 'number') return v._seconds * 1000;
+                  const d = new Date(v);
+                  return isNaN(d.getTime()) ? 0 : d.getTime();
+                };
+                const dueMs = toMs(task.dueDate);
+                const submittedMs = toMs(latestResponse?.submittedAt) || toMs(meta.submittedAt) || toMs(task.completedAt);
+                const hasSubmissionOrDone =
+                  task.column === 'done' ||
+                  meta.reviewStatus === 'pending_review' ||
+                  meta.reviewStatus === 'approved' ||
+                  Boolean(latestResponse);
+                const wasCompletedLate =
+                  hasSubmissionOrDone &&
+                  meta.reviewStatus !== 'rejected' &&
+                  (meta.completedLate === true ||
+                    (meta.completedLate !== false &&
+                      (dueMs > 0 && submittedMs > 0
+                        ? submittedMs > dueMs
+                        : task.isLate === true || meta.overdue === true)));
+                const isOverdueNow =
+                  task.column !== 'done' &&
+                  meta.reviewStatus !== 'pending_review' &&
+                  (task.isLate === true || meta.overdue === true || (dueMs > 0 && Date.now() > dueMs));
+                if (wasCompletedLate) {
+                  return (
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                      isDarkMode ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}>
+                      <Clock className="w-3 h-3 text-amber-400" /> Completed late
+                    </span>
+                  );
+                }
+                if (isOverdueNow) {
+                  return (
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                      isDarkMode ? 'bg-red-950/60 text-red-400 border-red-800/60' : 'bg-red-50 text-red-600 border-red-200'
+                    }`}>
+                      <AlertTriangle className="w-3 h-3" /> Overdue
+                    </span>
+                  );
+                }
+                return null;
+              })()}
               {/* Employee */}
               {(employeeName || task.assignedToEmail) && (
                 <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>

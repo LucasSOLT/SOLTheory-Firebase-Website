@@ -18,6 +18,7 @@ import { initAdmin, getFirestore as getAdminFirestore } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { COMPLIANCE_CATEGORY_LABELS } from '@/types/onboarding-templates';
 import { notifyOnboardingTaskCompleted } from '@/lib/onboarding-notifications';
+import { shouldMarkCompletedLate } from '@/lib/onboarding-overdue';
 
 export async function POST(req: Request) {
   try {
@@ -82,6 +83,16 @@ export async function POST(req: Request) {
           if (status === 'verified' && taskSnap.data()?.column !== 'done') {
             taskUpdates.column = 'done';
             taskUpdates.completedAt = FieldValue.serverTimestamp();
+            const completedLate = shouldMarkCompletedLate(taskSnap.data(), Date.now());
+            taskUpdates['metadata.completedLate'] = completedLate;
+            taskUpdates['metadata.completedLateAt'] = completedLate ? new Date().toISOString() : null;
+            if (completedLate) {
+              taskUpdates.isLate = true;
+            }
+          } else if (status === 'rejected') {
+            taskUpdates['metadata.submittedAt'] = null;
+            taskUpdates['metadata.completedLate'] = false;
+            taskUpdates['metadata.completedLateAt'] = null;
           }
 
           await taskRef.update(taskUpdates);

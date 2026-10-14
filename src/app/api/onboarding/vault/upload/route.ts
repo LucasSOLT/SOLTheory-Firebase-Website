@@ -21,6 +21,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { firebaseConfig } from '@/firebase/config';
 import { COMPLIANCE_CATEGORY_LABELS, type ComplianceDocumentCategory } from '@/types/onboarding-templates';
 import { notifyOnboardingDocumentSubmitted } from '@/lib/onboarding-notifications';
+import { shouldMarkCompletedLate } from '@/lib/onboarding-overdue';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -137,16 +138,24 @@ export async function POST(req: Request) {
         const taskRef = db.collection('action_board_tasks').doc(taskId);
         const taskDoc = await taskRef.get();
         if (taskDoc.exists) {
-          const currentAttachments = taskDoc.data()?.attachments || [];
+          const existingTask = taskDoc.data() || {};
+          const currentAttachments = existingTask.attachments || [];
+          const uploadedAtIso = new Date().toISOString();
           const newAttachment = {
             name: fileName,
             url: downloadUrl,
             type: mimeType,
-            uploadedAt: new Date().toISOString(),
+            uploadedAt: uploadedAtIso,
           };
+          const uploadedLate = shouldMarkCompletedLate(existingTask, Date.now(), {
+            ignoreExistingSubmittedAt: true,
+          });
 
           await taskRef.update({
             attachments: [...currentAttachments, newAttachment],
+            'metadata.submittedAt': uploadedAtIso,
+            'metadata.documentVerificationStatus': 'pending_review',
+            ...(uploadedLate ? { isLate: true } : {}),
             updatedAt: FieldValue.serverTimestamp(),
           });
         }

@@ -1030,6 +1030,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       case 'onboarding_document_completed':
       case 'onboarding_blueprint_completed':
         return { icon: <GraduationCap className="w-4 h-4 text-emerald-600" />, bg: 'bg-emerald-100' };
+      case 'onboarding_item_overdue':
+        return { icon: <AlertTriangle className="w-4 h-4 text-rose-600" />, bg: 'bg-rose-100' };
       case 'timesheet_entry':
         return { icon: <Clock className="w-4 h-4 text-sky-600" />, bg: 'bg-sky-100' };
       case 'grant_found':

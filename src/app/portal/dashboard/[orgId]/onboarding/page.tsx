@@ -36,6 +36,7 @@ import {
   FileText,
   ExternalLink,
   Trash2,
+  Clock,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import OnboardingPhaseCard from '@/components/onboarding/OnboardingPhaseCard';
@@ -75,6 +76,8 @@ interface OnboardingInstanceDoc {
   totalSteps: number;
   completedSteps: number;
   taskIds: string[];
+  supervisorUid?: string;
+  supervisorEmail?: string;
   mentorUid?: string;
   mentorEmail?: string;
   initiatedBy: string;
@@ -123,28 +126,32 @@ interface TaskDoc {
     mediaUrl?: string | null;
     mediaType?: string | null;
     orgId?: string;
+    overdue?: boolean;
+    overdueAt?: any;
+    completedLate?: boolean;
+    completedLateAt?: any;
+    submittedAt?: any;
   };
   attachments?: { url: string; name: string; type: string }[];
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+function toMs(ts: any): number {
+  if (!ts) return 0;
+  if (typeof ts === 'number') return Number.isFinite(ts) ? ts : 0;
+  if (typeof ts.toMillis === 'function') return ts.toMillis();
+  if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+  if (typeof ts._seconds === 'number') return ts._seconds * 1000;
+  if (typeof ts.seconds === 'number') return ts.seconds * 1000;
+  const d = new Date(ts);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
 function formatDate(ts: any): string {
-  if (!ts) return '—';
-  try {
-    let d: Date;
-    if (typeof ts.toDate === 'function') {
-      d = ts.toDate();
-    } else if (ts && typeof ts === 'object' && 'seconds' in ts && typeof ts.seconds === 'number') {
-      d = new Date(ts.seconds * 1000);
-    } else {
-      d = new Date(ts);
-    }
-    if (isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  } catch {
-    return '—';
-  }
+  const ms = toMs(ts);
+  if (!ms) return '—';
+  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // ── Page Component ──────────────────────────────────────────────────────────
@@ -331,16 +338,33 @@ export default function OnboardingPage() {
         ),
       );
 
-      // Query 2: instances where this user is the supervisor/mentor
+      // Query 2: instances where this user is the supervisor (supervisorUid or legacy mentorUid)
+      let mentorDocs: OnboardingInstanceDoc[] = [];
+      let supervisorDocs: OnboardingInstanceDoc[] = [];
+      const syncSup = () => {
+        supervisorInstances = [...mentorDocs, ...supervisorDocs];
+        mergeInstances();
+      };
       const qMentor = query(instancesRef, where('orgId', '==', orgId), where('mentorUid', '==', user.uid));
       unsubs.push(
         onSnapshot(
           qMentor,
           (snap) => {
-            supervisorInstances = snap.docs.map(d => ({ id: d.id, ...d.data() } as OnboardingInstanceDoc));
-            mergeInstances();
+            mentorDocs = snap.docs.map(d => ({ id: d.id, ...d.data() } as OnboardingInstanceDoc));
+            syncSup();
           },
           () => { /* mentor query fail is non-fatal */ },
+        ),
+      );
+      const qSupervisor = query(instancesRef, where('orgId', '==', orgId), where('supervisorUid', '==', user.uid));
+      unsubs.push(
+        onSnapshot(
+          qSupervisor,
+          (snap) => {
+            supervisorDocs = snap.docs.map(d => ({ id: d.id, ...d.data() } as OnboardingInstanceDoc));
+            syncSup();
+          },
+          () => { /* supervisor query fail is non-fatal */ },
         ),
       );
     }
@@ -352,7 +376,7 @@ export default function OnboardingPage() {
   const supervisedInstanceIds = useMemo(() => {
     if (isAdmin) return []; // Admins already get all tasks
     return instances
-      .filter(i => i.mentorUid === user?.uid && i.userId !== user?.uid)
+      .filter(i => (i.supervisorUid === user?.uid || i.mentorUid === user?.uid) && i.userId !== user?.uid && i.status !== 'deleted')
       .map(i => i.id);
   }, [instances, user?.uid, isAdmin]);
 
@@ -456,9 +480,11 @@ export default function OnboardingPage() {
 
   // ── Derived Data ──────────────────────────────────────────────────────────
 
-  // The current user's active onboarding instance (if they are a new hire)
+  // The current user's onboarding instance (active first, falling back to completed so past phases/items stay viewable as history)
   const myInstance = useMemo(
-    () => instances.find(i => i.userId === user?.uid && i.status === 'in_progress'),
+    () =>
+      instances.find(i => i.userId === user?.uid && i.status === 'in_progress') ||
+      instances.find(i => i.userId === user?.uid && i.status === 'completed'),
     [instances, user?.uid],
   );
 
@@ -596,11 +622,43 @@ export default function OnboardingPage() {
       if (!firestore) return;
       const taskRef = doc(firestore, 'action_board_tasks', taskId);
       const newColumn = currentColumn === 'done' ? 'todo' : 'done';
+      const targetTask = tasks.find(t => t.id === taskId);
+      const rawDue = targetTask?.dueDate;
+      const dueMs = rawDue
+        ? typeof rawDue === 'number'
+          ? rawDue
+          : typeof rawDue?.toMillis === 'function'
+            ? rawDue.toMillis()
+            : typeof rawDue?.toDate === 'function'
+              ? rawDue.toDate().getTime()
+              : typeof rawDue?.seconds === 'number'
+                ? rawDue.seconds * 1000
+                : new Date(rawDue).getTime() || 0
+        : 0;
+      const completedLate =
+        newColumn === 'done' &&
+        Boolean(targetTask?.isLate || targetTask?.metadata?.overdue || (dueMs > 0 && Date.now() > dueMs));
+
       try {
         await updateDoc(taskRef, {
           column: newColumn,
           updatedAt: serverTimestamp(),
-          ...(newColumn === 'done' ? { completedAt: serverTimestamp() } : { completedAt: null }),
+          ...(newColumn === 'done'
+            ? {
+                completedAt: serverTimestamp(),
+                ...(completedLate
+                  ? {
+                      isLate: true,
+                      'metadata.completedLate': true,
+                      'metadata.completedLateAt': new Date().toISOString(),
+                    }
+                  : {}),
+              }
+            : {
+                completedAt: null,
+                'metadata.completedLate': false,
+                'metadata.completedLateAt': null,
+              }),
         });
 
         // Notify supervisor/admin if this completed a document, phase, or blueprint (server decides)
@@ -622,7 +680,7 @@ export default function OnboardingPage() {
         console.error('[Onboarding] Failed to toggle task:', err);
       }
     },
-    [firestore, user, orgId],
+    [firestore, user, orgId, tasks],
   );
 
   const handleUploadDocument = useCallback(
@@ -1236,6 +1294,16 @@ export default function OnboardingPage() {
                       const inst = getInstanceForTask(task);
                       const itemType = task.metadata?.itemType || '';
                       const latestResponse = task.metadata?.userResponse?.[task.metadata.userResponse.length - 1];
+                      const submittedMs = toMs(task.metadata?.submittedAt) || toMs(latestResponse?.submittedAt);
+                      const dueMs = toMs(task.dueDate);
+                      const wasLate = Boolean(
+                        task.metadata?.completedLate === true ||
+                        (task.metadata?.completedLate !== false && (
+                          task.isLate === true ||
+                          task.metadata?.overdue === true ||
+                          (dueMs > 0 && submittedMs > 0 && submittedMs > dueMs)
+                        )),
+                      );
                       return (
                         <div
                           key={task.id}
@@ -1267,6 +1335,14 @@ export default function OnboardingPage() {
                             </div>
                           </div>
 
+                          {wasLate && (
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
+                              isDarkMode ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                              <Clock className="w-3 h-3 text-amber-400" /> Completed late
+                            </span>
+                          )}
+
                           {/* Type badge */}
                           <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
                             typeBadgeColors[itemType] || (isDarkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-slate-100 text-slate-600 border-slate-200')
@@ -1294,6 +1370,17 @@ export default function OnboardingPage() {
                       const inst = getInstanceForTask(task);
                       const itemType = task.metadata?.itemType || '';
                       const isApproved = task.metadata?.reviewStatus === 'approved';
+                      const latestResponse = task.metadata?.userResponse?.[task.metadata.userResponse.length - 1];
+                      const submittedMs = toMs(task.metadata?.submittedAt) || toMs(latestResponse?.submittedAt) || toMs(task.completedAt);
+                      const dueMs = toMs(task.dueDate);
+                      const wasLate = isApproved && Boolean(
+                        task.metadata?.completedLate === true ||
+                        (task.metadata?.completedLate !== false && (
+                          task.isLate === true ||
+                          task.metadata?.overdue === true ||
+                          (dueMs > 0 && submittedMs > 0 && submittedMs > dueMs)
+                        )),
+                      );
                       return (
                         <div
                           key={task.id}
@@ -1321,6 +1408,14 @@ export default function OnboardingPage() {
                               {task.metadata?.reviewedByEmail && ` by ${task.metadata.reviewedByEmail.split('@')[0]}`}
                             </div>
                           </div>
+
+                          {wasLate && (
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
+                              isDarkMode ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                              <Clock className="w-3 h-3 text-amber-400" /> Completed late
+                            </span>
+                          )}
 
                           {/* Type badge */}
                           <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${

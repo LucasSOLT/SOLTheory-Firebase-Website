@@ -24,6 +24,7 @@ export type NotificationType =
   | "onboarding_phase_completed"
   | "onboarding_document_completed"
   | "onboarding_blueprint_completed"
+  | "onboarding_item_overdue"
   | "timesheet_entry"
   | "grant_found"
   | "system";

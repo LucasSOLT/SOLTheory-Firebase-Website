@@ -41,6 +41,8 @@ function getIconComponent(n: DisplayNotification) {
     case 'onboarding_document_completed':
     case 'onboarding_blueprint_completed':
       return GraduationCap;
+    case 'onboarding_item_overdue':
+      return AlertTriangle;
     case 'timesheet_entry':
       return Clock;
     case 'grant_found':

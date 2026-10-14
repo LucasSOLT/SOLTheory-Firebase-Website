@@ -54,6 +54,11 @@ interface OnboardingTaskRowProps {
       interactiveContent?: any;
       userResponse?: any[];
       reviewStatus?: string;
+      overdue?: boolean;
+      overdueAt?: any;
+      completedLate?: boolean;
+      completedLateAt?: any;
+      submittedAt?: any;
     };
     attachments?: { url: string; name: string; type: string }[];
   };
@@ -75,22 +80,37 @@ interface OnboardingTaskRowProps {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+function toMillis(ts: any): number {
+  if (!ts) return 0;
+  if (typeof ts === 'number') return ts;
+  if (typeof ts.toMillis === 'function') return ts.toMillis();
+  if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+  if (typeof ts.seconds === 'number') return ts.seconds * 1000;
+  if (typeof ts._seconds === 'number') return ts._seconds * 1000;
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
 function formatDateTime(ts: any): string {
-  if (!ts) return '';
+  const ms = toMillis(ts);
+  if (!ms) return '';
   try {
-    const d = typeof ts.toDate === 'function' ? ts.toDate() : new Date(ts);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return new Date(ms).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   } catch {
     return '';
   }
 }
 
 function getDueUrgency(ts: any): 'overdue' | 'today' | 'soon' | 'normal' | null {
-  if (!ts) return null;
+  const ms = toMillis(ts);
+  if (!ms) return null;
   try {
-    const d = typeof ts.toDate === 'function' ? ts.toDate() : new Date(ts);
-    const now = new Date();
-    const diffMs = d.getTime() - now.getTime();
+    const diffMs = ms - Date.now();
     const diffDays = diffMs / (1000 * 60 * 60 * 24);
     if (diffDays < 0) return 'overdue';
     if (diffDays < 1) return 'today';
@@ -120,13 +140,31 @@ export default function OnboardingTaskRow({
   const requiresUpload = task.metadata?.requiresDocumentUpload;
   const docCategory = task.metadata?.documentCategory;
   const sopUrl = task.metadata?.sopUrl;
-  const urgency = !isCompleted ? getDueUrgency(task.dueDate) : null;
-  const hasAttachments = task.attachments && task.attachments.length > 0;
-
-  const itemType = task.metadata?.itemType;
-  const isInteractive = ['quiz', 'short_answer', 'form', 'checklist', 'policy_acknowledgment', 'external_verification', 'recorded_response'].includes(itemType || '');
-  const hasPopupContent = isInteractive || !!task.metadata?.instructions || !!task.metadata?.mediaUrl || !!task.metadata?.hyperlink;
   const reviewStatus = task.metadata?.reviewStatus;
+  const hasAttachments = Boolean(task.attachments && task.attachments.length > 0);
+  const isAwaitingReviewOrDoc =
+    reviewStatus === 'pending_review' ||
+    (requiresUpload && hasAttachments && verificationStatus !== 'rejected');
+  const rawUrgency = !isCompleted && !isLocked && !isAwaitingReviewOrDoc ? getDueUrgency(task.dueDate) : null;
+  const urgency =
+    !isCompleted && !isLocked && !isAwaitingReviewOrDoc && (task.isLate || task.metadata?.overdue)
+      ? 'overdue'
+      : rawUrgency;
+  const dueMs = toMillis(task.dueDate);
+  const completedMs = toMillis(task.metadata?.submittedAt) || toMillis(task.completedAt);
+  const isCompletedLate =
+    isCompleted &&
+    (task.metadata?.completedLate === true ||
+      (task.metadata?.completedLate !== false &&
+        (dueMs > 0 && completedMs > 0
+          ? completedMs > dueMs
+          : task.isLate === true || task.metadata?.overdue === true)));
+
+  const itemType = task.metadata?.itemType || task.metadata?.interactiveContent?.type;
+  const isInteractive =
+    ['quiz', 'short_answer', 'form', 'checklist', 'policy_acknowledgment', 'external_verification', 'recorded_response', 'pdf_form'].includes(itemType || '') ||
+    !!task.metadata?.interactiveContent;
+  const hasPopupContent = isInteractive || !!task.metadata?.instructions || !!task.metadata?.mediaUrl || !!task.metadata?.hyperlink || isCompleted;
   const userResponses = task.metadata?.userResponse || [];
   const latestResponse = userResponses[userResponses.length - 1];
 
@@ -357,6 +395,15 @@ export default function OnboardingTaskRow({
             </span>
           )}
 
+          {/* Completed late badge */}
+          {isCompletedLate && (
+            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+              isDarkMode ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}>
+              <Clock className="w-3 h-3 text-amber-400" /> Completed late
+            </span>
+          )}
+
           {/* Pending Review badge */}
           {reviewBadge}
 
@@ -377,7 +424,7 @@ export default function OnboardingTaskRow({
         {/* Action buttons row */}
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           {/* Interactive action button */}
-          {onTaskClick && hasPopupContent && (
+          {onTaskClick && hasPopupContent && !isLocked && (
             <button
               onClick={() => onTaskClick(task)}
               className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
@@ -423,7 +470,7 @@ export default function OnboardingTaskRow({
                 </>
               ) : (
                 <>
-                  <span>Open Step</span>
+                  <span>{isCompleted ? 'View Step' : 'Open Step'}</span>
                   <ArrowRight className="w-3 h-3" />
                 </>
               )}
@@ -431,16 +478,17 @@ export default function OnboardingTaskRow({
           )}
 
           {/* Schedule */}
-          {(task.startDate || task.dueDate) && (
+          {(task.startDate || task.dueDate || (isCompleted && task.completedAt)) && (
             <span className={`text-[11px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
               {task.startDate && `Opens ${formatDateTime(task.startDate)}`}
               {task.startDate && task.dueDate && ' • '}
               {task.dueDate && `Due ${formatDateTime(task.dueDate)}`}
+              {isCompleted && task.completedAt && `${task.startDate || task.dueDate ? ' • ' : ''}Completed ${formatDateTime(task.completedAt)}`}
             </span>
           )}
 
           {/* Upload button */}
-          {requiresUpload && docCategory && !isCompleted && isAssignee && verificationStatus !== 'verified' && (
+          {requiresUpload && docCategory && !isCompleted && !isLocked && isAssignee && verificationStatus !== 'verified' && (
             <button
               onClick={() => onUploadDocument(task.id, docCategory)}
               className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors ${

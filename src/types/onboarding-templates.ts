@@ -284,10 +284,16 @@ export interface OnboardingInstance {
   /** Array of Action Board task IDs created for this instance. */
   taskIds: string[];
 
-  /** Optional: UID of assigned mentor / supervisor for shadowing. */
+  /** Optional: UID of assigned supervisor. */
+  supervisorUid?: string;
+
+  /** Optional: Email of assigned supervisor. */
+  supervisorEmail?: string;
+
+  /** Optional: Legacy UID of assigned mentor / supervisor for shadowing. */
   mentorUid?: string;
 
-  /** Optional: Email of assigned mentor / supervisor. */
+  /** Optional: Legacy Email of assigned mentor / supervisor. */
   mentorEmail?: string;
 
   /** The admin who initiated this onboarding. */

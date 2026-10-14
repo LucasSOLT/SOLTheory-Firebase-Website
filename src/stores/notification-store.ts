@@ -24,6 +24,7 @@ export type NotificationType =
   | "onboarding_phase_completed"
   | "onboarding_document_completed"
   | "onboarding_blueprint_completed"
+  | "onboarding_item_overdue"
   | "timesheet_entry"
   | "grant_found"
   | "system";
@@ -213,6 +214,9 @@ export function mergeNotifications(
   const persistedTaskRefs = new Set(
     persisted.filter((n) => n.type === "action_board_assigned" && n.refId).map((n) => n.refId as string),
   );
+  const persistedOverdueRefs = new Set(
+    persisted.filter((n) => n.type === "onboarding_item_overdue" && n.refId).map((n) => n.refId as string),
+  );
   const readSet = new Set(computedReadIds);
   const dismissedSet = new Set(dismissedComputedIds);
 
@@ -236,6 +240,10 @@ export function mergeNotifications(
     if (persistedIds.has(c.id) || dismissedSet.has(c.id)) continue;
     const taskId = computedTaskId(c.id);
     if (taskId && persistedTaskRefs.has(taskId)) continue;
+    if (c.id.startsWith("task-overdue-")) {
+      const overdueTaskId = c.id.slice("task-overdue-".length);
+      if (overdueTaskId && persistedOverdueRefs.has(overdueTaskId)) continue;
+    }
     fromComputed.push({
       id: c.id,
       title: c.title,

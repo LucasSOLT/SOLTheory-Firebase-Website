@@ -17,6 +17,7 @@ import { verifyRole } from '@/lib/api-auth';
 import { initAdmin, getFirestore as getAdminFirestore } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { notifyOnboardingTaskCompleted } from '@/lib/onboarding-notifications';
+import { shouldMarkCompletedLate } from '@/lib/onboarding-overdue';
 
 export async function POST(req: Request) {
   try {
@@ -83,8 +84,18 @@ export async function POST(req: Request) {
     if (action === 'approve') {
       reviewMeta.column = 'done';
       reviewMeta.completedAt = FieldValue.serverTimestamp();
+      const completedLate = shouldMarkCompletedLate(taskData, Date.now());
+      reviewMeta['metadata.completedLate'] = completedLate;
+      reviewMeta['metadata.completedLateAt'] = completedLate ? new Date().toISOString() : null;
+      if (completedLate) {
+        reviewMeta.isLate = true;
+      }
+    } else {
+      // If rejected, task stays in current column — employee can resubmit
+      reviewMeta['metadata.submittedAt'] = null;
+      reviewMeta['metadata.completedLate'] = false;
+      reviewMeta['metadata.completedLateAt'] = null;
     }
-    // If rejected, task stays in current column — employee can resubmit
 
     await taskRef.update(reviewMeta);
 

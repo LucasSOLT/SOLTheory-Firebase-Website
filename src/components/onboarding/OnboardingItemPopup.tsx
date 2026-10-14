@@ -22,6 +22,7 @@ import {
   Globe,
   Mic,
   AlertTriangle,
+  Clock,
 } from 'lucide-react';
 import { InteractiveContentRenderer } from './InteractiveRenderers';
 import BodyPortal from './BodyPortal';
@@ -39,6 +40,9 @@ interface OnboardingItemPopupProps {
     title: string;
     description?: string;
     column: string;
+    dueDate?: any;
+    completedAt?: any;
+    isLate?: boolean;
     metadata?: {
       phase?: number;
       onboardingInstanceId?: string;
@@ -57,6 +61,11 @@ interface OnboardingItemPopupProps {
       userResponse?: any[];
       reviewStatus?: string;
       reviewNotes?: string;
+      overdue?: boolean;
+      overdueAt?: any;
+      completedLate?: boolean;
+      completedLateAt?: any;
+      submittedAt?: any;
     };
     attachments?: any[];
   };
@@ -360,10 +369,63 @@ export default function OnboardingItemPopup({
           
           {/* Title Section */}
           <div>
-            <div className={`inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-4 ${
-              isDarkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600'
-            }`}>
-              {getTypeIcon()}
+            <div className="flex items-center gap-3 flex-wrap mb-4">
+              <div className={`inline-flex items-center justify-center w-12 h-12 rounded-2xl ${
+                isDarkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600'
+              }`}>
+                {getTypeIcon()}
+              </div>
+              {(() => {
+                const toMs = (v: any): number => {
+                  if (!v) return 0;
+                  if (typeof v === 'number') return v;
+                  if (typeof v.toMillis === 'function') return v.toMillis();
+                  if (typeof v.toDate === 'function') return v.toDate().getTime();
+                  if (typeof v.seconds === 'number') return v.seconds * 1000;
+                  if (typeof v._seconds === 'number') return v._seconds * 1000;
+                  const d = new Date(v);
+                  return isNaN(d.getTime()) ? 0 : d.getTime();
+                };
+                const dueMs = toMs(task.dueDate);
+                const completedMs = toMs(meta.submittedAt) || toMs(task.completedAt);
+                const isAwaitingDocVerify =
+                  (meta as any).documentVerificationStatus === 'pending_review' ||
+                  (meta.requiresDocumentUpload === true &&
+                    Array.isArray(task.attachments) &&
+                    task.attachments.length > 0 &&
+                    (meta as any).documentVerificationStatus !== 'rejected');
+                const isOverdue =
+                  !isCompleted &&
+                  meta.reviewStatus !== 'pending_review' &&
+                  !isAwaitingDocVerify &&
+                  (task.isLate === true || meta.overdue === true || (dueMs > 0 && Date.now() > dueMs));
+                const isCompletedLate =
+                  isCompleted &&
+                  (meta.completedLate === true ||
+                    (meta.completedLate !== false &&
+                      (dueMs > 0 && completedMs > 0
+                        ? completedMs > dueMs
+                        : task.isLate === true || meta.overdue === true)));
+                if (isCompletedLate) {
+                  return (
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-lg border ${
+                      isDarkMode ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}>
+                      <Clock className="w-3.5 h-3.5 text-amber-400" /> Completed late
+                    </span>
+                  );
+                }
+                if (isOverdue) {
+                  return (
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-lg border ${
+                      isDarkMode ? 'bg-red-950/60 text-red-400 border-red-800/60' : 'bg-red-50 text-red-600 border-red-200'
+                    }`}>
+                      <AlertTriangle className="w-3.5 h-3.5" /> Overdue — you can still submit this item
+                    </span>
+                  );
+                }
+                return null;
+              })()}
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               {task.title}

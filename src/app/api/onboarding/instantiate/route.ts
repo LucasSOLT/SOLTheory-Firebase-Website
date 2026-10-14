@@ -362,8 +362,8 @@ export async function POST(req: Request) {
         taskIds,
         initiatedBy: auth.uid,
         initiatedByEmail: auth.email,
-        ...(mentorUid ? { mentorUid } : {}),
-        ...(mentorEmail ? { mentorEmail } : {}),
+        ...((body.supervisorUid || mentorUid) ? { supervisorUid: body.supervisorUid || mentorUid, mentorUid: body.supervisorUid || mentorUid } : {}),
+        ...((body.supervisorEmail || mentorEmail) ? { supervisorEmail: body.supervisorEmail || mentorEmail, mentorEmail: body.supervisorEmail || mentorEmail } : {}),
       };
 
       batch.set(instanceRef, instanceData);

@@ -7,17 +7,17 @@ import { google } from "googleapis";
 
 export const maxDuration = 300; // Vercel timeout protection
 
-const CRON_SECRET = process.env.CRON_SECRET || "";
 const COOLDOWN_HOURS = 20; // Don't send nudges more than once every 20 hours per user unless forced
 
 function verifyCronAuth(req: Request): boolean {
+  const secret = (process.env.CRON_SECRET || "").trim();
   const authHeader = req.headers.get("authorization");
-  if (!authHeader) return false;
-  const token = authHeader.replace("Bearer ", "");
-  if (!CRON_SECRET || !token) return false;
+  if (!secret || !authHeader || !/^Bearer\s+/i.test(authHeader)) return false;
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;
   try {
     const a = Buffer.from(token);
-    const b = Buffer.from(CRON_SECRET);
+    const b = Buffer.from(secret);
     if (a.length !== b.length) return false;
     return crypto.timingSafeEqual(a, b);
   } catch {
@@ -345,8 +345,8 @@ async function handleNudges(req: NextRequest, isCron = false) {
 // GET: Cron runner
 export async function GET(req: NextRequest) {
   const isAuthorized = verifyCronAuth(req);
-  // Phase 6.4: fail CLOSED in production — a missing CRON_SECRET must never open this route.
-  if (!isAuthorized && process.env.NODE_ENV === "production") {
+  // Phase 6.4 / I7: fail CLOSED — a missing or invalid CRON_SECRET must never open this route.
+  if (!isAuthorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return handleNudges(req, true);

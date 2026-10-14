@@ -40,6 +40,7 @@ import { logOnboardingAudit } from '@/lib/onboarding-audit';
 import { isMultiSignerWorkflow } from '@/lib/signing-workflow';
 import { resolveAutoFill } from '@/lib/pdf-autofill';
 import { loadTemplateFields } from '@/lib/onboarding-signing';
+import { shouldMarkCompletedLate } from '@/lib/onboarding-overdue';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -224,10 +225,17 @@ export async function POST(req: Request) {
     });
 
     // ── 7. Mark task as complete & store fill metadata ──
+    const completedLate = shouldMarkCompletedLate(task, now.getTime(), {
+      ignoreExistingSubmittedAt: true,
+    });
     await taskRef.update({
       column: 'done',
       completedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
+      'metadata.submittedAt': now.toISOString(),
+      'metadata.completedLate': completedLate,
+      'metadata.completedLateAt': completedLate ? now.toISOString() : null,
+      ...(completedLate ? { isLate: true } : {}),
       'metadata.userResponse': FieldValue.arrayUnion({
         type: 'pdf_form_fill',
         submittedAt: now.toISOString(),

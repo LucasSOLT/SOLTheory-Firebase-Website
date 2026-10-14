@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import { generateSignedPdf } from '@/lib/generate-signed-pdf';
 import { sendSignedCopy } from '@/lib/send-signed-copy';
 import { notifyOnboardingTaskCompleted } from '@/lib/onboarding-notifications';
+import { shouldMarkCompletedLate } from '@/lib/onboarding-overdue';
 
 export async function POST(req: NextRequest) {
   try {
@@ -237,15 +238,29 @@ export async function POST(req: NextRequest) {
 
     const updates: any = {};
     updates['metadata.userResponse'] = FieldValue.arrayUnion(responseEntry);
-    
+    const submittedLate = shouldMarkCompletedLate(task, Date.now(), {
+      ignoreExistingSubmittedAt: true,
+    });
+    if (passed || needsReview) {
+      updates['metadata.submittedAt'] = responseEntry.submittedAt;
+    }
+
     if (needsReview) {
       updates['metadata.reviewStatus'] = 'pending_review';
+      if (submittedLate) {
+        updates.isLate = true;
+      }
     }
 
     if (passed && !needsReview) {
       updates.column = 'done';
       updates.completedAt = FieldValue.serverTimestamp();
       updates.updatedAt = FieldValue.serverTimestamp();
+      updates['metadata.completedLate'] = submittedLate;
+      updates['metadata.completedLateAt'] = submittedLate ? responseEntry.submittedAt : null;
+      if (submittedLate) {
+        updates.isLate = true;
+      }
     }
 
     await taskRef.update(updates);

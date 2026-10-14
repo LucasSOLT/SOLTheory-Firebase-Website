@@ -57,6 +57,7 @@ import {
 import { notifyOnboardingTaskCompleted } from '@/lib/onboarding-notifications';
 import { emailNextSigner, notifyReadyToArchive } from '@/lib/onboarding-routing-emails';
 import { logOnboardingAudit } from '@/lib/onboarding-audit';
+import { shouldMarkCompletedLate } from '@/lib/onboarding-overdue';
 import type { PdfFormContent, SignerCompletion } from '@/types/onboarding-templates';
 
 export const runtime = 'nodejs';
@@ -441,10 +442,28 @@ export async function POST(req: Request) {
           signers: allCompletions.map((c) => ({ order: c.order, name: c.signerName, uid: c.signerUid, signedAt: c.signedAt })),
         });
       }
+      const employeeCompletion = allCompletions.find((c) => c.signerUid === session.employeeUid);
+      const employeeSignedMs = employeeCompletion
+        ? Date.parse(employeeCompletion.signedAt) || ts
+        : ts;
+      const completedLate =
+        completesParent &&
+        shouldMarkCompletedLate(task, employeeSignedMs, {
+          ignoreExistingSubmittedAt: true,
+        });
       tx.update(parentRef, {
         'metadata.signing': mirrorFor(next),
         updatedAt: FieldValue.serverTimestamp(),
-        ...(completesParent ? { column: 'done', completedAt: FieldValue.serverTimestamp() } : {}),
+        ...(isEmployeeStep ? { 'metadata.submittedAt': completion.signedAt } : {}),
+        ...(completesParent
+          ? {
+              column: 'done',
+              completedAt: FieldValue.serverTimestamp(),
+              'metadata.completedLate': completedLate,
+              'metadata.completedLateAt': completedLate ? now.toISOString() : null,
+              ...(completedLate ? { isLate: true } : {}),
+            }
+          : {}),
         ...(responses.length ? { 'metadata.userResponse': FieldValue.arrayUnion(...responses) } : {}),
       });
 
