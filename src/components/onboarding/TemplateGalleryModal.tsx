@@ -32,22 +32,32 @@ export default function TemplateGalleryModal({
     <BodyPortal>
       <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
         <div
-          className={`relative w-full max-w-5xl h-[85vh] flex flex-col rounded-2xl shadow-2xl ${
+          className={`my-auto relative w-full max-w-5xl h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] sm:h-[85dvh] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] overflow-hidden flex flex-col rounded-2xl shadow-2xl ${
             isDarkMode ? 'bg-slate-900 border border-slate-700 text-white' : 'bg-[#f8f9fa] border border-slate-200 text-slate-900'
           }`}
         >
           {/* Header */}
-          <div className={`shrink-0 px-6 py-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
-                <LayoutTemplate className="w-6 h-6" />
+          <div className={`shrink-0 px-4 sm:px-6 py-3.5 sm:py-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+            <div className="flex items-center justify-between sm:justify-start gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`p-2 sm:p-2.5 rounded-xl shrink-0 ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
+                  <LayoutTemplate className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl font-bold truncate">Template Gallery</h2>
+                  <p className={`text-xs sm:text-sm truncate ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Choose a blueprint to copy into your organization
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl font-bold">Template Gallery</h2>
-                <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  Choose a blueprint to copy into your organization
-                </p>
-              </div>
+              <button
+                onClick={onClose}
+                className={`sm:hidden p-2 rounded-xl transition-colors shrink-0 ${
+                  isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
             
             <div className="flex items-center gap-3">
@@ -67,7 +77,7 @@ export default function TemplateGalleryModal({
               </div>
               <button
                 onClick={onClose}
-                className={`p-2 rounded-xl transition-colors ${
+                className={`hidden sm:inline-flex p-2 rounded-xl transition-colors ${
                   isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'
                 }`}
               >
@@ -77,7 +87,10 @@ export default function TemplateGalleryModal({
           </div>
 
           {/* Grid */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y p-4 sm:p-6"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
             {filtered.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
                 <LayoutTemplate className={`w-12 h-12 mb-3 ${isDarkMode ? 'text-slate-700' : 'text-slate-300'}`} />
@@ -118,7 +131,7 @@ export default function TemplateGalleryModal({
                           {bp.description || 'No description provided.'}
                         </p>
 
-                        <div className="flex items-center gap-3 mt-4">
+                        <div className="flex flex-wrap items-center gap-3 mt-4">
                           <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-lg ${isDarkMode ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                             {phaseCount} phases
                           </span>
@@ -128,22 +141,22 @@ export default function TemplateGalleryModal({
                         </div>
                       </div>
 
-                      <div className={`flex items-center p-3 border-t gap-2 ${isDarkMode ? 'border-slate-700/50 bg-slate-800/50' : 'border-slate-100 bg-slate-50/50'}`}>
+                      <div className={`flex flex-wrap items-center p-3 border-t gap-2 ${isDarkMode ? 'border-slate-700/50 bg-slate-800/50' : 'border-slate-100 bg-slate-50/50'}`}>
                         <button
                           onClick={() => onPreviewTemplate(bp)}
-                          className={`flex-1 flex justify-center items-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors ${
+                          className={`flex-1 flex justify-center items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold transition-colors ${
                             isDarkMode ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-200 text-slate-700'
                           }`}
                         >
-                          <Eye className="w-3.5 h-3.5" /> Preview
+                          <Eye className="w-3.5 h-3.5 shrink-0" /> Preview
                         </button>
                         <button
                           onClick={() => onSelectTemplate(bp)}
-                          className={`flex-1 flex justify-center items-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors ${
+                          className={`flex-1 flex justify-center items-center gap-2 py-2 px-2 rounded-lg text-xs font-bold transition-colors ${
                             isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'
                           }`}
                         >
-                          <Copy className="w-3.5 h-3.5" /> Use Template
+                          <Copy className="w-3.5 h-3.5 shrink-0" /> Use Template
                         </button>
                       </div>
                     </div>

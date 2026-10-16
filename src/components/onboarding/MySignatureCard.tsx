@@ -38,8 +38,8 @@ function Tile({ kind, isDarkMode, onEdit, saved, loading, onRemove, busy }: Tile
   const muted = isDarkMode ? 'text-slate-400' : 'text-slate-500';
   return (
     <div className={`rounded-xl border p-3 ${border} ${isDarkMode ? 'bg-slate-900/40' : 'bg-white'}`}>
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className={`w-4 h-4 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <Icon className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
         <span className="text-sm font-semibold">{label}</span>
         {saved && <span className="ml-auto text-[10px] font-bold uppercase tracking-wide text-emerald-500">Saved</span>}
       </div>
@@ -53,12 +53,12 @@ function Tile({ kind, isDarkMode, onEdit, saved, loading, onRemove, busy }: Tile
           <span className="text-xs text-slate-400">Not set up yet</span>
         )}
       </div>
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={onEdit}
           disabled={busy}
-          className="flex-1 min-h-[40px] rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-3 disabled:opacity-50"
+          className="flex-1 min-h-[40px] rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-3 transition-colors disabled:opacity-50"
         >
           {saved ? 'Replace' : `Add ${label.toLowerCase()}`}
         </button>
@@ -68,7 +68,7 @@ function Tile({ kind, isDarkMode, onEdit, saved, loading, onRemove, busy }: Tile
             onClick={onRemove}
             disabled={busy}
             aria-label={`Delete saved ${label.toLowerCase()}`}
-            className={`min-h-[40px] min-w-[40px] rounded-lg border flex items-center justify-center ${border} ${muted} hover:text-rose-500 disabled:opacity-50`}
+            className={`min-h-[40px] min-w-[40px] rounded-lg border flex items-center justify-center transition-colors shrink-0 ${border} ${muted} hover:text-rose-500 disabled:opacity-50`}
           >
             <Trash2 className="w-4 h-4" />
           </button>

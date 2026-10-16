@@ -130,11 +130,15 @@ export default function SendArchiveButton({ orgId, taskId, isDarkMode, archivedA
       {open && (
         <BodyPortal>
         <div
-          className="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto overscroll-contain p-2 sm:p-4 bg-black/60"
+          className="fixed inset-0 z-[10000] flex items-center justify-center overflow-hidden p-2 sm:p-4 bg-black/60"
           style={MODAL_OVERLAY_STYLE}
           onClick={(e) => { e.stopPropagation(); if (!busy) setOpen(false); }}
         >
-          <div className={`my-auto w-full max-w-md rounded-2xl border shadow-2xl p-5 ${panel}`} onClick={(e) => e.stopPropagation()}>
+          <div
+            className={`my-auto w-full max-w-md max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] sm:max-h-[90dvh] overflow-y-auto overscroll-contain touch-pan-y rounded-2xl border shadow-2xl p-5 ${panel}`}
+            style={{ WebkitOverflowScrolling: 'touch' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <h3 className="text-base font-bold">{isArchived ? 'Archived document' : 'Send & Archive'}</h3>
@@ -164,12 +168,12 @@ export default function SendArchiveButton({ orgId, taskId, isDarkMode, archivedA
                     </p>
                     <ul className={`rounded-xl border divide-y mb-4 ${dark ? 'border-slate-700 divide-slate-700' : 'border-slate-200 divide-slate-200'}`}>
                       {preview.recipients.map((r) => (
-                        <li key={r.email} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                          <span className="min-w-0">
+                        <li key={r.email} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+                          <span className="min-w-0 flex-1">
                             <span className="font-semibold block truncate">{r.name}</span>
                             <span className={`text-xs block truncate ${muted}`}>{r.email}</span>
                           </span>
-                          <span className={`text-[10px] font-bold uppercase tracking-wide ${muted}`}>{ROLE_LABEL[r.role] || r.role}</span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wide shrink-0 ${muted}`}>{ROLE_LABEL[r.role] || r.role}</span>
                         </li>
                       ))}
                     </ul>
@@ -180,7 +184,7 @@ export default function SendArchiveButton({ orgId, taskId, isDarkMode, archivedA
 
             {(isArchived || done) && preview && (
               <div className="flex items-center gap-2 text-sm font-semibold text-emerald-500 mb-3">
-                <CheckCircle2 className="w-4 h-4" />
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
                 {preview.archivedAt ? `Archived ${new Date(preview.archivedAt).toLocaleString()}` : 'Archived'}
               </div>
             )}
@@ -188,11 +192,11 @@ export default function SendArchiveButton({ orgId, taskId, isDarkMode, archivedA
             {(isArchived || done || (result && result.length > 0)) && deliveries.length > 0 && (
               <ul className={`rounded-xl border divide-y mb-3 ${dark ? 'border-slate-700 divide-slate-700' : 'border-slate-200 divide-slate-200'}`}>
                 {deliveries.map((d) => (
-                  <li key={d.email} className="flex items-start justify-between gap-3 px-3 py-2 text-sm">
-                    <span className="min-w-0">
+                  <li key={d.email} className="flex flex-wrap items-start justify-between gap-2 px-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1">
                       <span className="font-semibold block truncate">{d.name}</span>
                       <span className={`text-xs block truncate ${muted}`}>{d.email}</span>
-                      {d.status === 'failed' && d.error && <span className="text-[11px] text-red-500 block">{d.error}</span>}
+                      {d.status === 'failed' && d.error && <span className="text-[11px] text-red-500 block break-words">{d.error}</span>}
                     </span>
                     {d.status === 'sent'
                       ? <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-500 shrink-0"><CheckCircle2 className="w-3.5 h-3.5" /> Sent</span>
@@ -209,8 +213,8 @@ export default function SendArchiveButton({ orgId, taskId, isDarkMode, archivedA
               </div>
             )}
 
-            <div className="flex justify-end gap-2 mt-2">
-              <button type="button" disabled={!!busy} onClick={() => setOpen(false)} className={`px-3 py-2 text-sm font-semibold rounded-lg cursor-pointer ${dark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}>
+            <div className="flex flex-wrap justify-end gap-2 mt-2">
+              <button type="button" disabled={!!busy} onClick={() => setOpen(false)} className={`px-3 py-2 text-sm font-semibold rounded-lg transition-colors cursor-pointer ${dark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}>
                 {isArchived || done ? 'Close' : 'Cancel'}
               </button>
               {preview && !isArchived && !done && preview.ready && (
@@ -218,10 +222,12 @@ export default function SendArchiveButton({ orgId, taskId, isDarkMode, archivedA
                   type="button"
                   disabled={!!busy}
                   onClick={() => run('send')}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg bg-teal-600 hover:bg-teal-500 text-white disabled:opacity-60 cursor-pointer"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-lg bg-teal-600 hover:bg-teal-500 text-white transition-colors cursor-pointer disabled:cursor-wait"
                 >
-                  {busy === 'send' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-                  {busy === 'send' ? 'Sending…' : 'Send & Archive'}
+                  <span className="inline-flex items-center justify-center w-4 h-4 shrink-0">
+                    {busy === 'send' ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Mail className="w-4 h-4 shrink-0" />}
+                  </span>
+                  <span className="whitespace-nowrap">Send &amp; Archive</span>
                 </button>
               )}
               {(isArchived || done) && failed.length > 0 && (
@@ -229,10 +235,12 @@ export default function SendArchiveButton({ orgId, taskId, isDarkMode, archivedA
                   type="button"
                   disabled={!!busy}
                   onClick={() => run('resend_failed')}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg bg-amber-500 hover:bg-amber-400 text-black disabled:opacity-60 cursor-pointer"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-lg bg-amber-500 hover:bg-amber-400 text-black transition-colors cursor-pointer disabled:cursor-wait"
                 >
-                  {busy === 'resend_failed' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                  Resend to {failed.length} failed
+                  <span className="inline-flex items-center justify-center w-4 h-4 shrink-0">
+                    {busy === 'resend_failed' ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <RefreshCw className="w-4 h-4 shrink-0" />}
+                  </span>
+                  <span className="whitespace-nowrap">Resend to {failed.length} failed</span>
                 </button>
               )}
             </div>

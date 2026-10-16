@@ -226,7 +226,7 @@ export default function BlueprintPreview({
     <BodyPortal>
     <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
       <div
-        className={`my-auto w-full max-w-4xl h-[calc(100dvh-1rem)] sm:h-[90vh] rounded-2xl shadow-2xl border flex flex-col animate-in zoom-in-95 duration-200 ${
+        className={`my-auto w-full max-w-4xl h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] sm:h-[90dvh] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] rounded-2xl shadow-2xl border overflow-hidden relative flex flex-col ${
           isDarkMode
             ? 'bg-slate-900 border-slate-700/80 text-white'
             : 'bg-[#f5f1e8] border-slate-200 text-slate-900'
@@ -318,7 +318,10 @@ export default function BlueprintPreview({
         </div>
 
         {/* Scrollable Employee View */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+        <div
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-4 sm:px-6 py-4 sm:py-6 space-y-6"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {/* Welcome Banner (Mock) */}
           <div
             className={`rounded-2xl px-5 py-5 ${

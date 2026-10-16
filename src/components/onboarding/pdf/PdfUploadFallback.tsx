@@ -73,7 +73,7 @@ export default function PdfUploadFallback({ content, orgId, taskId, isDarkMode, 
 
   return (
     <div className="space-y-4">
-      <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 ${card}`}>
+      <div className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${card}`}>
         <div className="flex items-center gap-3 min-w-0">
           <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
             <FileText className="w-5 h-5" />
@@ -92,7 +92,7 @@ export default function PdfUploadFallback({ content, orgId, taskId, isDarkMode, 
               isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-100 text-slate-700'
             }`}
           >
-            <ExternalLink className="w-3.5 h-3.5" /> Download
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" /> Download
           </a>
         )}
       </div>
@@ -121,7 +121,13 @@ export default function PdfUploadFallback({ content, orgId, taskId, isDarkMode, 
         type="button"
         disabled={busy || disabled}
         onClick={() => inputRef.current?.click()}
-        className={`w-full p-6 rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-center transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+        className={`w-full p-6 rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-center transition-colors ${
+          busy
+            ? 'cursor-wait'
+            : disabled
+              ? 'opacity-60 cursor-not-allowed'
+              : 'cursor-pointer'
+        } ${
           isDarkMode
             ? 'border-slate-700 hover:border-indigo-500 bg-slate-800/40 hover:bg-indigo-950/20'
             : 'border-slate-300 hover:border-indigo-400 bg-slate-50 hover:bg-indigo-50/50'

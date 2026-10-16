@@ -18,7 +18,6 @@ import {
   FileCheck,
   AlertTriangle,
   Clock,
-  Download,
   Search,
   Filter,
   ArrowLeft,
@@ -213,49 +212,6 @@ export default function ComplianceVaultPage() {
     }
   };
 
-  // ── CSV Audit Export ──────────────────────────────────────────────────────
-  const handleExportCSV = useCallback(() => {
-    if (documents.length === 0) return;
-
-    const headers = [
-      'Document ID',
-      'Employee Name',
-      'Employee Email',
-      'Document Category',
-      'File Name',
-      'Verification Status',
-      'Upload Date',
-      'Verified By',
-      'Verified Date',
-      'Review Notes',
-      'Download URL',
-    ];
-
-    const rows = documents.map(d => [
-      d.id,
-      `"${d.userName.replace(/"/g, '""')}"`,
-      d.userEmail,
-      `"${(COMPLIANCE_CATEGORY_LABELS[d.documentCategory] || d.documentCategory).replace(/"/g, '""')}"`,
-      `"${d.fileName.replace(/"/g, '""')}"`,
-      d.status.toUpperCase(),
-      d.uploadedAt?.toDate?.()?.toISOString() || '',
-      d.verifiedByEmail || '—',
-      d.verifiedAt?.toDate?.()?.toISOString() || '—',
-      `"${(d.notes || '').replace(/"/g, '""')}"`,
-      d.downloadUrl,
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Compliance_Audit_Manifest_${orgId}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }, [documents, orgId]);
-
   // ── Loading & RBAC Guard ──────────────────────────────────────────────────
   if (loading || isRoleLoading) {
     return (
@@ -287,34 +243,20 @@ export default function ComplianceVaultPage() {
   }
 
   return (
-    <div className={`flex flex-col h-full -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#f5f1e8] text-slate-900'} font-sans overflow-hidden`}>
+    <div
+      className={`flex flex-col flex-1 min-h-0 h-full -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#f5f1e8] text-slate-900'} font-sans overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y`}
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
       {/* ── Top Header ──────────────────────────────────────────────────────── */}
       <OnboardingHeader
         orgId={orgId as string}
         isDarkMode={isDarkMode}
         isAdmin={isAdmin}
         activeTab="vault"
-        actions={
-          <button
-            onClick={handleExportCSV}
-            disabled={documents.length === 0}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all shadow-sm active:scale-[0.98] ${
-              documents.length === 0
-                ? 'opacity-50 cursor-not-allowed bg-slate-800 text-slate-500'
-                : isDarkMode
-                  ? 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
-                  : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
-            }`}
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Export Audit Manifest (CSV)</span>
-            <span className="sm:hidden">Export CSV</span>
-          </button>
-        }
       />
 
       {/* ── Body ────────────────────────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
+      <div className="flex-1 shrink-0 px-4 sm:px-8 py-6 space-y-6">
 
         {/* Metric Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
@@ -428,8 +370,8 @@ export default function ComplianceVaultPage() {
                       : 'bg-white/70 border border-slate-200/80 shadow-sm hover:shadow-md'
                   }`}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
-                    <div className="flex items-start sm:items-center gap-3 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 justify-between">
+                    <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                         isVerified
                           ? (isDarkMode ? 'bg-emerald-950/50 text-emerald-400' : 'bg-emerald-50 text-emerald-600')
@@ -440,9 +382,9 @@ export default function ComplianceVaultPage() {
                         {isVerified ? <CheckCircle2 className="w-5 h-5" /> : isRejected ? <XCircle className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
                       </div>
 
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold truncate">{doc.fileName}</span>
+                          <span className="text-sm font-bold break-words">{doc.fileName}</span>
                           <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
                             isVerified
                               ? (isDarkMode ? 'bg-emerald-950/50 text-emerald-400 border-emerald-800/60' : 'bg-emerald-50 text-emerald-600 border-emerald-200/60')
@@ -477,7 +419,7 @@ export default function ComplianceVaultPage() {
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                       <a
                         href={doc.downloadUrl}
                         target="_blank"
@@ -486,7 +428,7 @@ export default function ComplianceVaultPage() {
                           isDarkMode ? 'bg-slate-700/50 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >
-                        <ExternalLink className="w-3.5 h-3.5" /> Preview
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" /> Preview
                       </a>
 
                       {/* Phase 4: manual Send & Archive for fully signed PDFs (server re-checks permission) */}
@@ -513,9 +455,9 @@ export default function ComplianceVaultPage() {
                               setActionType('verified');
                               setReviewNotes('');
                             }}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors cursor-pointer"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Verify
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Verify
                           </button>
                           {doc.taskId && (
                             <button
@@ -524,9 +466,9 @@ export default function ComplianceVaultPage() {
                                 setActionType('re_request');
                                 setReviewNotes('');
                               }}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-white shadow-sm transition-all"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-white shadow-sm transition-colors cursor-pointer"
                             >
-                              <RotateCcw className="w-3.5 h-3.5" /> Request Revision
+                              <RotateCcw className="w-3.5 h-3.5 shrink-0" /> Request Revision
                             </button>
                           )}
                           <button
@@ -535,16 +477,16 @@ export default function ComplianceVaultPage() {
                               setActionType('rejected');
                               setReviewNotes('');
                             }}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white shadow-sm transition-all"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-white shadow-sm transition-colors cursor-pointer"
                           >
-                            <XCircle className="w-3.5 h-3.5" /> Reject (Final)
+                            <XCircle className="w-3.5 h-3.5 shrink-0" /> Reject (Final)
                           </button>
                         </>
                       )}
 
                       {/* Allow re-verifying or rejecting already reviewed docs */}
                       {!isPending && (
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                           <span className={`text-xs font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Change status:</span>
                           <button
                             onClick={() => {
@@ -552,7 +494,7 @@ export default function ComplianceVaultPage() {
                               setActionType('verified');
                               setReviewNotes('');
                             }}
-                            className={`text-xs underline font-medium ${isDarkMode ? 'text-slate-500 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`text-xs underline font-medium cursor-pointer ${isDarkMode ? 'text-slate-500 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'}`}
                           >
                             Verify
                           </button>
@@ -563,7 +505,7 @@ export default function ComplianceVaultPage() {
                                 setActionType('re_request');
                                 setReviewNotes('');
                               }}
-                              className={`text-xs underline font-medium ${isDarkMode ? 'text-slate-500 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'}`}
+                              className={`text-xs underline font-medium cursor-pointer ${isDarkMode ? 'text-slate-500 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'}`}
                             >
                               Request Revision
                             </button>
@@ -574,7 +516,7 @@ export default function ComplianceVaultPage() {
                               setActionType('rejected');
                               setReviewNotes('');
                             }}
-                            className={`text-xs underline font-medium ${isDarkMode ? 'text-slate-500 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`text-xs underline font-medium cursor-pointer ${isDarkMode ? 'text-slate-500 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'}`}
                           >
                             Reject (Final)
                           </button>
@@ -593,9 +535,12 @@ export default function ComplianceVaultPage() {
       {selectedDoc && actionType && (
         <BodyPortal>
         <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
-          <div className={`my-auto w-full max-w-md rounded-2xl shadow-2xl border p-6 space-y-4 ${
-            isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
-          }`}>
+          <div
+            className={`my-auto w-full max-w-md max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] sm:max-h-[90dvh] overflow-y-auto overscroll-contain touch-pan-y rounded-2xl shadow-2xl border p-6 space-y-4 ${
+              isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
+            }`}
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
             <h3 className="text-base font-bold">
               {actionType === 'verified' ? 'Verify Compliance Document' : actionType === 're_request' ? 'Request Document Revision' : 'Reject Compliance Document'}
             </h3>
@@ -624,25 +569,41 @@ export default function ComplianceVaultPage() {
               />
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
               <button
+                type="button"
                 onClick={() => {
                   setSelectedDoc(null);
                   setActionType(null);
                 }}
                 disabled={isProcessing}
-                className="px-4 py-2 rounded-xl text-xs font-semibold hover:bg-slate-800 text-slate-400"
+                className="px-4 py-2 rounded-xl text-xs font-semibold hover:bg-slate-800 text-slate-400 transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handlePerformAction}
                 disabled={isProcessing || ((actionType === 'rejected' || actionType === 're_request') && !reviewNotes.trim())}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white shadow-sm transition-all ${
-                  actionType === 'verified' ? 'bg-emerald-600 hover:bg-emerald-500' : actionType === 're_request' ? 'bg-amber-500 hover:bg-amber-400' : 'bg-slate-700 hover:bg-slate-600'
-                } ${isProcessing ? 'opacity-50' : ''}`}
+                className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer disabled:cursor-not-allowed ${
+                  actionType === 'verified'
+                    ? 'bg-emerald-600 hover:bg-emerald-500'
+                    : actionType === 're_request'
+                      ? 'bg-amber-500 hover:bg-amber-400'
+                      : 'bg-slate-700 hover:bg-slate-600'
+                } ${!isProcessing && (actionType === 'rejected' || actionType === 're_request') && !reviewNotes.trim() ? 'opacity-50' : ''}`}
               >
-                {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                <span className="inline-flex items-center justify-center w-4 h-4 shrink-0">
+                  {isProcessing ? (
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  ) : actionType === 'verified' ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  ) : actionType === 're_request' ? (
+                    <RotateCcw className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <XCircle className="w-4 h-4 shrink-0" />
+                  )}
+                </span>
                 <span>Confirm {actionType === 'verified' ? 'Verification' : actionType === 're_request' ? 'Revision Request' : 'Rejection'}</span>
               </button>
             </div>

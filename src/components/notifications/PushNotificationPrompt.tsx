@@ -150,40 +150,42 @@ export function PushNotificationPrompt({
 
   // Default banner variant (dismissible bar)
   return (
-    <div className={`relative px-4 py-3 rounded-2xl bg-gradient-to-r from-indigo-900/90 via-purple-900/85 to-indigo-950/90 border border-indigo-500/30 text-white shadow-xl shadow-indigo-950/40 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 ${className}`}>
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="p-2 rounded-xl bg-indigo-500/25 text-indigo-200 shrink-0">
-          <BellRing className="w-4 h-4 animate-pulse" />
+    <div className="w-full pt-2 pb-3">
+      <div className={`relative px-4 py-3 rounded-2xl bg-gradient-to-r from-indigo-900/90 via-purple-900/85 to-indigo-950/90 border border-indigo-500/30 text-white shadow-xl shadow-indigo-950/40 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 ${className}`}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-2 rounded-xl bg-indigo-500/25 text-indigo-200 shrink-0">
+            <BellRing className="w-4 h-4 animate-pulse" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-white tracking-wide">
+              Never miss a message
+            </p>
+            <p className="text-[11px] text-indigo-200/80">
+              Enable instant background push notifications on phone & computer.
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-xs font-semibold text-white tracking-wide">
-            Never miss a message
-          </p>
-          <p className="text-[11px] text-indigo-200/80">
-            Enable instant background push notifications on phone & computer.
-          </p>
-        </div>
-      </div>
 
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={handleEnable}
-          disabled={isLoading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-indigo-950 hover:bg-indigo-50 transition-all shadow-sm active:scale-95"
-        >
-          {isLoading ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-950" />
-          ) : (
-            <span>Enable</span>
-          )}
-        </button>
-        <button
-          onClick={handleDismiss}
-          className="p-1 rounded-lg text-indigo-300 hover:text-white hover:bg-white/10 transition-colors"
-          title="Dismiss"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleEnable}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-indigo-950 hover:bg-indigo-50 transition-all shadow-sm active:scale-95"
+          >
+            {isLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-950" />
+            ) : (
+              <span>Enable</span>
+            )}
+          </button>
+          <button
+            onClick={handleDismiss}
+            className="p-1 rounded-lg text-indigo-300 hover:text-white hover:bg-white/10 transition-colors"
+            title="Dismiss"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -28,7 +28,6 @@ import {
   BarChart3,
   Filter,
   ShieldCheck,
-  Calendar,
   Bell,
   Sparkles,
   Send,
@@ -44,7 +43,6 @@ import DocumentUploadModal from '@/components/onboarding/DocumentUploadModal';
 import InviteMemberModal from '@/components/onboarding/InviteMemberModal';
 import OnboardingItemPopup from '@/components/onboarding/OnboardingItemPopup';
 import AdminSubmissionViewer from '@/components/onboarding/AdminSubmissionViewer';
-import ScheduleOrientationModal from '@/components/onboarding/ScheduleOrientationModal';
 import ManageUserBlueprintsModal from '@/components/onboarding/ManageUserBlueprintsModal';
 import SupervisorProgressView from '@/components/onboarding/SupervisorProgressView';
 import StuckDocumentsPanel from '@/components/onboarding/StuckDocumentsPanel';
@@ -82,8 +80,6 @@ interface OnboardingInstanceDoc {
   mentorEmail?: string;
   initiatedBy: string;
   initiatedByEmail: string;
-  hasCalendarScheduled?: boolean;
-  calendarEvents?: any[];
   lastNudgeSentAt?: any;
   nudgeCount?: number;
 }
@@ -198,7 +194,6 @@ export default function OnboardingPage() {
     }
   }, [searchParams]);
   const [selectedTaskForPopup, setSelectedTaskForPopup] = useState<TaskDoc | null>(null);
-  const [selectedInstanceForCalendar, setSelectedInstanceForCalendar] = useState<OnboardingInstanceDoc | null>(null);
   const [selectedAdminInstance, setSelectedAdminInstance] = useState<OnboardingInstanceDoc | null>(null);
   const [adminReviewTask, setAdminReviewTask] = useState<TaskDoc | null>(null);
   const [nudgeLoadingMap, setNudgeLoadingMap] = useState<Record<string, boolean>>({});
@@ -719,7 +714,10 @@ export default function OnboardingPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className={`flex flex-col h-full -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#f5f1e8] text-slate-900'} font-sans overflow-hidden`}>
+    <div
+      className={`flex flex-col flex-1 min-h-0 h-full -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#f5f1e8] text-slate-900'} font-sans overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y`}
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <OnboardingHeader
@@ -743,7 +741,7 @@ export default function OnboardingPage() {
       />
 
       {/* ── Main Content ──────────────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
+      <div className="flex-1 shrink-0 px-4 sm:px-8 py-6 space-y-6">
 
         {/* Phase 3: documents waiting on this user's signature (countersigners) */}
         {user?.uid && orgId && (
@@ -886,10 +884,10 @@ export default function OnboardingPage() {
                   </div>
                   <div className="divide-y divide-slate-200/60 dark:divide-slate-700/40">
                     {signedDocs.map((sdoc: any) => (
-                      <div key={sdoc.id} className={`flex items-center gap-3 px-5 py-3 ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'} transition-colors`}>
+                      <div key={sdoc.id} className={`flex flex-wrap items-center gap-3 px-4 sm:px-5 py-3 ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'} transition-colors`}>
                         <FileText className={`w-5 h-5 shrink-0 ${isDarkMode ? 'text-purple-400' : 'text-purple-500'}`} />
-                        <div className="flex-1 min-w-0">
-                          <div className={`text-sm font-semibold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        <div className="flex-1 min-w-[160px]">
+                          <div className={`text-sm font-semibold break-words ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             {sdoc.fileName || 'Signed Document'}
                           </div>
                           <div className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -906,13 +904,13 @@ export default function OnboardingPage() {
                             href={sdoc.downloadUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors shrink-0 ${
+                            className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors shrink-0 ${
                               isDarkMode
                                 ? 'bg-purple-900/40 text-purple-300 hover:bg-purple-900/60'
                                 : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
                             }`}
                           >
-                            <ExternalLink className="w-3 h-3" />
+                            <ExternalLink className="w-3 h-3 shrink-0" />
                             View PDF
                           </a>
                         )}
@@ -941,7 +939,6 @@ export default function OnboardingPage() {
             isAdmin={isAdmin}
             onAdminSelectInstance={isAdmin ? setSelectedAdminInstance : undefined}
             onAdminDeleteInstance={isAdmin ? handleDeleteRoadmap : undefined}
-            onAdminScheduleCalendar={isAdmin ? setSelectedInstanceForCalendar : undefined}
             onAdminNudge={isAdmin ? handleTriggerSingleNudge : undefined}
             nudgeLoadingMap={nudgeLoadingMap}
             nudgeStatusMap={nudgeStatusMap}
@@ -988,7 +985,7 @@ export default function OnboardingPage() {
             {/* Back bar */}
             <button
               onClick={() => setSelectedAdminInstance(null)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
                 isDarkMode
                   ? 'bg-slate-800/60 border border-slate-700/50 text-slate-300 hover:text-white hover:bg-slate-700'
                   : 'bg-white/70 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-white'
@@ -999,24 +996,24 @@ export default function OnboardingPage() {
             </button>
 
             {/* Employee header */}
-            <div className={`rounded-xl px-5 py-4 ${
+            <div className={`rounded-xl px-4 sm:px-5 py-4 ${
               isDarkMode ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-white/70 border border-slate-200/80 shadow-sm'
             }`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black uppercase ${
+              <div className="flex flex-wrap items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-black uppercase ${
                   isDarkMode ? 'bg-indigo-900/50 text-indigo-300' : 'bg-indigo-100 text-indigo-600'
                 }`}>
                   {selectedAdminInstance.userName.charAt(0)}
                 </div>
-                <div className="flex-1">
-                  <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                <div className="flex-1 min-w-[160px]">
+                  <div className={`text-sm font-bold break-words ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                     {selectedAdminInstance.userName}
                   </div>
-                  <div className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <div className={`text-xs break-words ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                     {selectedAdminInstance.userEmail}
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right ml-auto">
                   <div className={`text-lg font-extrabold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                     {(() => {
                       // Calculate progress across ALL instances for this user
@@ -1037,10 +1034,10 @@ export default function OnboardingPage() {
             {(() => {
               const userInstances = instances.filter(i => i.userId === selectedAdminInstance.userId);
               return (
-                <div className={`rounded-xl px-5 py-3 ${
+                <div className={`rounded-xl px-4 sm:px-5 py-3 ${
                   isDarkMode ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-slate-50/70 border border-slate-200/60'
                 }`}>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                     <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                       Assigned Blueprints ({userInstances.length})
                     </span>
@@ -1049,13 +1046,13 @@ export default function OnboardingPage() {
                         e.stopPropagation();
                         setManageBlueprintsInstance(selectedAdminInstance);
                       }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                         isDarkMode
                           ? 'bg-slate-800/80 border-slate-700 text-indigo-400 hover:bg-slate-700 hover:text-indigo-300'
                           : 'bg-white border-slate-200 text-indigo-600 hover:bg-indigo-50'
                       }`}
                     >
-                      <GraduationCap className="w-3.5 h-3.5" />
+                      <GraduationCap className="w-3.5 h-3.5 shrink-0" />
                       Manage Blueprints
                     </button>
                   </div>
@@ -1179,13 +1176,13 @@ export default function OnboardingPage() {
                   <div
                     key={inst.id}
                     onClick={() => setSelectedAdminInstance(inst)}
-                    className={`rounded-xl px-5 py-4 transition-all cursor-pointer opacity-70 ${
+                    className={`rounded-xl px-4 sm:px-5 py-4 transition-colors cursor-pointer opacity-70 ${
                       isDarkMode
                         ? 'bg-slate-800/60 border border-slate-700/50 hover:bg-slate-800/80'
                         : 'bg-white/70 border border-slate-200/80 hover:bg-slate-50/80'
                     }`}
                   >
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4">
                       {/* Avatar */}
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-black uppercase ${
                         isDarkMode ? 'bg-slate-800 text-slate-500' : 'bg-slate-200 text-slate-500'
@@ -1194,7 +1191,7 @@ export default function OnboardingPage() {
                       </div>
 
                       {/* Info */}
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-[160px]">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             {inst.userName}
@@ -1211,15 +1208,14 @@ export default function OnboardingPage() {
                       </div>
 
                       {/* Progress */}
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-3 shrink-0 ml-auto">
                         <div className="text-right">
                           <div className={`text-lg font-extrabold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             {inst.computedProgress}%
                           </div>
                         </div>
+                        <ArrowRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
                       </div>
-
-                      <ArrowRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
                     </div>
                   </div>
                 ))}
@@ -1308,50 +1304,56 @@ export default function OnboardingPage() {
                         <div
                           key={task.id}
                           onClick={() => setAdminReviewTask(task)}
-                          className={`flex items-center gap-4 px-5 py-4 rounded-xl border cursor-pointer transition-all ${
+                          className={`flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 sm:gap-4 px-4 sm:px-5 py-4 rounded-xl border cursor-pointer transition-colors ${
                             isDarkMode
                               ? 'bg-slate-800/60 border-slate-700/50 hover:bg-slate-800/80 hover:border-amber-800/40'
                               : 'bg-white/70 border-slate-200/80 shadow-sm hover:shadow-md hover:border-amber-300'
                           }`}
                         >
-                          {/* Avatar */}
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black uppercase shrink-0 ${
-                            isDarkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-600'
-                          }`}>
-                            {(inst?.userName || task.assignedToEmail || '?').charAt(0)}
-                          </div>
-
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className={`text-sm font-bold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                              {task.title}
-                            </div>
-                            <div className={`text-xs mt-0.5 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                              {inst?.userName || task.assignedToEmail?.split('@')[0] || 'Unknown'}
-                              {inst?.roleName && <span> • {inst.roleName}</span>}
-                              {latestResponse?.submittedAt && (
-                                <span> • Submitted {formatDate(latestResponse.submittedAt)}</span>
-                              )}
-                            </div>
-                          </div>
-
-                          {wasLate && (
-                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
-                              isDarkMode ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-700 border-amber-200'
+                          <div className="flex items-start sm:items-center gap-3 flex-1 min-w-[180px]">
+                            {/* Avatar */}
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black uppercase shrink-0 ${
+                              isDarkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-600'
                             }`}>
-                              <Clock className="w-3 h-3 text-amber-400" /> Completed late
-                            </span>
-                          )}
+                              {(inst?.userName || task.assignedToEmail || '?').charAt(0)}
+                            </div>
 
-                          {/* Type badge */}
-                          <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
-                            typeBadgeColors[itemType] || (isDarkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-slate-100 text-slate-600 border-slate-200')
-                          }`}>
-                            {typeLabels[itemType] || itemType}
-                          </span>
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className={`text-sm font-bold break-words ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                {task.title}
+                              </div>
+                              <div className={`text-xs mt-0.5 break-words ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                                {inst?.userName || task.assignedToEmail?.split('@')[0] || 'Unknown'}
+                                {inst?.roleName && <span> • {inst.roleName}</span>}
+                                {latestResponse?.submittedAt && (
+                                  <span> • Submitted {formatDate(latestResponse.submittedAt)}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
 
-                          {/* Review arrow */}
-                          <ArrowRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-amber-500/60' : 'text-amber-400'}`} />
+                          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto pl-12 sm:pl-0 justify-between sm:justify-end">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {wasLate && (
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                                  isDarkMode ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}>
+                                  <Clock className="w-3 h-3 text-amber-400 shrink-0" /> Completed late
+                                </span>
+                              )}
+
+                              {/* Type badge */}
+                              <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                                typeBadgeColors[itemType] || (isDarkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-slate-100 text-slate-600 border-slate-200')
+                              }`}>
+                                {typeLabels[itemType] || itemType}
+                              </span>
+                            </div>
+
+                            {/* Review arrow */}
+                            <ArrowRight className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-amber-500/60' : 'text-amber-400'}`} />
+                          </div>
                         </div>
                       );
                     })}
@@ -1385,44 +1387,48 @@ export default function OnboardingPage() {
                         <div
                           key={task.id}
                           onClick={() => setAdminReviewTask(task)}
-                          className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all ${
+                          className={`flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-colors ${
                             isDarkMode
                               ? 'bg-slate-800/30 border-slate-700/30 hover:bg-slate-800/50'
                               : 'bg-slate-50/50 border-slate-200/50 hover:bg-white/80'
                           }`}
                         >
-                          {/* Status icon */}
-                          {isApproved
-                            ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                            : <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
-                          }
+                          <div className="flex items-start sm:items-center gap-3 flex-1 min-w-[180px]">
+                            {/* Status icon */}
+                            {isApproved
+                              ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5 sm:mt-0" />
+                              : <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5 sm:mt-0" />
+                            }
 
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className={`text-sm font-semibold truncate ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                              {task.title}
-                            </div>
-                            <div className={`text-xs ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                              {inst?.userName || task.assignedToEmail?.split('@')[0]} •{' '}
-                              {isApproved ? 'Approved' : 'Rejected'}
-                              {task.metadata?.reviewedByEmail && ` by ${task.metadata.reviewedByEmail.split('@')[0]}`}
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className={`text-sm font-semibold break-words ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                                {task.title}
+                              </div>
+                              <div className={`text-xs break-words ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                {inst?.userName || task.assignedToEmail?.split('@')[0]} •{' '}
+                                {isApproved ? 'Approved' : 'Rejected'}
+                                {task.metadata?.reviewedByEmail && ` by ${task.metadata.reviewedByEmail.split('@')[0]}`}
+                              </div>
                             </div>
                           </div>
 
-                          {wasLate && (
-                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
-                              isDarkMode ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}>
-                              <Clock className="w-3 h-3 text-amber-400" /> Completed late
-                            </span>
-                          )}
+                          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto pl-7 sm:pl-0">
+                            {wasLate && (
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                                isDarkMode ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}>
+                                <Clock className="w-3 h-3 text-amber-400 shrink-0" /> Completed late
+                              </span>
+                            )}
 
-                          {/* Type badge */}
-                          <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
-                            typeBadgeColors[itemType] || (isDarkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-slate-100 text-slate-600 border-slate-200')
-                          }`}>
-                            {typeLabels[itemType] || itemType}
-                          </span>
+                            {/* Type badge */}
+                            <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                              typeBadgeColors[itemType] || (isDarkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-slate-100 text-slate-600 border-slate-200')
+                            }`}>
+                              {typeLabels[itemType] || itemType}
+                            </span>
+                          </div>
                         </div>
                       );
                     })}
@@ -1502,20 +1508,6 @@ export default function OnboardingPage() {
               documentCategory: (meta?.documentCategory as ComplianceDocumentCategory) || 'other',
             });
             setSelectedTaskForPopup(null);
-          }}
-        />
-      )}
-
-      {/* ── Schedule Orientation Modal (Bobby Engine) ──────────────────── */}
-      {selectedInstanceForCalendar && (
-        <ScheduleOrientationModal
-          isOpen={!!selectedInstanceForCalendar}
-          onClose={() => setSelectedInstanceForCalendar(null)}
-          instance={selectedInstanceForCalendar}
-          orgId={orgId}
-          isDarkMode={isDarkMode}
-          onSuccess={() => {
-            fetchServerData();
           }}
         />
       )}

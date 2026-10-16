@@ -43,6 +43,7 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import PdfPageView from './PdfPageView';
+import { acquireBodyScrollLock } from '@/components/onboarding/BodyPortal';
 import { usePdfDocument } from './usePdfDocument';
 import {
   PdfViewerContext,
@@ -166,14 +167,13 @@ export default function PdfCanvasViewer({
       e.stopPropagation(); // don't also close the popup behind the fullscreen viewer
       exitFullscreen();
     };
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const releaseScrollLock = acquireBodyScrollLock();
     window.addEventListener('popstate', onPop);
     window.addEventListener('keydown', onKey, true);
     return () => {
       window.removeEventListener('popstate', onPop);
       window.removeEventListener('keydown', onKey, true);
-      document.body.style.overflow = prevOverflow;
+      releaseScrollLock();
     };
   }, [isFullscreen, exitFullscreen]);
 

@@ -276,11 +276,22 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
+    if (!inputValue) {
+      textarea.style.height = '';
+      textarea.style.overflowY = 'hidden';
+      return;
+    }
     textarea.style.height = 'auto'; // Reset to recalculate scrollHeight
-    const lineHeight = 24; // ~leading-relaxed at text-base
+    const lineHeight = 24; // leading-6 at text-base
     const maxLines = 8;
     const maxHeight = lineHeight * maxLines; // 192px
-    const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+    const minHeight = typeof window !== 'undefined' && window.innerWidth >= 640 ? 52 : 44;
+    if (textarea.scrollHeight <= minHeight + 2) {
+      textarea.style.height = '';
+      textarea.style.overflowY = 'hidden';
+      return;
+    }
+    const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
     textarea.style.height = `${newHeight}px`;
     textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
   }, [inputValue]);
@@ -2425,7 +2436,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
       .scrollbar-hide::-webkit-scrollbar { display: none; }
       .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     `}</style>
-    <div className={`flex w-full flex-1 min-h-0 overflow-hidden font-sans selection:bg-stone-300/40 ${isDarkMode ? 'bg-[#212121] text-[#ECECEC] border-t border-[#383838]' : 'bg-[#FAF9F5] text-[#1F1E1D] border-t border-[#E5E4DE]'}`} style={{ height: '100%' }}>
+    <div className={`flex w-full flex-1 min-h-0 overflow-hidden font-sans selection:bg-stone-300/40 ${isDarkMode ? 'bg-[#212121] text-[#ECECEC] md:border-t border-[#383838]' : 'bg-[#FAF9F5] text-[#1F1E1D] md:border-t border-[#E5E4DE]'}`} style={{ height: '100%' }}>
 
       {/* Sessions Sidebar */}
       <div className={`hidden md:flex flex-col shrink-0 z-20 relative overflow-hidden ${isDarkMode ? 'bg-[#171717] border-r border-[#383838]' : 'bg-[#F3F2EC] border-r border-[#E5E4DE]'}`} style={{ width: isChatSidebarCollapsed ? 40 : chatSidebarWidth, minWidth: isChatSidebarCollapsed ? 40 : 180, maxWidth: 500, transition: sidebarResizeRef.current ? 'none' : 'width 0.3s ease' }}>
@@ -3265,7 +3276,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         <textarea
                           ref={textareaRef}
                           placeholder="Ask anything..."
-                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 min-w-0 pl-2 sm:pl-3 pr-14 sm:pr-24 min-h-[44px] sm:min-h-[52px] text-base resize-none overflow-hidden leading-relaxed py-3 focus:outline-none ${isDarkMode ? 'bg-transparent text-[#ECECEC] placeholder:text-[#737373]' : 'bg-transparent text-[#1F1E1D] placeholder:text-[#9C978D]'}`}
+                          className={`border-0 focus-visible:ring-0 shadow-none flex-1 min-w-0 pl-2 sm:pl-3 pr-14 sm:pr-24 h-[44px] sm:h-[52px] min-h-[44px] sm:min-h-[52px] text-base resize-none overflow-hidden leading-6 py-2.5 sm:py-3.5 focus:outline-none ${isDarkMode ? 'bg-transparent text-[#ECECEC] placeholder:text-[#737373]' : 'bg-transparent text-[#1F1E1D] placeholder:text-[#9C978D]'}`}
                           value={inputValue}
                           onChange={e => setInputValue(e.target.value)}
                           onKeyDown={e => {
@@ -3284,7 +3295,7 @@ export default function SolTheoryAgentChatbotPage(props: { params: Promise<{ age
                         />
 
                         {/* Mic & Send buttons — inside the input box on the right side */}
-                        <div className="absolute right-1.5 sm:right-3 bottom-1.5 sm:bottom-2 flex items-center gap-0.5 sm:gap-1">
+                        <div className="absolute right-1.5 bottom-1.5 flex items-center gap-0.5 sm:gap-1">
                           {/* STT Mic button — inside the text entry box, to the LEFT of the send arrow */}
                           {typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
                             <button

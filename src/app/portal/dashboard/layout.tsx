@@ -1447,50 +1447,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className={`fixed inset-0 pointer-events-none z-0 ${isDarkMode ? 'bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(2,6,23,0.35)_100%)]' : 'bg-[radial-gradient(ellipse_at_center,transparent_50%,rgba(0,0,0,0.02)_100%)]'}`} />
 
       {/* ========== MOBILE TOP BAR ========== */}
-      {isMobile && (
-        <div className={`fixed top-0 left-0 right-0 h-14 border-b flex items-center justify-between px-4 z-[60] shadow-sm ${isDarkMode ? 'bg-slate-900 border-slate-700/80' : 'bg-[#f0e8d0] border-slate-200/80'}`}>
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className={`w-11 h-11 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 active:bg-slate-700' : 'bg-[#faf8f3] border-slate-200 text-slate-600 active:bg-slate-100'}`}
-          >
-            {isMobileMenuOpen ? (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            ) : (
-              <div className="flex flex-col gap-[4px] items-center justify-center">
-                <span className="block h-[2px] w-4 bg-current rounded-full" />
-                <span className="block h-[2px] w-3 bg-current rounded-full" />
-                <span className="block h-[2px] w-4 bg-current rounded-full" />
-              </div>
-            )}
-          </button>
-          {isDemoUser ? (
-            <DemoWatermark />
+      <div className={`fixed top-0 left-0 right-0 h-14 border-b flex md:hidden items-center justify-between px-4 z-[60] shadow-sm ${isDarkMode ? 'bg-slate-900 border-slate-700/80' : 'bg-[#f0e8d0] border-slate-200/80'}`}>
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className={`w-11 h-11 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 active:bg-slate-700' : 'bg-[#faf8f3] border-slate-200 text-slate-600 active:bg-slate-100'}`}
+        >
+          {isMobileMenuOpen ? (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           ) : (
-          <Link href={dashboardHome} className="flex items-center gap-2">
-            {pathname.includes('/nxtchapter') ? (
-              <span className={`font-bold text-lg tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>NXT Chapter</span>
-            ) : (
-              <span className={`font-bold text-lg tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SOL Theory</span>
-            )}
-          </Link>
+            <div className="flex flex-col gap-[4px] items-center justify-center">
+              <span className="block h-[2px] w-4 bg-current rounded-full" />
+              <span className="block h-[2px] w-3 bg-current rounded-full" />
+              <span className="block h-[2px] w-4 bg-current rounded-full" />
+            </div>
           )}
-          <button
-            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-            className={`w-11 h-11 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer relative ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 active:bg-slate-700' : 'bg-[#faf8f3] border-slate-200 text-slate-600 active:bg-slate-100'}`}
-          >
-            <Bell className="w-4.5 h-4.5" />
-            {unreadNotifCount > 0 && (
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-900"></span>
-            )}
-          </button>
-        </div>
-      )}
+        </button>
+        {isDemoUser ? (
+          <DemoWatermark />
+        ) : (
+        <Link href={dashboardHome} className="flex items-center gap-2">
+          {pathname.includes('/nxtchapter') ? (
+            <span className={`font-bold text-lg tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>NXT Chapter</span>
+          ) : (
+            <span className={`font-bold text-lg tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SOL Theory</span>
+          )}
+        </Link>
+        )}
+        <button
+          onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+          className={`w-11 h-11 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer relative ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-200 active:bg-slate-700' : 'bg-[#faf8f3] border-slate-200 text-slate-600 active:bg-slate-100'}`}
+        >
+          <Bell className="w-4.5 h-4.5" />
+          {unreadNotifCount > 0 && (
+            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-900"></span>
+          )}
+        </button>
+      </div>
 
       {/* ========== MOBILE FULLSCREEN MENU OVERLAY ========== */}
       {isMobile && isMobileMenuOpen && (
-        <div className={`fixed inset-0 z-[55] pt-14 overflow-y-auto ${isDarkMode ? 'bg-slate-950' : 'bg-[#faf6ed]'}`}>
+        <div className={`fixed inset-0 z-[55] pt-14 overflow-y-auto md:hidden ${isDarkMode ? 'bg-slate-950' : 'bg-[#faf6ed]'}`}>
           <aside className="w-full flex flex-col h-full">
             <div className="w-full flex flex-col h-full">
               {isDualOrgUser ? (
@@ -2312,9 +2310,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Dynamic Page Content */}
         <main className={`flex-1 overflow-y-auto px-4 pb-4 md:px-10 md:pb-10 flex flex-col relative z-[1] w-full min-h-0 focus:outline-none`} tabIndex={-1}>
-          <div className="w-full pt-2 pb-3">
+          {!pathname.includes('/ai-agents') && (
             <PushNotificationPrompt variant="banner" />
-          </div>
+          )}
 
           <OrgProvider orgId={currentOrgId}>
             {children}

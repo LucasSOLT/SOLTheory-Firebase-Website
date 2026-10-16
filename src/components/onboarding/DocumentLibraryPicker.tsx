@@ -160,12 +160,16 @@ export default function DocumentLibraryPicker({ orgId, content, onChange, isDark
           type="button"
           disabled={busy}
           onClick={() => fileRef.current?.click()}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded border transition-colors disabled:opacity-50 ${
+          className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded border transition-colors ${
+            busy ? 'cursor-wait' : 'cursor-pointer'
+          } ${
             isDarkMode ? 'border-slate-600 hover:bg-slate-800' : 'border-slate-300 hover:bg-slate-50'
           }`}
         >
-          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-          Upload a PDF
+          <span className="w-3.5 h-3.5 shrink-0 flex items-center justify-center">
+            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+          </span>
+          <span>Upload a PDF</span>
         </button>
       </div>
       <p className={`text-[11px] ${muted}`}>
@@ -201,9 +205,12 @@ export default function DocumentLibraryPicker({ orgId, content, onChange, isDark
           ) : templates.length === 0 ? (
             <div className={`text-xs ${muted}`}>No documents yet. Use “Upload a PDF” to add your first one.</div>
           ) : (
-            <ul className="max-h-64 overflow-y-auto space-y-1.5">
+            <ul
+              className="max-h-64 min-h-0 overflow-y-auto overscroll-contain touch-pan-y space-y-1.5"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
               {templates.map((t) => (
-                <li key={t.id} className={`flex items-center gap-2 rounded-md border px-2.5 py-2 ${row} ${t.archived ? 'opacity-60' : ''}`}>
+                <li key={t.id} className={`flex flex-wrap items-center gap-2 rounded-md border px-2.5 py-2 ${row} ${t.archived ? 'opacity-60' : ''}`}>
                   <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-semibold truncate">{t.name}</div>
@@ -216,7 +223,7 @@ export default function DocumentLibraryPicker({ orgId, content, onChange, isDark
                     <button
                       type="button"
                       onClick={() => use(t)}
-                      className="px-2.5 py-1 text-[11px] font-bold rounded text-white bg-emerald-600 hover:bg-emerald-500"
+                      className="px-2.5 py-1 text-[11px] font-bold rounded text-white bg-emerald-600 hover:bg-emerald-500 shrink-0"
                     >
                       Use
                     </button>
@@ -227,7 +234,7 @@ export default function DocumentLibraryPicker({ orgId, content, onChange, isDark
                       disabled={busy}
                       title={t.archived ? 'Restore' : 'Archive (hide from the list; existing documents are unaffected)'}
                       onClick={() => setArchived(t, !t.archived)}
-                      className={`p-1.5 rounded border disabled:opacity-50 ${isDarkMode ? 'border-slate-600 hover:bg-slate-800' : 'border-slate-300 hover:bg-slate-50'}`}
+                      className={`p-1.5 rounded border shrink-0 disabled:opacity-50 ${isDarkMode ? 'border-slate-600 hover:bg-slate-800' : 'border-slate-300 hover:bg-slate-50'}`}
                     >
                       {t.archived ? <ArchiveRestore className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
                     </button>

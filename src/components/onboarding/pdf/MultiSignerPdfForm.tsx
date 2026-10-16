@@ -517,7 +517,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
               <div className="text-[11px] opacity-80 font-mono truncate">SHA-256: {session.finalDocument.sha256Hash}</div>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             {session.canSendArchive ? (
               <SendArchiveButton
                 orgId={session.orgId}
@@ -540,7 +540,7 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
             >
-              <ExternalLink className="w-3.5 h-3.5" /> Download
+              <ExternalLink className="w-3.5 h-3.5 shrink-0" /> Download
             </a>
           </div>
         </div>
@@ -682,17 +682,22 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
             placeholder="e.g. Please correct the address in Step 1."
             className={`${inputCls} max-w-none resize-none`}
           />
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setSendBackOpen(false)} className={`px-3 py-1.5 text-xs font-bold rounded-lg ${muted}`}>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" onClick={() => setSendBackOpen(false)} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${muted}`}>
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSendBack}
               disabled={!sendBackNotes.trim() || isSendingBack}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-600 hover:bg-rose-500 text-white disabled:opacity-50"
+              className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white transition-colors ${
+                isSendingBack ? 'cursor-wait' : !sendBackNotes.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-rose-500 cursor-pointer'
+              }`}
             >
-              {isSendingBack ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Send back
+              <span className="w-3.5 h-3.5 shrink-0 flex items-center justify-center">
+                {isSendingBack ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+              </span>
+              <span>Send back</span>
             </button>
           </div>
         </div>
@@ -700,14 +705,14 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
 
       {/* Action bar */}
       {isMyTurn && mySigner && (
-        <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
+        <div className="flex flex-col-reverse sm:flex-row sm:flex-wrap sm:justify-between gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
           {canSendBack && !sendBackOpen ? (
             <button
               type="button"
               onClick={() => setSendBackOpen(true)}
-              className={`flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold border ${isDarkMode ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
+              className={`flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold border transition-colors ${isDarkMode ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
             >
-              <RotateCcw className="w-4 h-4" /> Send back for changes
+              <RotateCcw className="w-4 h-4 shrink-0" /> Send back for changes
             </button>
           ) : (
             <span />
@@ -715,20 +720,14 @@ export default function MultiSignerPdfForm({ content, taskId, orgId, isDarkMode 
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`w-full sm:w-auto justify-center flex items-center gap-2 px-6 py-3 sm:py-2.5 rounded-xl font-bold text-white transition-all shadow-sm ${
-              isSubmitting ? 'bg-indigo-400 opacity-50 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 active:scale-95'
+            className={`w-full sm:w-auto justify-center inline-flex items-center gap-2 px-6 py-3 sm:py-2.5 rounded-xl font-bold text-white transition-colors shadow-sm bg-indigo-600 ${
+              isSubmitting ? 'cursor-wait' : 'hover:bg-indigo-500 cursor-pointer'
             }`}
           >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" /> Saving your signature…
-              </>
-            ) : (
-              <>
-                <PenTool className="w-4 h-4" />
-                {session.currentSignerOrder === total ? 'Sign & Finalize Document' : 'Sign & Send to Next Signer'}
-              </>
-            )}
+            <span className="w-4 h-4 shrink-0 flex items-center justify-center">
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <PenTool className="w-4 h-4" />}
+            </span>
+            <span>{session.currentSignerOrder === total ? 'Sign & Finalize Document' : 'Sign & Send to Next Signer'}</span>
           </button>
         </div>
       )}

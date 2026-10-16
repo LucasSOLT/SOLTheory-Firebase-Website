@@ -105,7 +105,7 @@ export default function PdfFieldInputSheet({
         </div>
 
         {isDropdown ? (
-          <div className="max-h-[40vh] overflow-y-auto space-y-1.5 pb-1">
+          <div className="max-h-[40vh] overflow-y-auto overscroll-contain touch-pan-y space-y-1.5 pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
             {['', ...(field.options || [])].map((opt) => {
               const selected = value === opt;
               return (

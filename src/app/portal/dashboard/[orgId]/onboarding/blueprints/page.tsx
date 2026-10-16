@@ -232,7 +232,10 @@ export default function BlueprintsLibraryPage() {
   }
 
   return (
-    <div className={`flex flex-col h-full -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#f5f1e8] text-slate-900'} font-sans overflow-hidden`}>
+    <div
+      className={`flex flex-col flex-1 min-h-0 h-full -mx-4 -mb-4 md:-mx-10 md:-mb-10 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#f5f1e8] text-slate-900'} font-sans overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y`}
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
       {/* Header */}
       <OnboardingHeader
         orgId={orgId as string}
@@ -289,7 +292,7 @@ export default function BlueprintsLibraryPage() {
       />
 
       {/* Main Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
+      <div className="flex-1 shrink-0 px-4 sm:px-8 py-6 space-y-6">
         
         {/* Search */}
         <div className="relative max-w-md">
@@ -343,7 +346,7 @@ export default function BlueprintsLibraryPage() {
                     {bp.description || 'No description provided.'}
                   </p>
 
-                  <div className="flex items-center gap-3 mt-4">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-4">
                     <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-lg ${isDarkMode ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                       {phaseCount} phases
                     </span>
@@ -353,27 +356,30 @@ export default function BlueprintsLibraryPage() {
                   </div>
                 </div>
 
-                <div className={`flex items-center p-3 border-t gap-2 ${isDarkMode ? 'border-slate-700/50 bg-slate-800/50' : 'border-slate-100 bg-slate-50/50'}`}>
+                <div className={`flex flex-wrap items-center p-3 border-t gap-2 ${isDarkMode ? 'border-slate-700/50 bg-slate-800/50' : 'border-slate-100 bg-slate-50/50'}`}>
                   <button
+                    type="button"
                     onClick={() => setEditorState({ isOpen: true, existingBlueprint: bp })}
-                    className={`flex-1 flex justify-center items-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors ${
+                    className={`flex-1 min-w-[72px] flex justify-center items-center gap-2 py-2 px-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
                       isDarkMode ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-200 text-slate-700'
                     }`}
                   >
-                    <Edit2 className="w-3.5 h-3.5" /> Edit
+                    <Edit2 className="w-3.5 h-3.5 shrink-0" /> Edit
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       const cloned = { ...bp, id: undefined, roleName: `${bp.roleName} (Copy)`, isSystem: false };
                       setEditorState({ isOpen: true, existingBlueprint: cloned });
                     }}
-                    className={`flex-1 flex justify-center items-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors ${
+                    className={`flex-1 min-w-[72px] flex justify-center items-center gap-2 py-2 px-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
                       isDarkMode ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-200 text-slate-700'
                     }`}
                   >
-                    <Copy className="w-3.5 h-3.5" /> Clone
+                    <Copy className="w-3.5 h-3.5 shrink-0" /> Clone
                   </button>
                   <button
+                    type="button"
                     onClick={() => setPreviewBlueprint(bp)}
                     className={`p-2 rounded-lg transition-colors cursor-pointer ${
                       isDarkMode ? 'hover:bg-slate-700 text-emerald-400' : 'hover:bg-slate-200 text-emerald-600'
@@ -383,6 +389,7 @@ export default function BlueprintsLibraryPage() {
                     <Eye className="w-3.5 h-3.5" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       const allOrgs = getAllOrgIds();
                       const defaultTarget = allOrgs.find(o => o !== orgId) || orgId;
@@ -405,8 +412,9 @@ export default function BlueprintsLibraryPage() {
                   </button>
                   {!isSystem && (
                     <button
+                      type="button"
                       onClick={() => handleDelete(bp.id)}
-                      className={`p-2 rounded-lg transition-colors ${
+                      className={`p-2 rounded-lg transition-colors cursor-pointer ${
                         isDarkMode ? 'hover:bg-rose-900/30 text-rose-400' : 'hover:bg-rose-50 text-rose-600'
                       }`}
                     >
@@ -437,9 +445,10 @@ export default function BlueprintsLibraryPage() {
         <BodyPortal>
         <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
           <div
-            className={`my-auto w-full max-w-md rounded-2xl border p-6 shadow-2xl ${
+            className={`my-auto w-full max-w-md max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] sm:max-h-[90dvh] overflow-y-auto overscroll-contain touch-pan-y rounded-2xl border p-6 shadow-2xl ${
               isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
             }`}
+            style={{ WebkitOverflowScrolling: 'touch' }}
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
@@ -454,8 +463,9 @@ export default function BlueprintsLibraryPage() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setPushModalState(prev => ({ ...prev, isOpen: false }))}
-                className={`p-1.5 rounded-lg transition-colors ${
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                   isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
                 }`}
               >
@@ -524,11 +534,12 @@ export default function BlueprintsLibraryPage() {
                   />
                 </div>
 
-                <div className="pt-2 flex items-center justify-end gap-2.5">
+                <div className="pt-2 flex flex-wrap items-center justify-end gap-2.5">
                   <button
                     type="button"
+                    disabled={pushModalState.isPushing}
                     onClick={() => setPushModalState(prev => ({ ...prev, isOpen: false }))}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                    className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed ${
                       isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
                     }`}
                   >
@@ -538,23 +549,20 @@ export default function BlueprintsLibraryPage() {
                     type="button"
                     disabled={pushModalState.isPushing || !pushModalState.targetOrgId}
                     onClick={handlePushBlueprint}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 ${
+                    className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer disabled:cursor-not-allowed ${
                       isDarkMode
                         ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
                         : 'bg-slate-900 hover:bg-slate-800 text-white'
-                    }`}
+                    } ${!pushModalState.isPushing && !pushModalState.targetOrgId ? 'opacity-50' : ''}`}
                   >
-                    {pushModalState.isPushing ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Pushing...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-3.5 h-3.5" />
-                        Push Blueprint
-                      </>
-                    )}
+                    <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0">
+                      {pushModalState.isPushing ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                      ) : (
+                        <Send className="w-3.5 h-3.5 shrink-0" />
+                      )}
+                    </span>
+                    <span>Push Blueprint</span>
                   </button>
                 </div>
               </div>

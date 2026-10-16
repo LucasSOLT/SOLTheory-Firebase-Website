@@ -81,16 +81,16 @@ export default function ReadyToArchivePanel({ tasks, orgId, isDarkMode, onRefres
 
   return (
     <div className={`rounded-2xl border p-4 ${dark ? 'bg-teal-950/20 border-teal-800/40' : 'bg-teal-50/70 border-teal-200'}`}>
-      <div className="flex items-center gap-2 mb-3">
-        <Mail className={`w-4 h-4 ${dark ? 'text-teal-300' : 'text-teal-600'}`} />
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <Mail className={`w-4 h-4 shrink-0 ${dark ? 'text-teal-300' : 'text-teal-600'}`} />
         <h3 className={`text-sm font-bold ${dark ? 'text-white' : 'text-slate-900'}`}>Signed documents ready to Send &amp; Archive</h3>
-        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${dark ? 'bg-teal-500/20 text-teal-300' : 'bg-teal-100 text-teal-700'}`}>{rows.length}</span>
+        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${dark ? 'bg-teal-500/20 text-teal-300' : 'bg-teal-100 text-teal-700'}`}>{rows.length}</span>
       </div>
       <ul className="space-y-2">
         {shown.map(({ task, archivedAt, failed }) => (
-          <li key={task.id} className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 ${dark ? 'bg-slate-900/50' : 'bg-white'}`}>
-            <div className="min-w-0">
-              <div className={`text-sm font-semibold truncate ${dark ? 'text-slate-100' : 'text-slate-800'}`}>{task.title}</div>
+          <li key={task.id} className={`flex flex-wrap items-center justify-between gap-2.5 rounded-xl px-3 py-2.5 ${dark ? 'bg-slate-900/50' : 'bg-white'}`}>
+            <div className="min-w-0 flex-1">
+              <div className={`text-sm font-semibold break-words ${dark ? 'text-slate-100' : 'text-slate-800'}`}>{task.title}</div>
               <div className={`text-xs truncate ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
                 {task.assignedToName || task.assignedToEmail || 'Employee'}
               </div>

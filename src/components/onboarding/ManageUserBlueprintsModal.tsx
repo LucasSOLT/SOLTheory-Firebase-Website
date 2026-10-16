@@ -201,30 +201,30 @@ export default function ManageUserBlueprintsModal({
     <BodyPortal>
     <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
       <div
-        className={`my-auto w-full max-w-lg rounded-2xl shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-200 ${
+        className={`my-auto w-full max-w-lg max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] sm:max-h-[90dvh] rounded-2xl shadow-2xl border overflow-hidden flex flex-col ${
           isDarkMode ? 'bg-slate-900 border-slate-700/80 text-white' : 'bg-white border-slate-200 text-slate-900'
         }`}
       >
         {/* Header */}
-        <div className={`flex items-center justify-between px-6 py-4 border-b ${
+        <div className={`shrink-0 flex items-center justify-between gap-2 px-6 py-4 border-b ${
           isDarkMode ? 'border-slate-800' : 'border-slate-100'
         }`}>
-          <div className="flex items-center gap-2.5">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
               isDarkMode ? 'bg-indigo-900/40 text-indigo-400' : 'bg-indigo-50 text-indigo-600'
             }`}>
               <GraduationCap className="w-4 h-4" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="text-base font-bold">Manage Blueprints</h3>
-              <p className={`text-[11px] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              <p className={`text-[11px] break-words ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                 {userName} — {userEmail}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors ${
+            className={`p-1.5 rounded-lg transition-colors shrink-0 ${
               isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-500'
             }`}
           >
@@ -233,7 +233,10 @@ export default function ManageUserBlueprintsModal({
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div
+          className="flex-1 min-h-0 p-6 space-y-4 overflow-y-auto overscroll-contain touch-pan-y"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {/* Error / Success messages */}
           {error && (
             <div className="flex items-center gap-2 p-3 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-xl">
@@ -268,7 +271,7 @@ export default function ManageUserBlueprintsModal({
                 {userInstances.map(inst => (
                   <div
                     key={inst.id}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${
+                    className={`flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl border ${
                       isDarkMode ? 'bg-slate-800/60 border-slate-700/50' : 'bg-slate-50/80 border-slate-200'
                     }`}
                   >
@@ -285,19 +288,23 @@ export default function ManageUserBlueprintsModal({
                     <button
                       onClick={() => handleRemoveInstance(inst.id, inst.roleName)}
                       disabled={removingId === inst.id || isRemovingAll}
-                      className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                      className={`p-2 rounded-lg transition-colors shrink-0 ${
                         removingId === inst.id
-                          ? 'opacity-50'
-                          : isDarkMode
-                            ? 'hover:bg-rose-900/30 text-rose-400'
-                            : 'hover:bg-rose-50 text-rose-500'
+                          ? `cursor-wait ${isDarkMode ? 'text-rose-400' : 'text-rose-500'}`
+                          : isRemovingAll
+                            ? 'opacity-50 cursor-not-allowed text-rose-400'
+                            : isDarkMode
+                              ? 'hover:bg-rose-900/30 text-rose-400 cursor-pointer'
+                              : 'hover:bg-rose-50 text-rose-500 cursor-pointer'
                       }`}
                       title={`Remove "${inst.roleName}" blueprint`}
                     >
-                      {removingId === inst.id
-                        ? <Loader2 className="w-4 h-4 animate-spin" />
-                        : <Trash2 className="w-4 h-4" />
-                      }
+                      <span className="w-4 h-4 shrink-0 flex items-center justify-center">
+                        {removingId === inst.id
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <Trash2 className="w-4 h-4" />
+                        }
+                      </span>
                     </button>
                   </div>
                 ))}
@@ -326,7 +333,10 @@ export default function ManageUserBlueprintsModal({
               ) : (
                 <>
                   <div className={`rounded-xl border overflow-hidden ${isDarkMode ? 'border-slate-700' : 'border-slate-200'}`}>
-                    <div className="max-h-[150px] overflow-y-auto">
+                    <div
+                      className="max-h-[150px] overflow-y-auto overscroll-contain touch-pan-y"
+                      style={{ WebkitOverflowScrolling: 'touch' }}
+                    >
                       {unassignedBlueprints.map(bp => {
                         const isSelected = selectedNewIds.includes(bp.id);
                         return (
@@ -334,7 +344,7 @@ export default function ManageUserBlueprintsModal({
                             key={bp.id}
                             type="button"
                             onClick={() => toggleNewBlueprint(bp.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors border-b last:border-b-0 cursor-pointer ${
+                            className={`w-full flex flex-wrap items-center gap-3 px-4 py-2.5 text-left transition-colors border-b last:border-b-0 cursor-pointer ${
                               isSelected
                                 ? isDarkMode
                                   ? 'bg-indigo-900/30 border-slate-700/50'
@@ -353,7 +363,7 @@ export default function ManageUserBlueprintsModal({
                             }`}>
                               {isSelected && <Check className="w-3 h-3 text-white" />}
                             </div>
-                            <span className={`text-xs font-semibold truncate flex-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                            <span className={`text-xs font-semibold truncate flex-1 min-w-0 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                               {bp.roleName}
                             </span>
                             <span className={`text-[10px] font-medium shrink-0 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -383,18 +393,22 @@ export default function ManageUserBlueprintsModal({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={handleAddBlueprints}
                       disabled={selectedNewIds.length === 0 || isAdding}
-                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                        selectedNewIds.length === 0 || isAdding
-                          ? 'opacity-50 cursor-not-allowed bg-indigo-600 text-white'
-                          : 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer'
+                      className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                        isAdding
+                          ? 'cursor-wait bg-indigo-600 text-white'
+                          : selectedNewIds.length === 0
+                            ? 'opacity-50 cursor-not-allowed bg-indigo-600 text-white'
+                            : 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer'
                       }`}
                     >
-                      {isAdding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                      Add {selectedNewIds.length > 0 ? selectedNewIds.length : ''} Blueprint{selectedNewIds.length !== 1 ? 's' : ''}
+                      <span className="w-3.5 h-3.5 shrink-0 flex items-center justify-center">
+                        {isAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                      </span>
+                      <span>Add {selectedNewIds.length > 0 ? selectedNewIds.length : ''} Blueprint{selectedNewIds.length !== 1 ? 's' : ''}</span>
                     </button>
                     <button
                       onClick={() => { setShowAddPanel(false); setSelectedNewIds([]); }}
@@ -428,21 +442,23 @@ export default function ManageUserBlueprintsModal({
               <button
                 onClick={handleRemoveAll}
                 disabled={isRemovingAll}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                   isRemovingAll
-                    ? 'opacity-50 cursor-not-allowed'
-                    : ''
+                    ? 'cursor-wait'
+                    : 'cursor-pointer'
                 } ${
                   isDarkMode
                     ? 'bg-rose-950/30 border border-rose-800/50 text-rose-400 hover:bg-rose-900/40'
                     : 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100'
                 }`}
               >
-                {isRemovingAll
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : <Trash2 className="w-3.5 h-3.5" />
-                }
-                Remove All Blueprints ({userInstances.length})
+                <span className="w-3.5 h-3.5 shrink-0 flex items-center justify-center">
+                  {isRemovingAll
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <Trash2 className="w-3.5 h-3.5" />
+                  }
+                </span>
+                <span>Remove All Blueprints ({userInstances.length})</span>
               </button>
             </div>
           )}

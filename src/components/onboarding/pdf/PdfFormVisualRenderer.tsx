@@ -236,7 +236,7 @@ export default function PdfFormVisualRenderer({
   return (
     <div ref={rootRef} className="space-y-5">
       {/* Header */}
-      <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 ${isDarkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+      <div className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${isDarkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
         <div className="flex items-center gap-3 min-w-0">
           <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-indigo-900/50 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
             <FileText className="w-5 h-5" />
@@ -253,7 +253,7 @@ export default function PdfFormVisualRenderer({
 
       {/* Sealed result */}
       {processResult?.downloadUrl && (
-        <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 ${isDarkMode ? 'bg-emerald-950/30 border-emerald-800/50 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
+        <div className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${isDarkMode ? 'bg-emerald-950/30 border-emerald-800/50 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
           <div className="flex items-center gap-3 min-w-0">
             <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
             <div className="min-w-0">
@@ -269,7 +269,7 @@ export default function PdfFormVisualRenderer({
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
           >
-            <ExternalLink className="w-3.5 h-3.5" /> Download
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" /> Download
           </a>
         </div>
       )}
@@ -406,19 +406,18 @@ export default function PdfFormVisualRenderer({
           <button
             onClick={handleSubmit}
             disabled={locked}
-            className={`w-full sm:w-auto justify-center flex items-center gap-2 px-6 py-3 sm:py-2.5 rounded-xl font-bold text-white transition-all shadow-sm ${
-              locked ? 'bg-indigo-400 opacity-50 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 active:scale-95'
+            className={`w-full sm:w-auto justify-center inline-flex items-center gap-2 px-6 py-3 sm:py-2.5 rounded-xl font-bold text-white transition-colors shadow-sm bg-indigo-600 ${
+              isSubmitting
+                ? 'cursor-wait'
+                : locked
+                  ? 'opacity-50 cursor-not-allowed'
+                  : 'hover:bg-indigo-500 cursor-pointer'
             }`}
           >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" /> Flattening &amp; Sealing PDF...
-              </>
-            ) : (
-              <>
-                <PenTool className="w-4 h-4" /> Submit &amp; Sign PDF Form
-              </>
-            )}
+            <span className="w-4 h-4 shrink-0 flex items-center justify-center">
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <PenTool className="w-4 h-4" />}
+            </span>
+            <span>Submit &amp; Sign PDF Form</span>
           </button>
         </div>
       )}

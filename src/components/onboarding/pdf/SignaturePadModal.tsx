@@ -22,7 +22,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Dancing_Script, Great_Vibes, Caveat, Allura } from 'next/font/google';
 import { getAuth } from 'firebase/auth';
-import { Eraser, Image as ImageIcon, Keyboard, Loader2, PenTool, Upload, X } from 'lucide-react';
+import { Check, Eraser, Image as ImageIcon, Keyboard, Loader2, PenTool, Upload, X } from 'lucide-react';
 import {
   cropCanvasToInk,
   processUploadedSignature,
@@ -32,6 +32,7 @@ import {
 import { initialsFromName, type StampKind } from '@/lib/initials-fields';
 import { useSavedSignature } from './useSavedSignature';
 import { Z_SIGNATURE_PAD } from './viewerContext';
+import { acquireBodyScrollLock } from '@/components/onboarding/BodyPortal';
 
 // Script fonts for typed signatures. preload:false — only fetched when the Type tab shows them.
 const dancing = Dancing_Script({ subsets: ['latin'], weight: '600', display: 'swap', preload: false });
@@ -169,11 +170,7 @@ export default function SignaturePadModal({
   // Lock background scrolling while signing (prevents iOS rubber-banding behind the pad).
   useEffect(() => {
     if (!open) return;
-    const { overflow } = document.body.style;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = overflow;
-    };
+    return acquireBodyScrollLock();
   }, [open]);
 
   // Escape closes the pad.
@@ -301,7 +298,7 @@ export default function SignaturePadModal({
   return createPortal(
     <div
       data-pdf-modal
-      className="fixed inset-0 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
+      className="fixed inset-0 flex items-end sm:items-center justify-center overflow-hidden bg-black/50 backdrop-blur-sm p-0 sm:p-4"
       style={{ zIndex: Z_SIGNATURE_PAD }}
       onPointerDown={(e) => e.target === e.currentTarget && onCancel()}
     >
@@ -311,7 +308,7 @@ export default function SignaturePadModal({
         aria-label={`Add your ${noun}`}
         className={`w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[92vh] ${card}`}
       >
-        <div className={`flex items-center justify-between px-4 py-3 border-b ${divider}`}>
+        <div className={`flex items-center justify-between px-4 py-3 border-b shrink-0 ${divider}`}>
           <div className="flex items-center gap-2 min-w-0">
             <PenTool className="w-4 h-4 shrink-0" />
             <span className="text-sm font-semibold truncate">{title || `Add your ${noun}`}</span>
@@ -321,7 +318,7 @@ export default function SignaturePadModal({
           </button>
         </div>
 
-        <div className="p-4 overflow-y-auto">
+        <div className="flex-1 min-h-0 p-4 overflow-y-auto overscroll-contain touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
           {/* Saved signature — one tap */}
           {!saveOnly && savedLoading && !saved && (
             <div className={`mb-3 flex items-center gap-2 text-xs ${muted}`}>
@@ -495,27 +492,35 @@ export default function SignaturePadModal({
           </p>
         </div>
 
-        <div className={`flex items-center justify-between gap-2 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3 border-t ${divider}`}>
+        <div className={`flex flex-wrap items-center justify-between gap-2 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3 border-t ${divider}`}>
           <button
             type="button"
             onClick={clear}
             disabled={!canClear}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm disabled:opacity-40 ${ghostBtn}`}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors disabled:opacity-40 ${ghostBtn}`}
           >
-            <Eraser className="w-4 h-4" /> Clear
+            <Eraser className="w-4 h-4 shrink-0" /> Clear
           </button>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={onCancel} className={`px-3 py-2 rounded-lg text-sm ${ghostBtn}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={onCancel} className={`px-3 py-2 rounded-lg text-sm transition-colors ${ghostBtn}`}>
               Cancel
             </button>
             <button
               type="button"
               onClick={() => void apply()}
               disabled={!canApply}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 ${primaryBtn}`}
+              className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                busy && tab !== 'upload'
+                  ? 'cursor-wait'
+                  : !canApply
+                    ? 'opacity-40 cursor-not-allowed'
+                    : 'cursor-pointer'
+              } ${primaryBtn}`}
             >
-              {busy && tab !== 'upload' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {saveOnly ? `Save ${noun}` : `Apply ${noun}`}
+              <span className="w-3.5 h-3.5 shrink-0 flex items-center justify-center">
+                {busy && tab !== 'upload' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              </span>
+              <span>{saveOnly ? `Save ${noun}` : `Apply ${noun}`}</span>
             </button>
           </div>
         </div>

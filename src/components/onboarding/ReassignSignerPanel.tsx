@@ -147,15 +147,18 @@ export default function ReassignSignerPanel({ orgId, taskId, employeeUid, signer
                     </option>
                   ))}
               </select>
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 {error && <span className="text-xs font-semibold text-rose-600 mr-auto">{error}</span>}
                 <button
                   type="button"
                   onClick={() => submit(s.order)}
                   disabled={!choice || busy}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50"
+                  className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors ${!choice ? 'opacity-50 cursor-not-allowed' : busy ? 'cursor-wait' : 'cursor-pointer'}`}
                 >
-                  {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Confirm reassignment
+                  <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0">
+                    {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <UserCog className="w-3.5 h-3.5 shrink-0" />}
+                  </span>
+                  <span className="whitespace-nowrap">Confirm reassignment</span>
                 </button>
               </div>
             </div>

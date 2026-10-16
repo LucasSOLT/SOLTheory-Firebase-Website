@@ -38,7 +38,6 @@ import {
   ExternalLink,
   X,
   Trash2,
-  Calendar,
   Bell,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
@@ -134,7 +133,6 @@ interface SupervisorProgressViewProps {
   isAdmin?: boolean;
   onAdminSelectInstance?: (inst: OnboardingInstanceDoc) => void;
   onAdminDeleteInstance?: (id: string) => void;
-  onAdminScheduleCalendar?: (inst: OnboardingInstanceDoc) => void;
   onAdminNudge?: (id: string) => void;
   nudgeLoadingMap?: Record<string, boolean>;
   nudgeStatusMap?: Record<string, string>;
@@ -204,7 +202,6 @@ export default function SupervisorProgressView({
   isAdmin,
   onAdminSelectInstance,
   onAdminDeleteInstance,
-  onAdminScheduleCalendar,
   onAdminNudge,
   nudgeLoadingMap = {},
   nudgeStatusMap = {},
@@ -363,7 +360,7 @@ export default function SupervisorProgressView({
             <button
               type="button"
               onClick={() => setExpandedInstanceId(isExpanded ? null : inst.id)}
-              className={`w-full px-5 py-4 flex items-center gap-4 text-left transition-colors cursor-pointer ${
+              className={`w-full px-4 sm:px-5 py-4 flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 text-left transition-colors cursor-pointer ${
                 isDarkMode ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50/80'
               }`}
             >
@@ -375,7 +372,7 @@ export default function SupervisorProgressView({
               </div>
 
               {/* Info */}
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-[160px]">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                     {inst.userName}
@@ -388,13 +385,13 @@ export default function SupervisorProgressView({
                     {inst.status === 'completed' ? 'Complete' : 'In Progress'}
                   </span>
                 </div>
-                <div className={`text-[11px] mt-0.5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                <div className={`text-[11px] mt-0.5 break-words ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                   {inst.roleName} • {inst.userEmail} • Started {formatDate(inst.startedAt)}
                 </div>
               </div>
 
               {/* Progress */}
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-3 shrink-0 ml-auto">
                 <div className="text-right">
                   <div className={`text-lg font-extrabold ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
                     {progress.percent}%
@@ -403,7 +400,7 @@ export default function SupervisorProgressView({
                     {progress.completed}/{progress.total}
                   </div>
                 </div>
-                <div className="w-20">
+                <div className="w-16 sm:w-20">
                   <Progress value={progress.percent} className="h-2" />
                 </div>
                 {isExpanded ? (
@@ -417,27 +414,14 @@ export default function SupervisorProgressView({
             {/* Expanded Phase Breakdown */}
             {isExpanded && (
               <div className={`border-t ${isDarkMode ? 'border-slate-700/50' : 'border-slate-200/60'}`}>
-                {isAdmin && (onAdminSelectInstance || onAdminDeleteInstance || onAdminScheduleCalendar || onAdminNudge) && (
-                  <div className={`px-5 py-3 border-b flex justify-end gap-2 ${isDarkMode ? 'border-slate-700/30 bg-slate-800/30' : 'border-slate-200/40 bg-slate-50/50'}`}>
-                    {onAdminScheduleCalendar && (
-                      <button
-                        onClick={() => onAdminScheduleCalendar(inst)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                          (inst as any).hasCalendarScheduled
-                            ? (isDarkMode ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-400 hover:bg-emerald-900/40' : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100')
-                            : (isDarkMode ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50')
-                        }`}
-                        title="Schedule Orientation & Milestones on Google Calendar"
-                      >
-                        <Calendar className="w-3.5 h-3.5 text-amber-500" />
-                        <span className="hidden md:inline">{(inst as any).hasCalendarScheduled ? 'Calendar ✓' : 'Calendar'}</span>
-                      </button>
-                    )}
+                {isAdmin && (onAdminSelectInstance || onAdminDeleteInstance || onAdminNudge) && (
+                  <div className={`px-4 sm:px-5 py-3 border-b flex flex-wrap items-center justify-end gap-2 ${isDarkMode ? 'border-slate-700/30 bg-slate-800/30' : 'border-slate-200/40 bg-slate-50/50'}`}>
                     {onAdminNudge && (
                       <button
+                        type="button"
                         onClick={() => onAdminNudge(inst.id)}
                         disabled={nudgeLoadingMap[inst.id]}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                        className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer disabled:cursor-not-allowed ${
                           nudgeStatusMap[inst.id] === 'Sent! ✓'
                             ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-500'
                             : isDarkMode
@@ -446,33 +430,37 @@ export default function SupervisorProgressView({
                         }`}
                         title="Trigger a friendly Bobby reminder email for approaching/overdue items"
                       >
-                        {nudgeLoadingMap[inst.id] ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
-                        ) : (
-                          <Bell className="w-3.5 h-3.5 text-amber-500" />
-                        )}
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0">
+                          {nudgeLoadingMap[inst.id] ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500 shrink-0" />
+                          ) : (
+                            <Bell className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          )}
+                        </span>
                         <span>{nudgeStatusMap[inst.id] || 'Nudge'}</span>
                       </button>
                     )}
                     {onAdminSelectInstance && (
                       <button
+                        type="button"
                         onClick={() => onAdminSelectInstance(inst)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                           isDarkMode ? 'bg-indigo-900/40 text-indigo-300 hover:bg-indigo-900/60' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
                         }`}
                       >
-                        <Shield className="w-3.5 h-3.5" /> Admin Options
+                        <Shield className="w-3.5 h-3.5 shrink-0" /> Admin Options
                       </button>
                     )}
                     {onAdminDeleteInstance && (
                       <button
+                        type="button"
                         onClick={() => onAdminDeleteInstance(inst.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                           isDarkMode ? 'bg-rose-900/40 text-rose-300 hover:bg-rose-900/60' : 'bg-rose-50 text-rose-600 hover:bg-rose-100'
                         }`}
                         title="Permanently Delete Roadmap"
                       >
-                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                        <Trash2 className="w-3.5 h-3.5 shrink-0" /> Delete
                       </button>
                     )}
                   </div>
@@ -497,7 +485,7 @@ export default function SupervisorProgressView({
                         <button
                           type="button"
                           onClick={() => togglePhase(phaseKey)}
-                          className={`w-full px-5 py-3 flex items-center gap-3 text-left transition-colors cursor-pointer ${
+                          className={`w-full px-4 sm:px-5 py-3 flex items-center gap-3 text-left transition-colors cursor-pointer ${
                             isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/50'
                           }`}
                         >
@@ -521,7 +509,7 @@ export default function SupervisorProgressView({
 
                         {/* Phase Tasks */}
                         {isPhaseOpen && (
-                          <div className={`px-5 pb-3 space-y-1.5`}>
+                          <div className={`px-4 sm:px-5 pb-3 space-y-1.5`}>
                             {phaseTasks.map(task => {
                               const isDone = task.column === 'done';
                               const itemType = task.metadata?.itemType || 'action_item';
@@ -551,147 +539,151 @@ export default function SupervisorProgressView({
                               return (
                                 <div key={task.id}>
                                   <div
-                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+                                    className={`flex flex-wrap items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-xl transition-colors ${
                                       isDarkMode
                                         ? 'hover:bg-slate-700/30'
                                         : 'hover:bg-slate-100/60'
                                     }`}
                                   >
-                                    {/* Status Icon */}
-                                    {isDone ? (
-                                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                                    ) : isOverdue ? (
-                                      <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                                    ) : task.column === 'doing' ? (
-                                      <Clock className="w-4 h-4 text-amber-500 shrink-0" />
-                                    ) : (
-                                      <Circle className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
-                                    )}
+                                    <div className="flex items-center gap-2.5 flex-1 min-w-[150px]">
+                                      {/* Status Icon */}
+                                      {isDone ? (
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                      ) : isOverdue ? (
+                                        <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                                      ) : task.column === 'doing' ? (
+                                        <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                                      ) : (
+                                        <Circle className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+                                      )}
 
-                                    {/* Item Type Icon */}
-                                    <span className={isDarkMode ? 'text-slate-500' : 'text-slate-400'}>
-                                      {ITEM_TYPE_ICONS[itemType] || <Circle className="w-3.5 h-3.5" />}
-                                    </span>
-
-                                    {/* Title */}
-                                    <span className={`flex-1 text-xs font-medium truncate ${
-                                      isDone
-                                        ? (isDarkMode ? 'text-slate-500 line-through' : 'text-slate-400 line-through')
-                                        : (isDarkMode ? 'text-slate-300' : 'text-slate-700')
-                                    }`}>
-                                      {task.title}
-                                    </span>
-
-                                    {/* Overdue / Completed late badges */}
-                                    {isOverdue && (
-                                      <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
-                                        isDarkMode ? 'bg-red-950/60 text-red-400 border-red-800/60' : 'bg-red-50 text-red-600 border-red-200'
-                                      }`}>
-                                        <AlertCircle className="w-3 h-3" /> Overdue
+                                      {/* Item Type Icon */}
+                                      <span className={`shrink-0 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                        {ITEM_TYPE_ICONS[itemType] || <Circle className="w-3.5 h-3.5" />}
                                       </span>
-                                    )}
-                                    {isCompletedLate && (
-                                      <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
-                                        isDarkMode ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-700 border-amber-200'
-                                      }`}>
-                                        <Clock className="w-3 h-3 text-amber-400" /> Completed late
-                                      </span>
-                                    )}
 
-                                    {/* Phase 3: multi-signer progress */}
-                                    {task.metadata?.signing && task.metadata.signing.totalSigners >= 2 && (() => {
-                                      const s = task.metadata.signing;
-                                      if (s.status === 'fully_executed' || s.status === 'archived') {
-                                        // Phase 4: live manual "Send & Archive"
+                                      {/* Title */}
+                                      <span className={`flex-1 text-xs font-medium break-words ${
+                                        isDone
+                                          ? (isDarkMode ? 'text-slate-500 line-through' : 'text-slate-400 line-through')
+                                          : (isDarkMode ? 'text-slate-300' : 'text-slate-700')
+                                      }`}>
+                                        {task.title}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 ml-auto">
+                                      {/* Overdue / Completed late badges */}
+                                      {isOverdue && (
+                                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                                          isDarkMode ? 'bg-red-950/60 text-red-400 border-red-800/60' : 'bg-red-50 text-red-600 border-red-200'
+                                        }`}>
+                                          <AlertCircle className="w-3 h-3 shrink-0" /> Overdue
+                                        </span>
+                                      )}
+                                      {isCompletedLate && (
+                                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                                          isDarkMode ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                        }`}>
+                                          <Clock className="w-3 h-3 text-amber-400 shrink-0" /> Completed late
+                                        </span>
+                                      )}
+
+                                      {/* Phase 3: multi-signer progress */}
+                                      {task.metadata?.signing && task.metadata.signing.totalSigners >= 2 && (() => {
+                                        const s = task.metadata.signing;
+                                        if (s.status === 'fully_executed' || s.status === 'archived') {
+                                          // Phase 4: live manual "Send & Archive"
+                                          return (
+                                            <SendArchiveButton
+                                              compact
+                                              orgId={orgId}
+                                              taskId={task.id}
+                                              isDarkMode={isDarkMode}
+                                              archivedAt={s.status === 'archived' ? s.archivedAt || 'archived' : null}
+                                              failedCount={s.deliveriesFailed || 0}
+                                              onDone={onRefresh}
+                                            />
+                                          );
+                                        }
                                         return (
+                                          <span
+                                            title={`${s.completedOrders.length} of ${s.totalSigners} signed`}
+                                            className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                                              isDarkMode ? 'bg-amber-950/30 text-amber-300 border-amber-800/40' : 'bg-amber-50 text-amber-700 border-amber-200'
+                                            }`}
+                                          >
+                                            {s.completedOrders.length > 0 ? `${s.completedOrders.length}/${s.totalSigners} signed ✓ · ` : ''}
+                                            ⏳ Awaiting {s.currentSignerName || 'next signer'} ({s.currentSignerOrder} of {s.totalSigners})
+                                          </span>
+                                        );
+                                      })()}
+
+                                      {/* Phase 4: single-signer PDF form that is complete — manual Send & Archive */}
+                                      {isDone &&
+                                        task.metadata?.interactiveContent?.type === 'pdf_form' &&
+                                        !(task.metadata?.signing && task.metadata.signing.totalSigners >= 2) && (
                                           <SendArchiveButton
                                             compact
                                             orgId={orgId}
                                             taskId={task.id}
                                             isDarkMode={isDarkMode}
-                                            archivedAt={s.status === 'archived' ? s.archivedAt || 'archived' : null}
-                                            failedCount={s.deliveriesFailed || 0}
+                                            archivedAt={task.metadata?.archivedAt || null}
+                                            failedCount={task.metadata?.archiveDeliveriesFailed || 0}
                                             onDone={onRefresh}
                                           />
-                                        );
-                                      }
-                                      return (
-                                        <span
-                                          title={`${s.completedOrders.length} of ${s.totalSigners} signed`}
-                                          className={`shrink-0 hidden sm:inline text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
-                                            isDarkMode ? 'bg-amber-950/30 text-amber-300 border-amber-800/40' : 'bg-amber-50 text-amber-700 border-amber-200'
-                                          }`}
-                                        >
-                                          {s.completedOrders.length > 0 ? `${s.completedOrders.length}/${s.totalSigners} signed ✓ · ` : ''}
-                                          ⏳ Awaiting {s.currentSignerName || 'next signer'} ({s.currentSignerOrder} of {s.totalSigners})
-                                        </span>
-                                      );
-                                    })()}
+                                        )}
 
-                                    {/* Phase 4: single-signer PDF form that is complete — manual Send & Archive */}
-                                    {isDone &&
-                                      task.metadata?.interactiveContent?.type === 'pdf_form' &&
-                                      !(task.metadata?.signing && task.metadata.signing.totalSigners >= 2) && (
-                                        <SendArchiveButton
-                                          compact
-                                          orgId={orgId}
-                                          taskId={task.id}
-                                          isDarkMode={isDarkMode}
-                                          archivedAt={task.metadata?.archivedAt || null}
-                                          failedCount={task.metadata?.archiveDeliveriesFailed || 0}
-                                          onDone={onRefresh}
-                                        />
-                                      )}
-
-                                    {/* Action Buttons */}
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      {/* Drill-in: View submission / item details (Phase 1, Step 1.3 & Phase I7 history) */}
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          onTaskClick(task);
-                                        }}
-                                        title={isDone && hasResponse ? "View employee's submission" : 'View item details'}
-                                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                          isDone && hasResponse
-                                            ? (isDarkMode ? 'hover:bg-slate-700 text-indigo-400' : 'hover:bg-indigo-50 text-indigo-500')
-                                            : (isDarkMode ? 'hover:bg-slate-700 text-slate-500' : 'hover:bg-slate-100 text-slate-400')
-                                        }`}
-                                      >
-                                        <Eye className="w-3.5 h-3.5" />
-                                      </button>
-
-                                      {/* Re-Request button (Phase 1, Step 1.4) */}
-                                      {isDone && (
+                                      {/* Action Buttons */}
+                                      <div className="flex items-center gap-1.5">
+                                        {/* Drill-in: View submission / item details (Phase 1, Step 1.3 & Phase I7 history) */}
                                         <button
                                           type="button"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            if (isReRequesting) {
-                                              setReRequestingTaskId(null);
-                                              setReRequestNotes('');
-                                            } else {
-                                              setReRequestingTaskId(task.id);
-                                              setReRequestNotes('');
-                                            }
+                                            onTaskClick(task);
                                           }}
-                                          title="Re-Request — send back for correction"
+                                          title={isDone && hasResponse ? "View employee's submission" : 'View item details'}
                                           className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                            isReRequesting
-                                              ? (isDarkMode ? 'bg-rose-900/30 text-rose-400' : 'bg-rose-50 text-rose-500')
-                                              : (isDarkMode ? 'hover:bg-slate-700 text-amber-400' : 'hover:bg-amber-50 text-amber-500')
+                                            isDone && hasResponse
+                                              ? (isDarkMode ? 'hover:bg-slate-700 text-indigo-400' : 'hover:bg-indigo-50 text-indigo-500')
+                                              : (isDarkMode ? 'hover:bg-slate-700 text-slate-500' : 'hover:bg-slate-100 text-slate-400')
                                           }`}
                                         >
-                                          <RotateCcw className="w-3.5 h-3.5" />
+                                          <Eye className="w-3.5 h-3.5" />
                                         </button>
-                                      )}
+
+                                        {/* Re-Request button (Phase 1, Step 1.4) */}
+                                        {isDone && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (isReRequesting) {
+                                                setReRequestingTaskId(null);
+                                                setReRequestNotes('');
+                                              } else {
+                                                setReRequestingTaskId(task.id);
+                                                setReRequestNotes('');
+                                              }
+                                            }}
+                                            title="Re-Request — send back for correction"
+                                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                              isReRequesting
+                                                ? (isDarkMode ? 'bg-rose-900/30 text-rose-400' : 'bg-rose-50 text-rose-500')
+                                                : (isDarkMode ? 'hover:bg-slate-700 text-amber-400' : 'hover:bg-amber-50 text-amber-500')
+                                            }`}
+                                          >
+                                            <RotateCcw className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
 
                                   {/* Re-Request Notes Panel (inline, below the task) */}
                                   {isReRequesting && (
-                                    <div className={`ml-10 mt-1 mb-2 p-3 rounded-xl border ${
+                                    <div className={`ml-4 sm:ml-10 mt-1 mb-2 p-3 rounded-xl border ${
                                       isDarkMode ? 'bg-slate-800/60 border-rose-800/40' : 'bg-rose-50/80 border-rose-200'
                                     }`}>
                                       <p className={`text-[11px] font-semibold mb-2 ${isDarkMode ? 'text-rose-400' : 'text-rose-600'}`}>
@@ -708,14 +700,15 @@ export default function SupervisorProgressView({
                                             : 'bg-white border-slate-200 text-slate-900 placeholder:text-slate-400'
                                         } focus:outline-none focus:ring-2 focus:ring-rose-500/20`}
                                       />
-                                      <div className="flex items-center justify-end gap-2 mt-2">
+                                      <div className="flex flex-wrap items-center justify-end gap-2 mt-2">
                                         <button
                                           type="button"
                                           onClick={() => {
                                             setReRequestingTaskId(null);
                                             setReRequestNotes('');
                                           }}
-                                          className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                                          disabled={isSubmittingReRequest}
+                                          className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed ${
                                             isDarkMode ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'
                                           }`}
                                         >
@@ -725,22 +718,20 @@ export default function SupervisorProgressView({
                                           type="button"
                                           onClick={() => handleReRequest(task.id)}
                                           disabled={!reRequestNotes.trim() || isSubmittingReRequest}
-                                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                                            !reRequestNotes.trim() || isSubmittingReRequest
-                                              ? 'opacity-50 cursor-not-allowed'
+                                          className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed bg-rose-600 hover:bg-rose-500 text-white ${
+                                            !reRequestNotes.trim() && !isSubmittingReRequest
+                                              ? 'opacity-50'
                                               : ''
-                                          } ${
-                                            isDarkMode
-                                              ? 'bg-rose-600 hover:bg-rose-500 text-white'
-                                              : 'bg-rose-600 hover:bg-rose-500 text-white'
                                           }`}
                                         >
-                                          {isSubmittingReRequest ? (
-                                            <Loader2 className="w-3 h-3 animate-spin" />
-                                          ) : (
-                                            <RotateCcw className="w-3 h-3" />
-                                          )}
-                                          Send Re-Request
+                                          <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0">
+                                            {isSubmittingReRequest ? (
+                                              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                                            ) : (
+                                              <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                                            )}
+                                          </span>
+                                          <span>Send Re-Request</span>
                                         </button>
                                       </div>
                                     </div>

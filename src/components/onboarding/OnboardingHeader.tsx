@@ -126,15 +126,15 @@ export default function OnboardingHeader({
 
   if (isAdmin) {
     tabs.push(
-      { key: 'blueprints', label: 'Role Blueprints', icon: <GraduationCap className="w-3.5 h-3.5" /> },
       { key: 'vault', label: 'Compliance Vault', icon: <ShieldCheck className="w-3.5 h-3.5" /> },
       { key: 'reviews', label: 'Review Queue', icon: <ClipboardCheck className="w-3.5 h-3.5" /> },
-      { key: 'archive', label: 'Archive', icon: <Users className="w-3.5 h-3.5" /> }
+      { key: 'archive', label: 'Archive', icon: <Users className="w-3.5 h-3.5" /> },
+      { key: 'blueprints', label: 'Role Blueprints', icon: <GraduationCap className="w-3.5 h-3.5" /> }
     );
   }
 
   return (
-    <div className={`shrink-0 px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200/80 bg-[#f5f1e8]'}`}>
+    <div className={`relative shrink-0 px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-200/80 bg-[#f5f1e8]'}`}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2.5 tracking-tight">
@@ -150,28 +150,30 @@ export default function OnboardingHeader({
 
         {/* Admin buttons */}
         {isAdmin && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleRunGlobalNudges}
               disabled={isGlobalNudging}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all shadow-sm active:scale-[0.98] cursor-pointer border ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-xs transition-colors shadow-sm cursor-pointer disabled:cursor-wait border ${
                 isDarkMode
                   ? 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-amber-500/30'
                   : 'bg-white hover:bg-amber-50 text-amber-700 border-amber-200'
               }`}
               title="Bobby scans for approaching and overdue tasks to send friendly Gmail reminders"
             >
-              {isGlobalNudging ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Bell className="w-3.5 h-3.5 text-amber-500" />
-              )}
+              <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0">
+                {isGlobalNudging ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                ) : (
+                  <Bell className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                )}
+              </span>
               <span className="hidden sm:inline">Run Bobby Nudges</span>
             </button>
 
             {onOnboardNewHire && (
               <button
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all shadow-sm active:scale-[0.98] cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-xs transition-colors shadow-sm cursor-pointer ${
                   isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'
                 }`}
                 onClick={onOnboardNewHire}

@@ -51,7 +51,10 @@ export default function AutoFillConfigurator({ content, onChange, isDarkMode }: 
         signer when they submit. They see it locked, and it can&apos;t be changed. In a multi-signer document, the
         field must also be assigned to the signer who should get it.
       </p>
-      <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+      <div
+        className="space-y-1.5 max-h-56 overflow-y-auto overscroll-contain touch-pan-y pr-1"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {textFields.map((f) => (
           <div key={f.name} className="flex items-center justify-between gap-2">
             <span className={`font-mono text-[11px] truncate ${isDarkMode ? 'text-indigo-300' : 'text-indigo-700'}`} title={f.name}>

@@ -25,7 +25,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { InteractiveContentRenderer } from './InteractiveRenderers';
-import BodyPortal from './BodyPortal';
+import BodyPortal, { MODAL_OVERLAY_CLASS, MODAL_OVERLAY_STYLE } from './BodyPortal';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import { safeExternalUrl } from '@/lib/utils';
 
@@ -228,7 +228,7 @@ export default function OnboardingItemPopup({
     return {
       disabled: false,
       text: 'Complete ✓',
-      classes: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm cursor-pointer active:scale-95 transition-all',
+      classes: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm cursor-pointer transition-colors',
       tooltip: 'Mark this item as complete',
     };
   };
@@ -292,30 +292,16 @@ export default function OnboardingItemPopup({
 
   return (
     <BodyPortal>
-    {/* Signature Suite D4: portaled above the site header, and the overlay itself is the ONLY
-        scroll container with content starting at the top on phones. (Previously a vertically-
-        centred flex box with max-h-full pushed the top of tall items off-screen where it could
-        not be scrolled to, and the mobile header covered it.) */}
-    <div
-      className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto overscroll-contain"
-      style={{ WebkitOverflowScrolling: 'touch' }}
-    >
+    <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
       <div
-        className="min-h-full flex items-start sm:items-center justify-center px-2 sm:p-6"
-        style={{
-          paddingTop: 'max(0.5rem, env(safe-area-inset-top))',
-          paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
-        }}
-      >
-      <div
-        className={`w-full max-w-2xl rounded-2xl shadow-2xl border relative flex flex-col animate-in zoom-in-95 duration-200 ${
+        className={`my-auto w-full max-w-2xl max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] sm:max-h-[90dvh] rounded-2xl shadow-2xl border overflow-hidden relative flex flex-col ${
           isDarkMode ? 'bg-slate-900 border-slate-700/80 text-white' : 'bg-white border-slate-200 text-slate-900'
         }`}
       >
-        {/* D4: sticky action bar — Close and Complete stay reachable while scrolling a long item */}
+        {/* D4: pinned action bar — Close and Complete stay reachable while scrolling a long item */}
         <div
-          className={`sticky top-0 z-20 flex items-center justify-end gap-2 px-3 py-2 rounded-t-2xl border-b backdrop-blur-md ${
-            isDarkMode ? 'bg-slate-900/90 border-slate-700/60' : 'bg-white/90 border-slate-200/80'
+          className={`shrink-0 z-20 flex flex-wrap items-center justify-end gap-2 px-3 py-2 border-b ${
+            isDarkMode ? 'bg-slate-900 border-slate-700/60' : 'bg-white border-slate-200/80'
           }`}
         >
           <button
@@ -337,6 +323,11 @@ export default function OnboardingItemPopup({
           </button>
         </div>
 
+        {/* Scrollable Content Body */}
+        <div
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
         {/* Header area (Background color + Image). D5: the whole image is shown (no cropping); tap to enlarge. */}
         {(meta.headerImageUrl || meta.backgroundColor) && (
           <div
@@ -427,11 +418,11 @@ export default function OnboardingItemPopup({
                 return null;
               })()}
             </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight break-words">
               {task.title}
             </h2>
             {task.description && (
-              <p className={`mt-2 text-sm sm:text-base ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              <p className={`mt-2 text-sm sm:text-base break-words ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                 {renderTextWithLinks(task.description)}
               </p>
             )}
@@ -459,13 +450,13 @@ export default function OnboardingItemPopup({
                 href={safeExternalUrl(meta.hyperlink)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all shadow-sm ${
+                className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-colors shadow-sm ${
                   isDarkMode
                     ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
                     : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                 }`}
               >
-                <ExternalLink className="w-4 h-4" />
+                <ExternalLink className="w-4 h-4 shrink-0" />
                 Open External Link
               </a>
             </div>
@@ -588,7 +579,7 @@ export default function OnboardingItemPopup({
 
           {/* Download certificate link for completed e-signatures */}
           {isCompleted && meta.itemType === 'policy_acknowledgment' && meta.interactiveContent?.type === 'policy_acknowledgment' && (
-            <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+            <div className={`flex flex-wrap items-center gap-3 p-3 rounded-xl border ${
               isDarkMode ? 'bg-purple-950/20 border-purple-800/30' : 'bg-purple-50/50 border-purple-200/60'
             }`}>
               <ShieldCheck className={`w-5 h-5 shrink-0 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
@@ -621,7 +612,7 @@ export default function OnboardingItemPopup({
                     : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
                 }`}
               >
-                <FileText className="w-3.5 h-3.5" />
+                <FileText className="w-3.5 h-3.5 shrink-0" />
                 Download PDF
               </button>
             </div>

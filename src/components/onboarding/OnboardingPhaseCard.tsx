@@ -205,7 +205,7 @@ export default function OnboardingPhaseCard({
             </span>
             {statusBadge}
           </div>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
             <span className={`text-[11px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
               {phaseTimeline}
             </span>

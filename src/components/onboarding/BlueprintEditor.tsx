@@ -410,7 +410,7 @@ export default function BlueprintEditor({
     <BodyPortal>
     <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
       <div
-        className={`my-auto w-full max-w-5xl h-[calc(100dvh-1rem)] sm:h-[90vh] rounded-2xl shadow-2xl border flex flex-col animate-in zoom-in-95 duration-200 ${
+        className={`my-auto w-full max-w-5xl h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] sm:h-[90dvh] max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] rounded-2xl shadow-2xl border overflow-hidden flex flex-col ${
           isDarkMode ? 'bg-slate-900 border-slate-700/80 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
         }`}
       >
@@ -450,7 +450,10 @@ export default function BlueprintEditor({
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+        <div
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y p-3 sm:p-6 space-y-4 sm:space-y-6"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           
           {/* Basic Info */}
           <div className={`p-4 sm:p-6 rounded-xl border ${isDarkMode ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white border-slate-200/80 shadow-sm'}`}>
@@ -794,19 +797,22 @@ export default function BlueprintEditor({
                                       type="button"
                                       onClick={() => mediaInputRefs.current[`header_${item.id}`]?.click()}
                                       disabled={uploadingField === `header_${item.id}`}
-                                      className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                                      className={`shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
                                         uploadingField === `header_${item.id}`
-                                          ? 'opacity-50 cursor-not-allowed'
+                                          ? `cursor-wait ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'}`
                                           : isDarkMode
-                                            ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
-                                            : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                                            ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300 cursor-pointer'
+                                            : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer'
                                       }`}
                                     >
-                                      {uploadingField === `header_${item.id}` ? (
-                                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {uploadProgress}%</>
-                                      ) : (
-                                        <><Upload className="w-3.5 h-3.5" /> Upload</>
-                                      )}
+                                      <span className="w-3.5 h-3.5 shrink-0 flex items-center justify-center">
+                                        {uploadingField === `header_${item.id}` ? (
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                          <Upload className="w-3.5 h-3.5" />
+                                        )}
+                                      </span>
+                                      <span>Upload</span>
                                     </button>
                                   </div>
                                   {/* Preview */}
@@ -857,19 +863,22 @@ export default function BlueprintEditor({
                                       type="button"
                                       onClick={() => mediaInputRefs.current[`media_${item.id}`]?.click()}
                                       disabled={uploadingField === `media_${item.id}`}
-                                      className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                                      className={`shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
                                         uploadingField === `media_${item.id}`
-                                          ? 'opacity-50 cursor-not-allowed'
+                                          ? `cursor-wait ${isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'}`
                                           : isDarkMode
-                                            ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
-                                            : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                                            ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300 cursor-pointer'
+                                            : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer'
                                       }`}
                                     >
-                                      {uploadingField === `media_${item.id}` ? (
-                                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {uploadProgress}%</>
-                                      ) : (
-                                        <><Upload className="w-3.5 h-3.5" /> Upload</>
-                                      )}
+                                      <span className="w-3.5 h-3.5 shrink-0 flex items-center justify-center">
+                                        {uploadingField === `media_${item.id}` ? (
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                          <Upload className="w-3.5 h-3.5" />
+                                        )}
+                                      </span>
+                                      <span>Upload</span>
                                     </button>
                                   </div>
                                   {/* Upload progress bar */}

@@ -109,12 +109,12 @@ export default function DocumentUploadModal({
     <BodyPortal>
     <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
       <div
-        className={`my-auto w-full max-w-lg rounded-2xl shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-200 ${
+        className={`my-auto w-full max-w-lg max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] sm:max-h-[90dvh] rounded-2xl shadow-2xl border overflow-hidden flex flex-col ${
           isDarkMode ? 'bg-slate-900 border-slate-700/80 text-white' : 'bg-white border-slate-200 text-slate-900'
         }`}
       >
         {/* Header */}
-        <div className={`flex items-center justify-between px-6 py-4 border-b ${isDarkMode ? 'border-slate-800 bg-slate-850' : 'border-slate-100 bg-slate-50/50'}`}>
+        <div className={`shrink-0 flex items-center justify-between px-6 py-4 border-b ${isDarkMode ? 'border-slate-800 bg-slate-850' : 'border-slate-100 bg-slate-50/50'}`}>
           <div className="flex items-center gap-2.5">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-indigo-900/40 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
               <Upload className="w-4 h-4" />
@@ -136,7 +136,10 @@ export default function DocumentUploadModal({
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-4">
+        <div
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y p-6 space-y-4"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {error && (
             <div className="flex items-center gap-2 p-3 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-xl">
               <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -197,11 +200,11 @@ export default function DocumentUploadModal({
         </div>
 
         {/* Footer */}
-        <div className={`flex items-center justify-end gap-3 px-6 py-4 border-t ${isDarkMode ? 'border-slate-800 bg-slate-850' : 'border-slate-100 bg-slate-50/50'}`}>
+        <div className={`shrink-0 flex flex-wrap items-center justify-end gap-2.5 sm:gap-3 px-6 py-4 border-t ${isDarkMode ? 'border-slate-800 bg-slate-850' : 'border-slate-100 bg-slate-50/50'}`}>
           <button
             onClick={onClose}
             disabled={isUploading}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
               isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-200 text-slate-600'
             }`}
           >
@@ -210,23 +213,22 @@ export default function DocumentUploadModal({
           <button
             onClick={handleUpload}
             disabled={!file || isUploading}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-all active:scale-[0.98] ${
-              !file || isUploading
+            className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-colors ${
+              !file
                 ? 'opacity-50 cursor-not-allowed bg-indigo-600 text-white'
-                : 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer'
+                : isUploading
+                  ? 'cursor-wait bg-indigo-600 text-white'
+                  : 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer'
             }`}
           >
-            {isUploading ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Uploading...</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Submit for Verification</span>
-              </>
-            )}
+            <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0">
+              {isUploading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              )}
+            </span>
+            <span className="whitespace-nowrap">Submit for Verification</span>
           </button>
         </div>
       </div>

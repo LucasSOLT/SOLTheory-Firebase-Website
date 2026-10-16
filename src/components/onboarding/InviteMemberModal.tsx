@@ -242,12 +242,12 @@ export default function InviteMemberModal({
     <BodyPortal>
     <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
       <div
-        className={`my-auto w-full max-w-lg rounded-2xl shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-200 ${
+        className={`my-auto w-full max-w-lg max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] sm:max-h-[90dvh] rounded-2xl shadow-2xl border overflow-hidden flex flex-col ${
           isDarkMode ? 'bg-slate-900 border-slate-700/80 text-white' : 'bg-white border-slate-200 text-slate-900'
         }`}
       >
         {/* Header */}
-        <div className={`flex items-center justify-between px-6 py-4 border-b ${
+        <div className={`shrink-0 flex items-center justify-between px-6 py-4 border-b ${
           isDarkMode ? 'border-slate-800 bg-slate-850' : 'border-slate-100 bg-slate-50/50'
         }`}>
           <div className="flex items-center gap-2.5">
@@ -275,7 +275,11 @@ export default function InviteMemberModal({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 min-h-0 p-6 space-y-4 overflow-y-auto overscroll-contain touch-pan-y"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {error && (
             <div className="flex items-center gap-2 p-3 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-xl">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -285,14 +289,14 @@ export default function InviteMemberModal({
 
           {/* Fill myself shortcut */}
           {currentUserEmail && (
-            <div className="flex items-center justify-between pb-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-1">
               <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Testing this track?</span>
               <button
                 type="button"
                 onClick={handleFillMyself}
-                className="text-xs font-semibold text-indigo-500 hover:text-indigo-400 flex items-center gap-1 cursor-pointer"
+                className="text-xs font-semibold text-indigo-500 hover:text-indigo-400 flex items-center gap-1 cursor-pointer break-all text-left"
               >
-                <Sparkles className="w-3 h-3" /> Fill with my account ({currentUserEmail})
+                <Sparkles className="w-3 h-3 shrink-0" /> Fill with my account ({currentUserEmail})
               </button>
             </div>
           )}
@@ -365,7 +369,10 @@ export default function InviteMemberModal({
               <div className={`rounded-xl border overflow-hidden ${
                 isDarkMode ? 'border-slate-700' : 'border-slate-200'
               }`}>
-                <div className="max-h-[180px] overflow-y-auto">
+                <div
+                  className="max-h-[180px] overflow-y-auto overscroll-contain touch-pan-y"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
+                >
                   {blueprints.map(bp => {
                     const isSelected = selectedTemplateIds.includes(bp.id);
                     const stepCount = getStepCount(bp);
@@ -374,7 +381,7 @@ export default function InviteMemberModal({
                         key={bp.id}
                         type="button"
                         onClick={() => toggleBlueprint(bp.id)}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors border-b last:border-b-0 cursor-pointer ${
+                        className={`w-full flex flex-wrap items-center gap-3 px-4 py-2.5 text-left transition-colors border-b last:border-b-0 cursor-pointer ${
                           isSelected
                             ? isDarkMode
                               ? 'bg-indigo-900/30 border-slate-700/50'
@@ -406,7 +413,7 @@ export default function InviteMemberModal({
                         </div>
 
                         {/* Step count + type badge */}
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
                           <span className={`text-[10px] font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                             {stepCount} steps
                           </span>
@@ -530,7 +537,7 @@ export default function InviteMemberModal({
                     <div className={`absolute z-20 w-full mt-1 rounded-xl border shadow-xl overflow-hidden ${
                       isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
                     }`}>
-                      <div className="max-h-[160px] overflow-y-auto">
+                      <div className="max-h-[160px] overflow-y-auto overscroll-contain touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
                         {loadingMembers ? (
                           <div className={`flex items-center gap-2 px-4 py-3 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                             <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
@@ -594,7 +601,7 @@ export default function InviteMemberModal({
           </div>
 
           {/* Footer */}
-          <div className={`flex items-center justify-end gap-3 pt-4 border-t ${
+          <div className={`flex flex-wrap items-center justify-end gap-3 pt-4 border-t ${
             isDarkMode ? 'border-slate-800' : 'border-slate-100'
           }`}>
             <button
@@ -610,27 +617,22 @@ export default function InviteMemberModal({
             <button
               type="submit"
               disabled={isSubmitting || selectedTemplateIds.length === 0}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-all active:scale-[0.98] ${
-                isSubmitting || selectedTemplateIds.length === 0
-                  ? 'opacity-50 cursor-not-allowed bg-indigo-600 text-white'
-                  : 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer'
+              className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-colors ${
+                isSubmitting
+                  ? 'cursor-wait bg-indigo-600 text-white'
+                  : selectedTemplateIds.length === 0
+                    ? 'opacity-50 cursor-not-allowed bg-indigo-600 text-white'
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer'
               }`}
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Creating Track{selectedTemplateIds.length > 1 ? 's' : ''}...</span>
-                </>
-              ) : (
-                <>
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>
-                    Start {selectedTemplateIds.length > 1
-                      ? `${selectedTemplateIds.length} Onboarding Tracks`
-                      : 'Onboarding Track'}
-                  </span>
-                </>
-              )}
+              <span className="w-3.5 h-3.5 shrink-0 flex items-center justify-center">
+                {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              </span>
+              <span>
+                Start {selectedTemplateIds.length > 1
+                  ? `${selectedTemplateIds.length} Onboarding Tracks`
+                  : 'Onboarding Track'}
+              </span>
             </button>
           </div>
         </form>

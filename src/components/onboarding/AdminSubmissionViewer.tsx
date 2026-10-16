@@ -23,6 +23,7 @@ import {
   Calendar,
   Monitor,
   Video,
+  Loader2,
 } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/api-auth-client';
 import { safeExternalUrl } from '@/lib/utils';
@@ -334,9 +335,12 @@ function SignatureCertificate({ response, content, isDarkMode }: { response: any
             <div className={`text-xs font-bold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
               Policy Document
             </div>
-            <div className={`text-sm max-h-32 overflow-y-auto rounded-lg p-3 border ${
-              isDarkMode ? 'bg-slate-900/60 border-slate-700/50 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
-            }`}>
+            <div
+              className={`text-sm max-h-32 overflow-y-auto overscroll-contain touch-pan-y rounded-lg p-3 border ${
+                isDarkMode ? 'bg-slate-900/60 border-slate-700/50 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+              }`}
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
               {content.policyText.length > 400 ? content.policyText.substring(0, 400) + '...' : content.policyText}
             </div>
           </div>
@@ -538,6 +542,7 @@ export default function AdminSubmissionViewer({
 }: AdminSubmissionViewerProps) {
   const [reviewNotes, setReviewNotes] = useState('');
   const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewingAction, setReviewingAction] = useState<'approve' | 'reject' | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [certLoading, setCertLoading] = useState(false);
   const [certUrl, setCertUrl] = useState<string | null>(null);
@@ -552,6 +557,7 @@ export default function AdminSubmissionViewer({
 
   const handleReview = async (action: 'approve' | 'reject') => {
     setIsReviewing(true);
+    setReviewingAction(action);
     setReviewError(null);
 
     try {
@@ -578,6 +584,7 @@ export default function AdminSubmissionViewer({
       setReviewError('Network error. Please try again.');
     } finally {
       setIsReviewing(false);
+      setReviewingAction(null);
     }
   };
 
@@ -587,7 +594,7 @@ export default function AdminSubmissionViewer({
     <BodyPortal>
     <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
       <div
-        className={`my-auto w-full max-w-3xl rounded-2xl shadow-2xl border overflow-hidden relative flex flex-col max-h-full animate-in zoom-in-95 duration-200 ${
+        className={`my-auto w-full max-w-3xl max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] sm:max-h-[90dvh] rounded-2xl shadow-2xl border overflow-hidden relative flex flex-col ${
           isDarkMode ? 'bg-slate-900 border-slate-700/80 text-white' : 'bg-white border-slate-200 text-slate-900'
         }`}
       >
@@ -700,7 +707,10 @@ export default function AdminSubmissionViewer({
         </div>
 
         {/* ── Body ── */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+        <div
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-6 py-5 space-y-5"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {/* No response yet */}
           {!latestResponse && (
             <div className={`text-center py-12 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -728,11 +738,11 @@ export default function AdminSubmissionViewer({
           )}
           {/* Download PDF certificate for e-signatures */}
           {latestResponse && responseType === 'policy_acknowledgment' && (task.column === 'done' || meta.reviewStatus === 'approved') && (
-            <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+            <div className={`flex flex-wrap items-center gap-3 p-3 rounded-xl border ${
               isDarkMode ? 'bg-slate-800/30 border-slate-700/40' : 'bg-slate-50/80 border-slate-200/60'
             }`}>
               <FileText className={`w-5 h-5 shrink-0 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-[160px]">
                 <div className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                   Signed PDF Certificate
                 </div>
@@ -745,15 +755,16 @@ export default function AdminSubmissionViewer({
                   href={safeExternalUrl(certUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
                     isDarkMode ? 'bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                   }`}
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                   View PDF
                 </a>
               ) : (
                 <button
+                  type="button"
                   disabled={certLoading}
                   onClick={async () => {
                     setCertLoading(true);
@@ -777,17 +788,20 @@ export default function AdminSubmissionViewer({
                       setCertLoading(false);
                     }
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                  className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed ${
                     isDarkMode
-                      ? 'bg-purple-900/40 text-purple-300 hover:bg-purple-900/60 disabled:opacity-50'
-                      : 'bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:opacity-50'
+                      ? 'bg-purple-900/40 text-purple-300 hover:bg-purple-900/60'
+                      : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
                   }`}
                 >
-                  {certLoading ? (
-                    <><span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Generating...</>
-                  ) : (
-                    <><FileText className="w-3.5 h-3.5" /> Download Certificate</>
-                  )}
+                  <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0">
+                    {certLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    ) : (
+                      <FileText className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                  </span>
+                  <span>Download Certificate</span>
                 </button>
               )}
             </div>
@@ -817,7 +831,7 @@ export default function AdminSubmissionViewer({
               </h4>
               <div className="space-y-1">
                 {meta.userResponse.map((resp: any, idx: number) => (
-                  <div key={idx} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${
+                  <div key={idx} className={`flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg text-xs ${
                     idx === meta.userResponse!.length - 1
                       ? (isDarkMode ? 'bg-indigo-950/30 border border-indigo-800/40' : 'bg-indigo-50 border border-indigo-200/60')
                       : (isDarkMode ? 'bg-slate-800/30' : 'bg-slate-50/50')
@@ -877,26 +891,40 @@ export default function AdminSubmissionViewer({
             )}
 
             {/* Action buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
               <button
+                type="button"
                 onClick={() => handleReview('approve')}
                 disabled={isReviewing}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors disabled:cursor-not-allowed cursor-pointer"
               >
-                <CheckCircle2 className="w-4 h-4" />
-                {isReviewing ? 'Processing...' : 'Approve'}
+                <span className="inline-flex items-center justify-center w-4 h-4 shrink-0">
+                  {isReviewing && reviewingAction === 'approve' ? (
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  )}
+                </span>
+                <span>Approve</span>
               </button>
               <button
+                type="button"
                 onClick={() => handleReview('reject')}
                 disabled={isReviewing}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+                className={`flex-1 min-w-[180px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-colors disabled:cursor-not-allowed cursor-pointer ${
                   isDarkMode
                     ? 'bg-rose-900/40 border-rose-700/50 text-rose-300 hover:bg-rose-900/60'
                     : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
                 }`}
               >
-                <XCircle className="w-4 h-4" />
-                {isReviewing ? 'Processing...' : 'Reject & Request Revision'}
+                <span className="inline-flex items-center justify-center w-4 h-4 shrink-0">
+                  {isReviewing && reviewingAction === 'reject' ? (
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  ) : (
+                    <XCircle className="w-4 h-4 shrink-0" />
+                  )}
+                </span>
+                <span>Reject &amp; Request Revision</span>
               </button>
             </div>
           </div>

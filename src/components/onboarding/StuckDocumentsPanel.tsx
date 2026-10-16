@@ -173,30 +173,32 @@ export default function StuckDocumentsPanel({ orgId, isDarkMode, refreshKey = 0 
                   {LEVEL_LABEL[d.level]}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold truncate">{d.title}</div>
+                  <div className="text-sm font-semibold break-words">{d.title}</div>
                   <div className={`text-xs ${muted}`}>
                     {d.employeeName} · {d.signedCount} of {d.totalSigners} signed
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
                   <button
                     type="button"
                     disabled={!d.canNudge || busyTask === d.taskId}
                     onClick={() => nudge(d)}
                     title={d.canNudge ? 'Remind the signer right now' : 'This person is no longer in the organization'}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40"
+                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors ${!d.canNudge ? 'opacity-40 cursor-not-allowed' : busyTask === d.taskId ? 'cursor-wait' : 'cursor-pointer'}`}
                   >
-                    {busyTask === d.taskId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BellRing className="w-3.5 h-3.5" />}
-                    Nudge now
+                    <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0">
+                      {busyTask === d.taskId ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <BellRing className="w-3.5 h-3.5 shrink-0" />}
+                    </span>
+                    <span className="whitespace-nowrap">Nudge now</span>
                   </button>
                   {d.signers.some((s) => !s.completed && s.kind !== 'employee') && (
                     <button
                       type="button"
                       onClick={() => setReassignTask(reassignTask === d.taskId ? null : d.taskId)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border ${isDarkMode ? 'border-slate-600 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${isDarkMode ? 'border-slate-600 hover:bg-slate-700' : 'border-slate-300 hover:bg-slate-100'}`}
                     >
-                      <UserCog className="w-3.5 h-3.5" />
-                      Change who signs
+                      <UserCog className="w-3.5 h-3.5 shrink-0" />
+                      <span className="whitespace-nowrap">Change who signs</span>
                     </button>
                   )}
                 </div>

@@ -36,6 +36,7 @@ import type { PdfFormContent, PdfFormField, SignerDefinition, SignerKind, Signin
 import { fillableFieldNames, validateSigningWorkflow } from '@/lib/signing-workflow';
 import { DEFAULT_SIGNATURE_SPOT, signatureSpotsOf, withSignatureSpots } from '@/lib/signature-spots';
 import SignatureSpotsEditor from './SignatureSpotsEditor';
+import { useCoarsePointer } from '@/components/onboarding/pdf';
 
 interface OrgMember {
   uid: string;
@@ -64,6 +65,7 @@ function renumber(signers: SignerDefinition[]): SignerDefinition[] {
 }
 
 export default function SigningOrderConfigurator({ content, onChange, isDarkMode, orgId }: Props) {
+  const isTouch = useCoarsePointer();
   const workflow: SigningWorkflow = content.signingWorkflow || { enabled: false, signers: [] };
   const signers = useMemo(() => [...workflow.signers].sort((a, b) => a.order - b.order), [workflow.signers]);
   const detected: PdfFormField[] = content.detectedFields || [];
@@ -216,7 +218,7 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
                 <li key={s.id}>
                   <div
                     className={`${cardCls} ${dragId === s.id ? 'opacity-50' : ''}`}
-                    draggable
+                    draggable={!isTouch}
                     onDragStart={() => setDragId(s.id)}
                     onDragEnd={() => setDragId(null)}
                     onDragOver={(e) => e.preventDefault()}
@@ -344,7 +346,10 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
                                 className="flex-1 bg-transparent text-xs sm:text-sm outline-none"
                               />
                             </div>
-                            <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                            <div
+                              className="max-h-56 overflow-y-auto overscroll-contain touch-pan-y divide-y divide-slate-100 dark:divide-slate-800"
+                              style={{ WebkitOverflowScrolling: 'touch' }}
+                            >
                               {filteredMembers.length === 0 && <div className={`p-4 text-xs text-center ${muted}`}>No members found</div>}
                               {filteredMembers.map((m) => (
                                 <button
@@ -374,7 +379,10 @@ export default function SigningOrderConfigurator({ content, onChange, isDarkMode
                         <div className="text-[10px] font-semibold mb-1">
                           Fields this signer fills {s.kind === 'employee' ? <span className={muted}>(plus any field nobody else claims)</span> : null}
                         </div>
-                        <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto p-0.5">
+                        <div
+                          className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto overscroll-contain touch-pan-y p-0.5"
+                          style={{ WebkitOverflowScrolling: 'touch' }}
+                        >
                           {fillable.map((name) => {
                             const owner = claimedBy.get(name);
                             const mine = s.fieldNames.includes(name);

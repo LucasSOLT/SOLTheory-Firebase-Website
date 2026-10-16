@@ -99,12 +99,12 @@ export default function ScheduleOrientationModal({
     <BodyPortal>
     <div className={MODAL_OVERLAY_CLASS} style={MODAL_OVERLAY_STYLE}>
       <div
-        className={`my-auto w-full max-w-xl rounded-2xl shadow-2xl border flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 ${
+        className={`my-auto w-full max-w-xl max-h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] sm:max-h-[90dvh] rounded-2xl shadow-2xl border flex flex-col overflow-hidden ${
           isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
         }`}
       >
         {/* Header */}
-        <div className={`flex items-center justify-between px-6 py-4 border-b ${isDarkMode ? 'border-slate-800 bg-slate-800/40' : 'border-slate-100 bg-slate-50/50'}`}>
+        <div className={`shrink-0 flex items-center justify-between px-6 py-4 border-b ${isDarkMode ? 'border-slate-800 bg-slate-800/40' : 'border-slate-100 bg-slate-50/50'}`}>
           <div className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDarkMode ? 'bg-amber-950/50 text-amber-400' : 'bg-amber-100 text-amber-600'}`}>
               <Calendar className="w-5 h-5" />
@@ -126,7 +126,10 @@ export default function ScheduleOrientationModal({
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+        <div
+          className="flex-1 min-h-0 p-6 space-y-5 overflow-y-auto overscroll-contain touch-pan-y"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {error && (
             <div className="flex items-start gap-3 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-sm">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -151,14 +154,14 @@ export default function ScheduleOrientationModal({
 
               <div className="space-y-2 text-left pt-2">
                 {createdEvents.map((ev, idx) => (
-                  <div key={idx} className={`p-3 rounded-xl border flex items-center justify-between ${cardBg}`}>
-                    <div>
-                      <p className="text-xs font-bold">{ev.title}</p>
+                  <div key={idx} className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 ${cardBg}`}>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold break-words">{ev.title}</p>
                       <p className={`text-[11px] ${textMuted}`}>
                         {new Date(ev.start).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       {ev.hangoutLink && (
                         <a
                           href={ev.hangoutLink}
@@ -166,7 +169,7 @@ export default function ScheduleOrientationModal({
                           rel="noreferrer"
                           className="text-[11px] text-indigo-500 hover:underline flex items-center gap-1 font-semibold"
                         >
-                          <Video className="w-3.5 h-3.5" /> Meet
+                          <Video className="w-3.5 h-3.5 shrink-0" /> Meet
                         </a>
                       )}
                       {ev.htmlLink && (
@@ -176,7 +179,7 @@ export default function ScheduleOrientationModal({
                           rel="noreferrer"
                           className="text-[11px] text-slate-400 hover:text-slate-600 flex items-center gap-1"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" /> View
+                          <ExternalLink className="w-3.5 h-3.5 shrink-0" /> View
                         </a>
                       )}
                     </div>
@@ -195,13 +198,13 @@ export default function ScheduleOrientationModal({
             <>
               {/* Employee card */}
               <div className={`p-4 rounded-xl border ${cardBg}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-sm font-bold">{instance.userName}</span>
-                    <span className={`block text-xs ${textMuted}`}>{instance.roleName} • {instance.userEmail}</span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="text-sm font-bold break-words">{instance.userName}</span>
+                    <span className={`block text-xs break-words ${textMuted}`}>{instance.roleName} • {instance.userEmail}</span>
                   </div>
                   {instance.mentorEmail && (
-                    <span className="text-[11px] px-2 py-1 rounded-md bg-indigo-500/10 text-indigo-500 font-medium">
+                    <span className="text-[11px] px-2 py-1 rounded-md bg-indigo-500/10 text-indigo-500 font-medium break-all">
                       Mentor: {instance.mentorEmail}
                     </span>
                   )}
@@ -229,37 +232,37 @@ export default function ScheduleOrientationModal({
                   Planned Milestone Meetings
                 </label>
                 <div className="space-y-2">
-                  <div className={`p-3 rounded-xl border flex items-center justify-between ${cardBg}`}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">👋</span>
-                      <div>
+                  <div className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 ${cardBg}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-lg shrink-0">👋</span>
+                      <div className="min-w-0">
                         <p className="text-xs font-bold">Day 1 Orientation</p>
                         <p className={`text-[11px] ${textMuted}`}>9:00 AM - 10:30 AM • Introductions & Systems</p>
                       </div>
                     </div>
-                    <span className="text-[11px] font-semibold text-emerald-500">Day 1</span>
+                    <span className="text-[11px] font-semibold text-emerald-500 shrink-0">Day 1</span>
                   </div>
 
-                  <div className={`p-3 rounded-xl border flex items-center justify-between ${cardBg}`}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">📊</span>
-                      <div>
+                  <div className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 ${cardBg}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-lg shrink-0">📊</span>
+                      <div className="min-w-0">
                         <p className="text-xs font-bold">Week 1 Milestone Review</p>
                         <p className={`text-[11px] ${textMuted}`}>10:00 AM - 10:45 AM • Phase 1 Review & Roadblocks</p>
                       </div>
                     </div>
-                    <span className="text-[11px] font-semibold text-indigo-500">Day 7</span>
+                    <span className="text-[11px] font-semibold text-indigo-500 shrink-0">Day 7</span>
                   </div>
 
-                  <div className={`p-3 rounded-xl border flex items-center justify-between ${cardBg}`}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">🏁</span>
-                      <div>
+                  <div className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2 ${cardBg}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-lg shrink-0">🏁</span>
+                      <div className="min-w-0">
                         <p className="text-xs font-bold">30-Day Check-in</p>
                         <p className={`text-[11px] ${textMuted}`}>2:00 PM - 3:00 PM • Roadmap Review & Feedback</p>
                       </div>
                     </div>
-                    <span className="text-[11px] font-semibold text-violet-500">Day 30</span>
+                    <span className="text-[11px] font-semibold text-violet-500 shrink-0">Day 30</span>
                   </div>
                 </div>
               </div>
@@ -279,7 +282,7 @@ export default function ScheduleOrientationModal({
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
                 <button
                   onClick={onClose}
                   disabled={loading}
@@ -292,19 +295,14 @@ export default function ScheduleOrientationModal({
                 <button
                   onClick={handleSchedule}
                   disabled={loading}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white transition-all shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                  className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-600 text-white transition-colors shadow-md ${
+                    loading ? 'cursor-wait' : 'hover:bg-amber-500 cursor-pointer'
+                  }`}
                 >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Scheduling Meetings...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      Schedule 3 Milestone Meetings
-                    </>
-                  )}
+                  <span className="w-4 h-4 shrink-0 flex items-center justify-center">
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  </span>
+                  <span>Schedule 3 Milestone Meetings</span>
                 </button>
               </div>
             </>

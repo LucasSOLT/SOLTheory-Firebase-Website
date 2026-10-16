@@ -366,7 +366,7 @@ export default function OnboardingTaskRow({
         <div className="flex items-center gap-2 flex-wrap">
           <span
             onClick={() => !isLocked && onTaskClick?.(task)}
-            className={`text-sm font-semibold transition-colors ${isCompleted ? 'line-through' : ''} ${isDarkMode ? 'text-white' : 'text-slate-900'} ${hasPopupContent && onTaskClick && !isLocked ? 'cursor-pointer hover:text-indigo-400' : ''}`}
+            className={`text-sm font-semibold break-words transition-colors ${isCompleted ? 'line-through' : ''} ${isDarkMode ? 'text-white' : 'text-slate-900'} ${hasPopupContent && onTaskClick && !isLocked ? 'cursor-pointer hover:text-indigo-400' : ''}`}
           >
             {task.title}
           </span>
@@ -416,7 +416,7 @@ export default function OnboardingTaskRow({
 
         {/* Description */}
         {task.description && (
-          <p className={`mt-1 text-xs leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+          <p className={`mt-1 text-xs leading-relaxed break-words ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
             {task.description}
           </p>
         )}
@@ -427,7 +427,7 @@ export default function OnboardingTaskRow({
           {onTaskClick && hasPopupContent && !isLocked && (
             <button
               onClick={() => onTaskClick(task)}
-              className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
                 isCompleted
                   ? (isDarkMode ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')
                   : (isDarkMode ? 'bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50 border border-indigo-500/40' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs')
@@ -435,43 +435,43 @@ export default function OnboardingTaskRow({
             >
               {itemType === 'quiz' ? (
                 <>
-                  <HelpCircle className="w-3 h-3" />
+                  <HelpCircle className="w-3 h-3 shrink-0" />
                   {isCompleted ? 'Review Quiz' : 'Take Quiz'}
                 </>
               ) : itemType === 'form' ? (
                 <>
-                  <ClipboardList className="w-3 h-3" />
+                  <ClipboardList className="w-3 h-3 shrink-0" />
                   {isCompleted ? 'View Form' : 'Fill Form'}
                 </>
               ) : itemType === 'policy_acknowledgment' ? (
                 <>
-                  <ShieldCheck className="w-3 h-3" />
+                  <ShieldCheck className="w-3 h-3 shrink-0" />
                   {isCompleted ? 'View Signed Policy' : 'Review & Sign'}
                 </>
               ) : itemType === 'checklist' ? (
                 <>
-                  <ListChecks className="w-3 h-3" />
+                  <ListChecks className="w-3 h-3 shrink-0" />
                   {isCompleted ? 'View Checklist' : 'Checklist'}
                 </>
               ) : itemType === 'short_answer' ? (
                 <>
-                  <MessageSquare className="w-3 h-3" />
+                  <MessageSquare className="w-3 h-3 shrink-0" />
                   {isCompleted ? 'View Response' : 'Enter Response'}
                 </>
               ) : itemType === 'recorded_response' ? (
                 <>
-                  <Mic className="w-3 h-3" />
+                  <Mic className="w-3 h-3 shrink-0" />
                   {isCompleted ? 'View Recording' : 'Record'}
                 </>
               ) : itemType === 'video_watch' ? (
                 <>
-                  <Video className="w-3 h-3" />
+                  <Video className="w-3 h-3 shrink-0" />
                   {isCompleted ? 'Rewatch Video' : 'Watch Video'}
                 </>
               ) : (
                 <>
                   <span>{isCompleted ? 'View Step' : 'Open Step'}</span>
-                  <ArrowRight className="w-3 h-3" />
+                  <ArrowRight className="w-3 h-3 shrink-0" />
                 </>
               )}
             </button>

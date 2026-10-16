@@ -31,7 +31,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import BodyPortal from '@/components/onboarding/BodyPortal';
+import BodyPortal, { acquireBodyScrollLock } from '@/components/onboarding/BodyPortal';
 import { PdfCanvasViewer, useCoarsePointer } from '@/components/onboarding/pdf';
 import type { PageViewportMetrics } from '@/components/onboarding/pdf';
 import { Z_FULLSCREEN_VIEWER } from '@/components/onboarding/pdf/viewerContext';
@@ -538,14 +538,13 @@ export default function PdfFieldDesigner({ orgId, content, onChange, onClose, is
       e.stopPropagation();
       requestClose();
     };
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const releaseScrollLock = acquireBodyScrollLock();
     window.addEventListener('popstate', onPop);
     window.addEventListener('keydown', onKey, true);
     return () => {
       window.removeEventListener('popstate', onPop);
       window.removeEventListener('keydown', onKey, true);
-      document.body.style.overflow = prevOverflow;
+      releaseScrollLock();
     };
   }, [finishClose, requestClose]);
 
@@ -769,7 +768,7 @@ export default function PdfFieldDesigner({ orgId, content, onChange, onClose, is
       <div
         data-designer-root
         data-pdf-designer
-        className="fixed inset-0 flex flex-col bg-slate-100 text-slate-900"
+        className="fixed inset-0 flex flex-col overflow-hidden bg-slate-100 text-slate-900"
         style={{
           zIndex: Z_FULLSCREEN_VIEWER,
           paddingTop: 'env(safe-area-inset-top)',
@@ -798,9 +797,14 @@ export default function PdfFieldDesigner({ orgId, content, onChange, onClose, is
             type="button"
             onClick={save}
             disabled={saving || !bytes}
-            className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold text-white bg-emerald-600 disabled:opacity-50"
+            className={`inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs font-bold text-white bg-emerald-600 transition-colors ${
+              saving ? 'cursor-wait' : !bytes ? 'opacity-50 cursor-not-allowed' : 'hover:bg-emerald-500 cursor-pointer'
+            }`}
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save
+            <span className="w-4 h-4 shrink-0 flex items-center justify-center">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            </span>
+            <span>Save</span>
           </button>
         </div>
 
@@ -909,7 +913,10 @@ export default function PdfFieldDesigner({ orgId, content, onChange, onClose, is
 
           {/* Field list sheet */}
           {showList && (
-            <div className="absolute inset-x-0 bottom-0 max-h-[60%] overflow-y-auto bg-white border-t-2 border-indigo-600 shadow-2xl z-30">
+            <div
+              className="absolute inset-x-0 bottom-0 max-h-[60%] overflow-y-auto overscroll-contain touch-pan-y bg-white border-t-2 border-indigo-600 shadow-2xl z-30"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
               <div className="sticky top-0 flex items-center justify-between px-3 py-2 bg-white border-b border-slate-200">
                 <span className="text-xs font-extrabold">All fields</span>
                 <button type="button" onClick={() => setShowList(false)} className="p-1.5 rounded-lg active:bg-slate-100" aria-label="Close list">

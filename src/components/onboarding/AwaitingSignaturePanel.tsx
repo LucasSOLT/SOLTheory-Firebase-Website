@@ -67,10 +67,10 @@ export default function AwaitingSignaturePanel({ orgId, uid, isDarkMode, onOpen 
 
   return (
     <div className={`rounded-2xl border overflow-hidden ${isDarkMode ? 'bg-amber-950/20 border-amber-800/40' : 'bg-amber-50/70 border-amber-200 shadow-sm'}`}>
-      <div className={`px-5 py-3 border-b flex items-center gap-2 ${isDarkMode ? 'border-amber-800/40' : 'border-amber-200/80'}`}>
-        <PenTool className={`w-4 h-4 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`} />
+      <div className={`px-4 sm:px-5 py-3 border-b flex flex-wrap items-center gap-2 ${isDarkMode ? 'border-amber-800/40' : 'border-amber-200/80'}`}>
+        <PenTool className={`w-4 h-4 shrink-0 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`} />
         <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Documents awaiting your signature</h3>
-        <span className={`text-xs px-1.5 py-0.5 rounded-md font-semibold ${isDarkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>
+        <span className={`text-xs px-1.5 py-0.5 rounded-md font-semibold shrink-0 ${isDarkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>
           {tasks.length}
         </span>
       </div>
@@ -78,21 +78,23 @@ export default function AwaitingSignaturePanel({ orgId, uid, isDarkMode, onOpen 
         {tasks.map((t) => {
           const s = t.metadata?.signing;
           return (
-            <div key={t.id} className="flex items-center gap-3 px-5 py-3">
-              <Clock className={`w-5 h-5 shrink-0 ${isDarkMode ? 'text-amber-400' : 'text-amber-500'}`} />
-              <div className="flex-1 min-w-0">
-                <div className={`text-sm font-semibold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{t.title}</div>
-                <div className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                  For {t.assignedToName || t.assignedToEmail || 'an employee'}
-                  {s ? ` · signer ${s.currentSignerOrder} of ${s.totalSigners}` : ''}
+            <div key={t.id} className="flex flex-wrap items-center justify-between gap-2.5 px-4 sm:px-5 py-3">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
+                <Clock className={`w-5 h-5 shrink-0 mt-0.5 ${isDarkMode ? 'text-amber-400' : 'text-amber-500'}`} />
+                <div className="flex-1 min-w-0">
+                  <div className={`text-sm font-semibold break-words ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{t.title}</div>
+                  <div className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    For {t.assignedToName || t.assignedToEmail || 'an employee'}
+                    {s ? ` · signer ${s.currentSignerOrder} of ${s.totalSigners}` : ''}
+                  </div>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => onOpen(t)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shrink-0 cursor-pointer"
               >
-                <PenTool className="w-3.5 h-3.5" /> Open &amp; sign
+                <PenTool className="w-3.5 h-3.5 shrink-0" /> Open &amp; sign
               </button>
             </div>
           );
